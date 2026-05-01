@@ -1,0 +1,18 @@
+slug: marathon_st_default
+name: ST Default Marathon Plan
+version: 0.1.0
+sport: marathon
+supported_goals:
+  - finish
+  - target_time
+description: >
+  Periodized base/build/peak/taper full-marathon plan. Combines a deterministic
+  rule-based volume curve with optional LLM-personalized weekly structure.
+  Falls back cleanly to rules when LLM is unavailable.
+author: ST team
+tags:
+  - marathon
+  - hybrid
+  - llm-fallback-rule
+  - base-build-peak
+requires_llm: false

@@ -10,6 +10,37 @@
 
 旧版通用训练方法、Garmin/COROS mock 同步接口仍保留兼容。
 
+## 架构
+
+```
+app/
+├── core/        Platform: 数据契约 + 编排（SkillContext, orchestrator, adjustment, checkin, profile, config）
+├── skills/      训练方法论（每个 skill 一个目录：skill.md + spec.yaml + skill.py + code/）
+│   └── marathon_st_default/   ST 自带的全马 skill，作为 fallback
+├── kb/          运动专项知识库（distance constants、running assessment 等）
+├── tools/       平台拥有的外部集成
+│   ├── coros/   COROS Training Hub 直 API client + sync
+│   └── devices/ 兼容旧版 Garmin/COROS mock 适配器
+├── ingestion/   历史活动 + 指标的统一写入
+├── api/         FastAPI 路由
+├── training/    旧版通用训练计划方法元数据 / 模式推荐
+├── models.py    SQLAlchemy ORM
+└── schemas.py   Pydantic schema
+```
+
+**核心原则**：
+
+- **Skills 是纯函数**：吃 `SkillContext`，吐 `PlanDraft`；不碰 DB、不调外部 API
+- **Tools 归平台**：所有外部集成（COROS、Garmin、Strava 等）由平台拥有；Skill 通过 SkillContext 拿数据
+- **同周期一个 Skill**：训练科学约束，不允许同周期混用 skill；不同周期可切换
+- **Skill 文件化**：每个 skill 一个目录，含 `skill.md`（人读说明）+ `spec.yaml`（机读规格）+ `skill.py`（实现）
+
+加新 skill：
+
+1. 在 `app/skills/<slug>/` 下放 `skill.md`、`spec.yaml`、`skill.py`
+2. `skill.py` 必须导出 `skill` 实例，实现 `Skill` Protocol（`manifest`、`applicable(ctx)`、`generate_plan(ctx)`）
+3. 用 `app.skills.load_skill("<slug>")` 加载，路由通过 orchestrator 调用即可
+
 ## 技术栈
 
 - Python 3.11+
@@ -173,6 +204,9 @@ curl -X POST http://127.0.0.1:8000/plans/1/sync \
 ## 验证
 
 ```bash
-uv run python -m py_compile app/models.py app/schemas.py app/api/routes.py app/coros/credentials.py app/coros/automation.py app/ingestion/service.py app/assessment/running.py app/planning/marathon.py app/planning/adjustment.py app/coros/sync.py
+uv run python -m py_compile $(find app -name "*.py")
 uv run python -m unittest discover -s tests -v
+
+# Skill 注册器冒烟测试
+uv run python -c "from app.skills import list_skills; print([m.slug for m in list_skills()])"
 ```

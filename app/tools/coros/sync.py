@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.coros.automation import coros_automation_client
-from app.coros.credentials import decrypt_secret
+from app.tools.coros.automation import coros_automation_client
+from app.tools.coros.credentials import decrypt_secret
 from app.models import (
     DeviceAccount,
     ProviderSyncRecord,
@@ -62,7 +62,7 @@ def sync_confirmed_plan_to_coros(db: Session, plan: TrainingPlan, account: Devic
                 provider_workout_id=result["provider_workout_id"],
                 provider_calendar_item_id=result["provider_calendar_item_id"],
                 sync_status=SyncStatus.SUCCESS,
-                synced_at=datetime.utcnow(),
+                synced_at=datetime.now(UTC),
                 raw_payload_json=json.dumps(result.get("raw_payload", result), ensure_ascii=False, default=str),
             )
             workout.status = WorkoutStatus.SYNCED
@@ -70,8 +70,8 @@ def sync_confirmed_plan_to_coros(db: Session, plan: TrainingPlan, account: Devic
         records.append(record)
 
     account.auth_status = "connected"
-    account.last_login_at = datetime.utcnow()
-    account.last_sync_at = datetime.utcnow()
+    account.last_login_at = datetime.now(UTC)
+    account.last_sync_at = datetime.now(UTC)
     account.last_error = None
     db.commit()
     for record in records:

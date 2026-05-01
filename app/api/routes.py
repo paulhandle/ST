@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.assessment.running import assess_running_ability
-from app.coros.automation import coros_automation_client
-from app.coros.credentials import encrypt_secret
-from app.coros.sync import sync_confirmed_plan_to_coros
+from app.kb.running_assessment import assess_running_ability
+from app.tools.coros.automation import coros_automation_client
+from app.tools.coros.credentials import encrypt_secret
+from app.tools.coros.sync import sync_confirmed_plan_to_coros
 from app.db import get_db
-from app.devices.service import sync_plan_to_device
+from app.tools.devices.service import sync_plan_to_device
 from app.ingestion.service import import_provider_history
 from app.models import (
     AdjustmentStatus,
@@ -31,8 +31,11 @@ from app.models import (
     TrainingSession,
     WorkoutStatus,
 )
-from app.planning.adjustment import confirm_adjustment, evaluate_plan_adjustment
-from app.planning.marathon import create_marathon_goal, generate_marathon_plan
+from app.core.orchestrator import (
+    create_race_goal as _orchestrator_create_race_goal,
+    generate_plan_via_skill,
+)
+from app.core.adjustment import confirm_adjustment, evaluate_plan_adjustment
 from app.schemas import (
     AthleteActivityOut,
     AthleteCreate,
@@ -165,7 +168,7 @@ def update_plan_status(plan_id: int, request: PlanStatusUpdate, db: Session = De
         raise HTTPException(status_code=404, detail="Plan not found")
 
     plan.status = request.status
-    plan.updated_at = datetime.utcnow()
+    plan.updated_at = datetime.now(UTC)
     db.commit()
     return _training_plan_or_404(db, plan_id)
 
@@ -234,7 +237,7 @@ def connect_coros(request: CorosConnectRequest, db: Session = Depends(get_db)):
     account.external_user_id = request.username
     account.encrypted_password = encrypt_secret(request.password)
     account.auth_status = "connected" if login.ok else "failed"
-    account.last_login_at = datetime.utcnow() if login.ok else None
+    account.last_login_at = datetime.now(UTC) if login.ok else None
     account.last_error = None if login.ok else login.message
     db.commit()
     db.refresh(account)
@@ -305,7 +308,9 @@ def run_assessment(
 @router.post("/marathon/goals", response_model=RaceGoalOut)
 def create_goal(request: MarathonGoalCreate, db: Session = Depends(get_db)):
     athlete = _athlete_or_404(db, request.athlete_id)
-    return create_marathon_goal(db=db, athlete=athlete, request=request)
+    return _orchestrator_create_race_goal(
+        db=db, athlete=athlete, request=request, sport=SportType.MARATHON
+    )
 
 
 @router.post("/marathon/plans/generate", response_model=MarathonPlanOut)
@@ -315,7 +320,13 @@ def create_marathon_plan(request: MarathonPlanGenerateRequest, db: Session = Dep
     if request.race_goal_id and race_goal is None:
         raise HTTPException(status_code=404, detail="Race goal not found")
 
-    plan, error = generate_marathon_plan(db=db, athlete=athlete, request=request, race_goal=race_goal)
+    plan, error = generate_plan_via_skill(
+        db=db,
+        athlete=athlete,
+        request=request,
+        skill_slug="marathon_st_default",
+        race_goal=race_goal,
+    )
     if plan is None:
         raise HTTPException(status_code=422, detail=error)
     return _marathon_plan_or_404(db, plan.id)
@@ -416,7 +427,7 @@ def _import_history(db: Session, athlete_id: int, device_type: DeviceType) -> Hi
     )
     account = _device_account(db, athlete_id, device_type)
     if account:
-        account.last_import_at = datetime.utcnow()
+        account.last_import_at = datetime.now(UTC)
         account.last_error = None
         db.commit()
 

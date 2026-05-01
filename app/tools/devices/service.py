@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from app.devices.coros import CorosAdapter
-from app.devices.garmin import GarminAdapter
+from app.tools.devices.coros import CorosAdapter
+from app.tools.devices.garmin import GarminAdapter
 from app.models import DeviceType, SyncStatus, SyncTask, TrainingPlan
 
 
@@ -24,7 +24,7 @@ def sync_plan_to_device(db: Session, plan: TrainingPlan, device_type: DeviceType
             device_type=device_type,
             status=SyncStatus.SUCCESS,
             details=f"{result['message']} remote_plan_id={result['remote_plan_id']}",
-            synced_at=datetime.utcnow(),
+            synced_at=datetime.now(UTC),
         )
     except Exception as exc:
         task = SyncTask(

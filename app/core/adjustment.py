@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -17,7 +17,7 @@ from app.models import (
 
 def evaluate_plan_adjustment(db: Session, plan: TrainingPlan) -> PlanAdjustment:
     today = date.today()
-    since = datetime.utcnow() - timedelta(days=7)
+    since = datetime.now(UTC) - timedelta(days=7)
     recent_activities = db.execute(
         select(AthleteActivity)
         .where(AthleteActivity.athlete_id == plan.athlete_id)
@@ -68,7 +68,7 @@ def evaluate_plan_adjustment(db: Session, plan: TrainingPlan) -> PlanAdjustment:
 
 def confirm_adjustment(db: Session, adjustment: PlanAdjustment) -> PlanAdjustment:
     adjustment.status = AdjustmentStatus.CONFIRMED
-    adjustment.confirmed_at = datetime.utcnow()
+    adjustment.confirmed_at = datetime.now(UTC)
     db.commit()
     db.refresh(adjustment)
     return adjustment

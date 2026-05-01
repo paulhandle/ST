@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from enum import Enum
 from typing import Optional
 
@@ -140,8 +140,8 @@ class TrainingPlan(Base):
     race_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     target_time_sec: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     athlete: Mapped["AthleteProfile"] = relationship(back_populates="plans")
     race_goal: Mapped[Optional["RaceGoal"]] = relationship(back_populates="plans")
@@ -190,7 +190,7 @@ class DeviceAccount(Base):
     last_import_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_sync_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     athlete: Mapped["AthleteProfile"] = relationship(back_populates="device_accounts")
 
@@ -204,7 +204,7 @@ class SyncTask(Base):
     status: Mapped[SyncStatus] = mapped_column(SqlEnum(SyncStatus), default=SyncStatus.PENDING)
     details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     plan: Mapped["TrainingPlan"] = relationship(back_populates="sync_tasks")
 
@@ -236,8 +236,8 @@ class AthleteActivity(Base):
     perceived_effort: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     feedback_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     raw_payload_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     athlete: Mapped["AthleteProfile"] = relationship(back_populates="activities")
     laps: Mapped[list["ActivityLap"]] = relationship(back_populates="activity", cascade="all, delete-orphan")
@@ -287,7 +287,7 @@ class RaceGoal(Base):
     plan_weeks: Mapped[int] = mapped_column(Integer, default=16)
     status: Mapped[RaceGoalStatus] = mapped_column(SqlEnum(RaceGoalStatus), default=RaceGoalStatus.DRAFT)
     feasibility_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     athlete: Mapped["AthleteProfile"] = relationship(back_populates="race_goals")
     plans: Mapped[list["TrainingPlan"]] = relationship(back_populates="race_goal")
@@ -305,8 +305,8 @@ class TrainingAvailability(Base):
     max_weekend_duration_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     strength_training_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     athlete: Mapped["AthleteProfile"] = relationship(back_populates="availability")
 
@@ -334,8 +334,8 @@ class StructuredWorkout(Base):
     rpe_max: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     status: Mapped[WorkoutStatus] = mapped_column(SqlEnum(WorkoutStatus), default=WorkoutStatus.DRAFT)
     adaptation_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     plan: Mapped["TrainingPlan"] = relationship(back_populates="structured_workouts")
     steps: Mapped[list["WorkoutStep"]] = relationship(
@@ -375,7 +375,7 @@ class ProviderSyncRecord(Base):
     provider_workout_id: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
     provider_calendar_item_id: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
     sync_status: Mapped[SyncStatus] = mapped_column(SqlEnum(SyncStatus), default=SyncStatus.PENDING)
-    attempted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    attempted_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     raw_payload_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -395,7 +395,7 @@ class PlanAdjustment(Base):
     recommendation: Mapped[str] = mapped_column(Text)
     effective_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     effective_end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     plan: Mapped["TrainingPlan"] = relationship(back_populates="adjustments")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from statistics import mean
 
 from sqlalchemy import select
@@ -19,7 +19,7 @@ def assess_running_ability(
     plan_weeks: int | None = None,
     requested_training_days: int | None = None,
 ) -> dict:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     since_12w = now - timedelta(days=84)
     activities = db.execute(
         select(AthleteActivity)

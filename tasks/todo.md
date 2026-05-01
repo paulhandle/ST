@@ -218,6 +218,40 @@ Objective: Replace the fake COROS automation stub with a working direct-API impl
 - [x] Confirm activity list endpoint: GET teamcnapi.coros.com/activity/query with accessToken header, sportType=100 for running.
 - [x] Decode field units: distance=meters, totalTime=seconds, startTime=unix-seconds, startTimezone=15-min increments, adjustedPace=sec/km.
 - [x] Confirm dashboard metrics: lthr, ltsp, aerobicEnduranceScore, staminaLevel, recoveryPct, runScoreList (type=1→marathon prediction).
+
+# Project Re-Read Plan - 2026-05-01
+
+Objective: Re-understand the current ST repository state after the COROS-first implementation work, including API/backend flows, CLI entry points, verification commands, and known risks.
+
+- [x] Review existing task/dev logs, lessons, README, rules, and project docs.
+- [x] Map repository structure, dependencies, app startup, database configuration, and ignored local artifacts.
+- [x] Trace the FastAPI API surface, SQLAlchemy domain model, ingestion, assessment, plan generation, adjustment, and COROS sync flows.
+- [x] Inspect the CLI/probe scripts and identify non-API entry points.
+- [x] Run verification commands for current import/test health.
+- [x] Add a review summary for future agents.
+
+## Project Re-Read Review/Summary
+
+Current shape: ST is a Python 3.11+ FastAPI + SQLAlchemy + SQLite backend for endurance training planning, now centered on a personal-use COROS-first full-marathon loop. `app/main.py` creates the API, creates tables on startup, and seeds training method definitions. `app/db.py` stores SQLite at repo-root `st.db` and `app/core/config.py` loads local `.env` automatically.
+
+Primary API flow: create athlete -> connect COROS -> import COROS history -> run road-running assessment -> generate structured full-marathon plan -> confirm plan -> sync confirmed future workouts to COROS -> evaluate weekly adjustment. The main route file is `app/api/routes.py`; normalized models live in `app/models.py`; API contracts live in `app/schemas.py`.
+
+Core services: `app/coros/automation.py` has fake and real COROS automation clients. Fake mode is deterministic and used by tests. Real mode logs in with COROS' MD5-password login API, reads activity/dashboard endpoints, maps running activities and metrics, and writes calendar workouts via `training/schedule/update` one workout per request. `app/ingestion/service.py` upserts activities and metric snapshots. `app/assessment/running.py` scores recent run history and goal feasibility. `app/planning/marathon.py` attempts LLM plan generation first, then falls back to a rule-based marathon plan. `app/coros/sync.py` decrypts stored credentials, logs into COROS, syncs confirmed future structured workouts, and records `ProviderSyncRecord` rows.
+
+Secondary flows: legacy `/plans/generate`, `/devices/connect`, and `/plans/{id}/sync` still exist for generic marathon/trail/triathlon mock plans and Garmin/COROS mock adapter compatibility. `scripts/st_cli.py` is a separate CLI that bypasses FastAPI and directly performs setup, COROS import, plan generation, optional real COROS sync, and LLM-based check-ins. `scripts/probe_coros_training_hub.py`, `scripts/probe_coros_api.py`, and `scripts/analyze_coros_bundles.py` are local COROS reverse-engineering/probe tools that write ignored artifacts to `var/coros_probe/`.
+
+Verification run on 2026-05-01:
+
+- `uv run python -m py_compile app/models.py app/schemas.py app/api/routes.py app/coros/credentials.py app/coros/automation.py app/ingestion/service.py app/assessment/running.py app/planning/marathon.py app/planning/adjustment.py app/coros/sync.py app/planning/checkin.py app/planning/llm.py scripts/st_cli.py` passed.
+- `uv run python -m unittest discover -s tests -v` passed: 2 tests ran successfully.
+
+Current risks and gaps:
+
+- Test runtime was 186 seconds because `generate_marathon_plan()` tried a real LLM call before falling back to rule-based generation. Tests set `COROS_AUTOMATION_MODE=fake`, but they do not disable LLM usage, and local `.env` can make unit tests depend on network timeouts.
+- `scripts/st_cli.py` has a likely first-run bug: `_get_or_create_athlete()` uses `SportType.RUNNING`, but the enum currently has `MARATHON`, `TRAIL_RUNNING`, and `TRIATHLON` only.
+- README says COROS sync is currently fake in the top-level product bullets and still lists real COROS selector work as future, while code/devlog indicate real direct-API ingestion and calendar sync are implemented. Documentation should be reconciled before treating README as source of truth.
+- There is no migration layer; tests drop/create all tables against the configured SQLite database. Existing local `st.db` is operational state rather than a managed schema.
+- Credential encryption is a personal-use stdlib stream/HMAC scheme with a default fallback secret if `ST_SECRET_KEY` is absent; acceptable for MVP but not production-grade.
 - [x] Implement RealCorosAutomationClient.login() with MD5 + JSON POST (no Playwright required).
 - [x] Implement RealCorosAutomationClient.fetch_history(): paginates last 90 days of running activities + dashboard metrics.
 - [x] Map runScoreList type=1 duration directly as marathon race prediction (COROS-native value, no Riegel formula).
@@ -243,3 +277,47 @@ Next:
 ## LLM Plan Review/Summary
 
 Created `app/planning/llm.py` which calls OpenAI (configurable base URL + model via .env) to generate a full periodized marathon training plan as structured JSON. The LLM receives the athlete's assessment data, race goal, available training days, and target paces; it returns a week-by-week plan with workout types, distances, paces, and RPE bands. `marathon.py` tries LLM first and falls back to the original rule-based generator on any exception, so tests and offline scenarios degrade gracefully. Verified end-to-end: LLM returned correct 4-workout weeks with proper types (easy_run, threshold, long_run, marathon_pace) and realistic distances.
+
+# Skill Architecture Refactor (MVP+1) — Complete
+
+Plan reference: `~/.claude/plans/golden-roaming-acorn.md`
+
+- [x] Phase A: Define Skill / KB / Context contracts
+- [x] Phase B: Build first Skill (`marathon_st_default`)
+- [x] Phase C: Wire orchestrator + routes/CLI through Skill
+- [x] Phase D: Move coros / devices / assessment / planning into new layout
+- [x] Phase E: Update README, devlog, lessons
+
+## Final layout
+
+```
+app/
+├── core/        Platform contracts + orchestration
+├── skills/      Methodologies (one directory per skill)
+│   └── marathon_st_default/
+├── kb/          Sport knowledge bases
+├── tools/
+│   ├── coros/
+│   └── devices/
+├── ingestion/
+├── api/
+├── training/    (legacy KB of method definitions, kept as building blocks)
+├── models.py
+└── schemas.py
+```
+
+## Verification
+
+`uv run python -m unittest discover -s tests`: 2/2 pass in ~5 seconds.
+
+`uv run python -c "from app.skills import list_skills; print([m.slug for m in list_skills()])"` →
+`['marathon_st_default']`.
+
+`/marathon/plans/generate` route behavior preserved end-to-end.
+
+## Deferred to MVP+1.5
+
+- Skill-creator chat flow: read user's COROS history + dialogue → distill methodology → write `app/skills/user_extracted/<slug>/`
+- Probe COROS `/training/schedule/query` with historical date range to capture coach-prescribed past plans
+- Second skill (e.g., 80/20 polarized) to validate skill-swap independence
+- Second sport (half marathon) to validate sport-swap independence

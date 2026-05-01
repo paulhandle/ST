@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -38,7 +38,7 @@ def import_provider_history(
             activity = existing
             for key, value in payload.items():
                 setattr(activity, key, value)
-            activity.updated_at = datetime.utcnow()
+            activity.updated_at = datetime.now(UTC)
             db.query(ActivityLap).filter(ActivityLap.activity_id == activity.id).delete()
             updated_count += 1
 
@@ -51,7 +51,7 @@ def import_provider_history(
             AthleteMetricSnapshot(
                 athlete_id=athlete.id,
                 provider=provider,
-                measured_at=metric.get("measured_at") or datetime.utcnow(),
+                measured_at=metric.get("measured_at") or datetime.now(UTC),
                 metric_type=metric["metric_type"],
                 value=float(metric["value"]),
                 unit=metric.get("unit"),

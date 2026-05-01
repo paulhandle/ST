@@ -4,5 +4,6 @@ __pycache__/
 .venv/
 st.db
 .env
+.st_profile.toml
 var/
 /tmp/

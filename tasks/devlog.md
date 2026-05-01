@@ -109,3 +109,27 @@ Added to `RealCorosAutomationClient`:
 Also stored `self._lthr` during `_fetch_metrics()` for use in intensity zone calculations.
 
 Result: `uv run python -m py_compile app/coros/automation.py` passes. `uv run python -m unittest discover -s tests -v`: 2/2 pass. End-to-end real test: 3 workouts (easy 45min, tempo 30min, long 90min) successfully appeared in COROS calendar on correct future dates with correct durations and HR zones.
+
+## 2026-05-01 - Project re-read and current-state summary
+
+Why: The user asked to understand the project, and the repository has evolved beyond the initial README summary. Future work needs a fresh map of the actual code state, verification commands, and risks.
+
+How: Reviewed `tasks/todo.md`, `tasks/devlog.md`, `tasks/lessons.md`, `README.md`, `rules.md`, `pyproject.toml`, app startup/config/database files, SQLAlchemy models, schemas, API routes, COROS automation/sync, ingestion, running assessment, marathon planning, adjustment/check-in modules, legacy device adapters, tests, CLI, and COROS probe scripts. Added a new "Project Re-Read" checklist and summary to `tasks/todo.md`.
+
+Result: `uv run python -m py_compile app/models.py app/schemas.py app/api/routes.py app/coros/credentials.py app/coros/automation.py app/ingestion/service.py app/assessment/running.py app/planning/marathon.py app/planning/adjustment.py app/coros/sync.py app/planning/checkin.py app/planning/llm.py scripts/st_cli.py` passed. `uv run python -m unittest discover -s tests -v` passed with 2 tests, but took 186 seconds because tests currently allow `generate_marathon_plan()` to attempt a real LLM call before rule-based fallback. Noted current risks: README is behind real COROS direct-API sync, `scripts/st_cli.py` references nonexistent `SportType.RUNNING` on first-run athlete creation, there is no migration layer, and credential encryption remains personal-use MVP strength.
+
+## 2026-05-01 - Skill architecture refactor (MVP+1)
+
+Why: The user wants ST to evolve into a comprehensive personal training platform with pluggable training methodologies (Daniels, 80/20, Norwegian threshold, user-extracted skills), multi-sport support, and multi-platform device integration. The existing marathon planner was tightly coupled in `app/planning/marathon.py` + `app/planning/llm.py`, making it impossible to swap methodologies or add new sports without changing core code.
+
+How: Followed the plan at `~/.claude/plans/golden-roaming-acorn.md`. Pure structural refactor — no new features. Five phases:
+
+- **Phase A** — Defined platform contracts: `app/core/context.py` (`SkillContext`, `PlanDraft`, `WorkoutDraft`, `StepDraft`, `Assessment`, `HistoryView`, `AvailabilityView`, `GoalSpec`, `Signal`, `Adjustment`); `app/skills/__init__.py` (`Skill` Protocol, `load_skill(slug)`, `list_skills()`); `app/skills/base.py` (`SkillManifest`); `app/kb/__init__.py` (`KnowledgeBase` Protocol).
+- **Phase B** — Built the first skill `marathon_st_default` under `app/skills/marathon_st_default/`: extracted rules from `planning/marathon.py` into `code/rules.py` (now consumes `SkillContext` and produces `WorkoutDraft` lists); extracted LLM prompt template into `code/llm_prompt.md`; LLM call code into `code/llm.py`; the skill class in `skill.py` tries LLM first, falls back to rules. Added `skill.md` (human-readable methodology) and `spec.yaml` (machine-readable manifest).
+- **Phase C** — Wrote `app/core/orchestrator.py` with `generate_plan_via_skill(db, athlete, request, skill_slug, race_goal)` that owns DB I/O, builds `SkillContext`, calls the skill, and persists `PlanDraft` to `TrainingPlan` + `StructuredWorkout` + `WorkoutStep` + `TrainingSession`. Wired `/marathon/plans/generate` route, `/marathon/goals` route, and `scripts/st_cli.py cmd_plan` through the orchestrator with `skill_slug="marathon_st_default"`. Fixed the `SportType.RUNNING` bug at `scripts/st_cli.py:114`.
+- **Phase D** — Module relocations: `app/coros/` → `app/tools/coros/`; `app/devices/` → `app/tools/devices/`; `app/assessment/running.py` → `app/kb/running_assessment.py`; `app/planning/adjustment.py` → `app/core/adjustment.py`; `app/planning/checkin.py` → `app/core/checkin.py`. Created `app/kb/running.py` for distance constants and pace helpers. Bulk-rewrote 7 files of stale imports via Python regex pass. Deleted now-empty `app/planning/` and `app/assessment/` directories.
+- **Phase E** — Added architecture section + skill addition guide to `README.md`. Added `pyyaml>=6.0` to `pyproject.toml` (used by skill registry). Updated `tasks/todo.md`, `tasks/devlog.md`, `tasks/lessons.md`.
+
+Result: `uv run python -m unittest discover -s tests`: **2/2 pass in ~5 seconds**. End-to-end smoke test: `uv run python -c "from app.skills import load_skill, list_skills; print(list_skills()); skill = load_skill('marathon_st_default'); ..."` produces a 12-week, 4-workouts/week marathon plan with `BASE_BUILD_PEAK` mode and proper warmup/work/cooldown step structure. The `/marathon/plans/generate` route preserves its existing API contract — clients see no behavior change.
+
+Out of scope (deferred to MVP+1.5): skill-creator UI/flow, COROS `/training/schedule/query` historical date-range probe, second skill (e.g., 80/20 polarized), second sport (half marathon).

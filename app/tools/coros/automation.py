@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import os
 from typing import Protocol
 from uuid import uuid5, NAMESPACE_URL
@@ -79,7 +79,7 @@ class RealCorosAutomationClient:
         from datetime import timezone, timedelta
 
         activities = []
-        cutoff_ts = int((datetime.utcnow() - timedelta(days=days_back)).timestamp())
+        cutoff_ts = int((datetime.now(UTC) - timedelta(days=days_back)).timestamp())
 
         page = 1
         while page <= 100:  # Safety cap: 100 pages × 20 = 2000 activities max
@@ -428,7 +428,7 @@ class FakeCorosAutomationClient:
         return CorosLoginResult(ok=True, message="Fake COROS login succeeded")
 
     def fetch_history(self, username: str) -> dict:
-        now = datetime.utcnow().replace(hour=7, minute=0, second=0, microsecond=0)
+        now = datetime.now(UTC).replace(hour=7, minute=0, second=0, microsecond=0, tzinfo=None)
         activities = []
         for week_offset in range(12, 0, -1):
             week_start = now - timedelta(days=week_offset * 7)

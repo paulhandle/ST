@@ -2,6 +2,7 @@ import unittest
 import os
 
 os.environ["COROS_AUTOMATION_MODE"] = "fake"
+os.environ.pop("OPENAI_API_KEY", None)
 
 from fastapi.testclient import TestClient
 

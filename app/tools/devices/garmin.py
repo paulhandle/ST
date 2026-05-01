@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app.devices.base import DeviceSyncAdapter
+from app.tools.devices.base import DeviceSyncAdapter
 from app.models import TrainingPlan, TrainingSession
 
 
