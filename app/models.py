@@ -1,0 +1,401 @@
+from __future__ import annotations
+
+from datetime import date, datetime
+from enum import Enum
+from typing import Optional
+
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Enum as SqlEnum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db import Base
+
+
+class SportType(str, Enum):
+    MARATHON = "marathon"
+    TRAIL_RUNNING = "trail_running"
+    TRIATHLON = "triathlon"
+
+
+class AthleteLevel(str, Enum):
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    ADVANCED = "advanced"
+
+
+class TrainingGoal(str, Enum):
+    FINISH = "finish"
+    IMPROVE_PACE = "improve_pace"
+    INCREASE_ENDURANCE = "increase_endurance"
+    RACE_SPECIFIC = "race_specific"
+
+
+class TrainingMode(str, Enum):
+    POLARIZED = "polarized"
+    PYRAMIDAL = "pyramidal"
+    THRESHOLD_FOCUSED = "threshold_focused"
+    BASE_BUILD_PEAK = "base_build_peak"
+
+
+class PlanStatus(str, Enum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    ARCHIVED = "archived"
+
+
+class DeviceType(str, Enum):
+    GARMIN = "garmin"
+    COROS = "coros"
+
+
+class SyncStatus(str, Enum):
+    PENDING = "pending"
+    SUCCESS = "success"
+    FAILED = "failed"
+
+
+class RaceGoalStatus(str, Enum):
+    DRAFT = "draft"
+    ACCEPTED = "accepted"
+    WARNING = "warning"
+    REJECTED = "rejected"
+
+
+class WorkoutStatus(str, Enum):
+    DRAFT = "draft"
+    CONFIRMED = "confirmed"
+    SYNCED = "synced"
+    COMPLETED = "completed"
+    MISSED = "missed"
+
+
+class AdjustmentStatus(str, Enum):
+    PROPOSED = "proposed"
+    CONFIRMED = "confirmed"
+    REJECTED = "rejected"
+
+
+class TrainingMethod(Base):
+    __tablename__ = "training_methods"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    sport: Mapped[SportType] = mapped_column(SqlEnum(SportType), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    summary: Mapped[str] = mapped_column(Text)
+    focus: Mapped[str] = mapped_column(String(120))
+    default_mode: Mapped[TrainingMode] = mapped_column(SqlEnum(TrainingMode))
+
+
+class AthleteProfile(Base):
+    __tablename__ = "athlete_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    sport: Mapped[SportType] = mapped_column(SqlEnum(SportType), index=True)
+    level: Mapped[AthleteLevel] = mapped_column(SqlEnum(AthleteLevel), default=AthleteLevel.BEGINNER)
+    weekly_training_days: Mapped[int] = mapped_column(Integer, default=4)
+    weekly_training_hours: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    plans: Mapped[list["TrainingPlan"]] = relationship(back_populates="athlete", cascade="all, delete-orphan")
+    device_accounts: Mapped[list["DeviceAccount"]] = relationship(
+        back_populates="athlete", cascade="all, delete-orphan"
+    )
+    activities: Mapped[list["AthleteActivity"]] = relationship(
+        back_populates="athlete", cascade="all, delete-orphan"
+    )
+    metric_snapshots: Mapped[list["AthleteMetricSnapshot"]] = relationship(
+        back_populates="athlete", cascade="all, delete-orphan"
+    )
+    race_goals: Mapped[list["RaceGoal"]] = relationship(back_populates="athlete", cascade="all, delete-orphan")
+    availability: Mapped[Optional["TrainingAvailability"]] = relationship(
+        back_populates="athlete", cascade="all, delete-orphan"
+    )
+
+
+class TrainingPlan(Base):
+    __tablename__ = "training_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    athlete_id: Mapped[int] = mapped_column(ForeignKey("athlete_profiles.id"), index=True)
+    race_goal_id: Mapped[Optional[int]] = mapped_column(ForeignKey("race_goals.id"), nullable=True)
+    sport: Mapped[SportType] = mapped_column(SqlEnum(SportType), index=True)
+    goal: Mapped[TrainingGoal] = mapped_column(SqlEnum(TrainingGoal))
+    mode: Mapped[TrainingMode] = mapped_column(SqlEnum(TrainingMode))
+    weeks: Mapped[int] = mapped_column(Integer)
+    status: Mapped[PlanStatus] = mapped_column(SqlEnum(PlanStatus), default=PlanStatus.DRAFT)
+    title: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
+    start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    race_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    target_time_sec: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    is_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    athlete: Mapped["AthleteProfile"] = relationship(back_populates="plans")
+    race_goal: Mapped[Optional["RaceGoal"]] = relationship(back_populates="plans")
+    sessions: Mapped[list["TrainingSession"]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan", order_by="TrainingSession.id"
+    )
+    structured_workouts: Mapped[list["StructuredWorkout"]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan", order_by="StructuredWorkout.scheduled_date"
+    )
+    sync_tasks: Mapped[list["SyncTask"]] = relationship(back_populates="plan", cascade="all, delete-orphan")
+    provider_sync_records: Mapped[list["ProviderSyncRecord"]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan"
+    )
+    adjustments: Mapped[list["PlanAdjustment"]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan", order_by="PlanAdjustment.id"
+    )
+
+
+class TrainingSession(Base):
+    __tablename__ = "training_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("training_plans.id"), index=True)
+    week_index: Mapped[int] = mapped_column(Integer)
+    day_index: Mapped[int] = mapped_column(Integer)
+    discipline: Mapped[str] = mapped_column(String(40))
+    session_type: Mapped[str] = mapped_column(String(120))
+    duration_min: Mapped[int] = mapped_column(Integer)
+    intensity: Mapped[str] = mapped_column(String(32))
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    plan: Mapped["TrainingPlan"] = relationship(back_populates="sessions")
+
+
+class DeviceAccount(Base):
+    __tablename__ = "device_accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    athlete_id: Mapped[int] = mapped_column(ForeignKey("athlete_profiles.id"), index=True)
+    device_type: Mapped[DeviceType] = mapped_column(SqlEnum(DeviceType))
+    external_user_id: Mapped[str] = mapped_column(String(120), default="")
+    username: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
+    encrypted_password: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    auth_status: Mapped[str] = mapped_column(String(40), default="disconnected")
+    last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_import_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_sync_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    athlete: Mapped["AthleteProfile"] = relationship(back_populates="device_accounts")
+
+
+class SyncTask(Base):
+    __tablename__ = "sync_tasks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("training_plans.id"), index=True)
+    device_type: Mapped[DeviceType] = mapped_column(SqlEnum(DeviceType))
+    status: Mapped[SyncStatus] = mapped_column(SqlEnum(SyncStatus), default=SyncStatus.PENDING)
+    details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    plan: Mapped["TrainingPlan"] = relationship(back_populates="sync_tasks")
+
+
+class AthleteActivity(Base):
+    __tablename__ = "athlete_activities"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_activity_id", name="uq_activity_provider_activity_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    athlete_id: Mapped[int] = mapped_column(ForeignKey("athlete_profiles.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(40), index=True)
+    provider_activity_id: Mapped[str] = mapped_column(String(160), index=True)
+    sport: Mapped[str] = mapped_column(String(40), default="running")
+    discipline: Mapped[str] = mapped_column(String(40), default="run")
+    started_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    timezone: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    duration_sec: Mapped[int] = mapped_column(Integer)
+    moving_duration_sec: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    distance_m: Mapped[float] = mapped_column(Float)
+    elevation_gain_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_pace_sec_per_km: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_hr: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    max_hr: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_cadence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_power: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    training_load: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    perceived_effort: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    feedback_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    raw_payload_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    athlete: Mapped["AthleteProfile"] = relationship(back_populates="activities")
+    laps: Mapped[list["ActivityLap"]] = relationship(back_populates="activity", cascade="all, delete-orphan")
+
+
+class ActivityLap(Base):
+    __tablename__ = "activity_laps"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    activity_id: Mapped[int] = mapped_column(ForeignKey("athlete_activities.id"), index=True)
+    lap_index: Mapped[int] = mapped_column(Integer)
+    duration_sec: Mapped[int] = mapped_column(Integer)
+    distance_m: Mapped[float] = mapped_column(Float)
+    avg_pace_sec_per_km: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_hr: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    elevation_gain_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
+    activity: Mapped["AthleteActivity"] = relationship(back_populates="laps")
+
+
+class AthleteMetricSnapshot(Base):
+    __tablename__ = "athlete_metric_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    athlete_id: Mapped[int] = mapped_column(ForeignKey("athlete_profiles.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(40), index=True)
+    measured_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    metric_type: Mapped[str] = mapped_column(String(80), index=True)
+    value: Mapped[float] = mapped_column(Float)
+    unit: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    raw_payload_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    athlete: Mapped["AthleteProfile"] = relationship(back_populates="metric_snapshots")
+
+
+class RaceGoal(Base):
+    __tablename__ = "race_goals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    athlete_id: Mapped[int] = mapped_column(ForeignKey("athlete_profiles.id"), index=True)
+    sport: Mapped[SportType] = mapped_column(SqlEnum(SportType), default=SportType.MARATHON)
+    distance: Mapped[str] = mapped_column(String(40), default="marathon")
+    target_type: Mapped[str] = mapped_column(String(40), default="target_time")
+    target_time_sec: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    race_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    training_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    plan_weeks: Mapped[int] = mapped_column(Integer, default=16)
+    status: Mapped[RaceGoalStatus] = mapped_column(SqlEnum(RaceGoalStatus), default=RaceGoalStatus.DRAFT)
+    feasibility_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    athlete: Mapped["AthleteProfile"] = relationship(back_populates="race_goals")
+    plans: Mapped[list["TrainingPlan"]] = relationship(back_populates="race_goal")
+
+
+class TrainingAvailability(Base):
+    __tablename__ = "training_availability"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    athlete_id: Mapped[int] = mapped_column(ForeignKey("athlete_profiles.id"), unique=True, index=True)
+    weekly_training_days: Mapped[int] = mapped_column(Integer, default=5)
+    preferred_long_run_weekday: Mapped[int] = mapped_column(Integer, default=6)
+    unavailable_weekdays: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    max_weekday_duration_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    max_weekend_duration_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    strength_training_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    athlete: Mapped["AthleteProfile"] = relationship(back_populates="availability")
+
+
+class StructuredWorkout(Base):
+    __tablename__ = "structured_workouts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("training_plans.id"), index=True)
+    scheduled_date: Mapped[date] = mapped_column(Date, index=True)
+    week_index: Mapped[int] = mapped_column(Integer)
+    day_index: Mapped[int] = mapped_column(Integer)
+    discipline: Mapped[str] = mapped_column(String(40), default="run")
+    workout_type: Mapped[str] = mapped_column(String(80))
+    title: Mapped[str] = mapped_column(String(160))
+    purpose: Mapped[str] = mapped_column(Text)
+    duration_min: Mapped[int] = mapped_column(Integer)
+    distance_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    target_intensity_type: Mapped[str] = mapped_column(String(40), default="pace")
+    target_pace_min_sec_per_km: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    target_pace_max_sec_per_km: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    target_hr_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    target_hr_max: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    rpe_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    rpe_max: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    status: Mapped[WorkoutStatus] = mapped_column(SqlEnum(WorkoutStatus), default=WorkoutStatus.DRAFT)
+    adaptation_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    plan: Mapped["TrainingPlan"] = relationship(back_populates="structured_workouts")
+    steps: Mapped[list["WorkoutStep"]] = relationship(
+        back_populates="workout", cascade="all, delete-orphan", order_by="WorkoutStep.step_index"
+    )
+    provider_sync_records: Mapped[list["ProviderSyncRecord"]] = relationship(
+        back_populates="workout", cascade="all, delete-orphan"
+    )
+
+
+class WorkoutStep(Base):
+    __tablename__ = "workout_steps"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    workout_id: Mapped[int] = mapped_column(ForeignKey("structured_workouts.id"), index=True)
+    step_index: Mapped[int] = mapped_column(Integer)
+    step_type: Mapped[str] = mapped_column(String(40))
+    duration_sec: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    distance_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    target_type: Mapped[str] = mapped_column(String(40), default="effort")
+    target_min: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    target_max: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    repeat_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    workout: Mapped["StructuredWorkout"] = relationship(back_populates="steps")
+
+
+class ProviderSyncRecord(Base):
+    __tablename__ = "provider_sync_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    athlete_id: Mapped[int] = mapped_column(ForeignKey("athlete_profiles.id"), index=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("training_plans.id"), index=True)
+    workout_id: Mapped[Optional[int]] = mapped_column(ForeignKey("structured_workouts.id"), nullable=True)
+    provider: Mapped[str] = mapped_column(String(40), index=True)
+    provider_workout_id: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
+    provider_calendar_item_id: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
+    sync_status: Mapped[SyncStatus] = mapped_column(SqlEnum(SyncStatus), default=SyncStatus.PENDING)
+    attempted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    raw_payload_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    plan: Mapped["TrainingPlan"] = relationship(back_populates="provider_sync_records")
+    workout: Mapped[Optional["StructuredWorkout"]] = relationship(back_populates="provider_sync_records")
+
+
+class PlanAdjustment(Base):
+    __tablename__ = "plan_adjustments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    athlete_id: Mapped[int] = mapped_column(ForeignKey("athlete_profiles.id"), index=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("training_plans.id"), index=True)
+    status: Mapped[AdjustmentStatus] = mapped_column(SqlEnum(AdjustmentStatus), default=AdjustmentStatus.PROPOSED)
+    reason: Mapped[str] = mapped_column(Text)
+    recommendation: Mapped[str] = mapped_column(Text)
+    effective_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    effective_end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    plan: Mapped["TrainingPlan"] = relationship(back_populates="adjustments")
