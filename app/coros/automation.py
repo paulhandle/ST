@@ -67,23 +67,22 @@ class RealCorosAutomationClient:
         self._api_host = "teamcnapi.coros.com" if region_id == 2 else "teamapi.coros.com"
         return CorosLoginResult(ok=True, message="COROS login succeeded")
 
-    def fetch_history(self, username: str) -> dict:
+    def fetch_history(self, username: str, days_back: int = 365) -> dict:
         if not self._token:
             raise RuntimeError("Not logged in. Call login() first.")
 
-        activities = self._fetch_activities()
+        activities = self._fetch_activities(days_back=days_back)
         metrics = self._fetch_metrics()
         return {"activities": activities, "metrics": metrics}
 
-    def _fetch_activities(self) -> list[dict]:
+    def _fetch_activities(self, days_back: int = 365) -> list[dict]:
         from datetime import timezone, timedelta
 
         activities = []
-        # Fetch last 90 days of running activities (sufficient for 12-week assessment)
-        cutoff_ts = int((datetime.utcnow() - timedelta(days=90)).timestamp())
+        cutoff_ts = int((datetime.utcnow() - timedelta(days=days_back)).timestamp())
 
         page = 1
-        while page <= 50:  # Safety cap: 50 pages × 20 = 1000 activities max
+        while page <= 100:  # Safety cap: 100 pages × 20 = 2000 activities max
             data = self._get(f"/activity/query?pageNumber={page}&size=20")
             items = data.get("dataList", [])
             done = False
