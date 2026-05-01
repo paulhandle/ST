@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 import yaml
 
@@ -38,40 +38,55 @@ class Skill(Protocol):
         ...
 
 
-def load_skill(slug: str) -> Skill:
-    """Load skill at app/skills/<slug>/.
+USER_EXTRACTED_DIR = SKILLS_DIR / "user_extracted"
 
-    The skill module (app.skills.<slug>.skill) must export an attribute named
-    `skill` that satisfies the Skill protocol.
+
+def _resolve_skill_dir(slug: str) -> tuple[Path, str]:
+    """Return (filesystem_dir, dotted_module_prefix) for a slug.
+
+    Built-in skills live at app/skills/<slug>/ ; user-extracted skills live
+    at app/skills/user_extracted/<slug>/. Built-in shadows user-extracted.
+    """
+    builtin = SKILLS_DIR / slug
+    if builtin.is_dir() and (builtin / "spec.yaml").exists():
+        return builtin, f"app.skills.{slug}"
+    user = USER_EXTRACTED_DIR / slug
+    if user.is_dir() and (user / "spec.yaml").exists():
+        return user, f"app.skills.user_extracted.{slug}"
+    raise FileNotFoundError(f"Skill not found: {slug!r}")
+
+
+def load_skill(slug: str) -> Skill:
+    """Load skill at app/skills/<slug>/ or app/skills/user_extracted/<slug>/.
+
+    The skill module must export an attribute named `skill` that satisfies
+    the Skill protocol.
     """
     if not _is_safe_slug(slug):
         raise ValueError(f"Invalid skill slug: {slug!r}")
-    skill_dir = SKILLS_DIR / slug
-    if not skill_dir.is_dir():
-        raise FileNotFoundError(f"Skill not found: {skill_dir}")
-    spec_path = skill_dir / "spec.yaml"
-    if not spec_path.exists():
-        raise FileNotFoundError(f"Skill {slug!r} is missing spec.yaml")
-
-    module = importlib.import_module(f"app.skills.{slug}.skill")
+    skill_dir, module_prefix = _resolve_skill_dir(slug)
+    module = importlib.import_module(f"{module_prefix}.skill")
     if not hasattr(module, "skill"):
-        raise AttributeError(f"app.skills.{slug}.skill must export `skill`")
+        raise AttributeError(f"{module_prefix}.skill must export `skill`")
     instance: Skill = module.skill
     return instance
 
 
 def list_skills() -> list[SkillManifest]:
-    """Discover all skills under app/skills/ by reading their spec.yaml files."""
+    """Discover skills under app/skills/ and app/skills/user_extracted/."""
     out: list[SkillManifest] = []
-    for child in SKILLS_DIR.iterdir():
-        if not child.is_dir() or child.name.startswith("_"):
+    for parent in (SKILLS_DIR, USER_EXTRACTED_DIR):
+        if not parent.exists():
             continue
-        spec_path = child / "spec.yaml"
-        if not spec_path.exists():
-            continue
-        manifest = _load_manifest(child.name, spec_path)
-        if manifest is not None:
-            out.append(manifest)
+        for child in parent.iterdir():
+            if not child.is_dir() or child.name.startswith("_") or child.name == "user_extracted":
+                continue
+            spec_path = child / "spec.yaml"
+            if not spec_path.exists():
+                continue
+            manifest = _load_manifest(child.name, spec_path)
+            if manifest is not None:
+                out.append(manifest)
     return out
 
 

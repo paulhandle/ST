@@ -1,0 +1,25 @@
+slug: coach_zhao_unified
+name: Coach Zhao Unified Marathon Methodology
+version: 0.1.0
+sport: marathon
+supported_goals:
+  - finish
+  - target_time
+description: >
+  Distilled from two complete coach-prescribed marathon programs the athlete
+  trained under (Coach 赵可, with summer assist from Coach 刘征). One unified
+  philosophy with seasonal adaptation for Northern-China climate: cooler
+  months allow higher volume and longer race-specific blocks; hotter months
+  keep volume moderate and lean on stride/speed work. Purpose-built for
+  working professionals — sessions stay short, long runs cap at 26 km, and
+  intervals are uncommon (replaced with sustained-tempo plus strides).
+author: 赵可 (extracted by ST skill-creator from athlete history)
+tags:
+  - marathon
+  - seasonal
+  - northern-china
+  - low-LSD
+  - working-professional
+  - tempo-and-strides
+  - completion-first
+requires_llm: false

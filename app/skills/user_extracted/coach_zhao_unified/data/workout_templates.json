@@ -1,0 +1,2119 @@
+{
+  "version": "1.0",
+  "source": "Distilled from real coach-prescribed workouts in COROS history (赵可, 刘征).",
+  "intensity_convention": "All intensities expressed as %LTHR for athlete portability.",
+  "templates": [
+    {
+      "name": "半马训练",
+      "role": "long_run_race_specific",
+      "distance_m": 21100.0,
+      "duration_sec": 7649,
+      "training_load_estimate": 293,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer",
+        "winter"
+      ],
+      "occurrences_total": 19,
+      "occurrences_by_season": {
+        "summer": 12,
+        "winter": 7
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 21100.0,
+          "intensity_pct_lthr": 84.0,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "10K+5x200m",
+      "role": "speed_alactic_strides",
+      "distance_m": 11000.0,
+      "duration_sec": 3657,
+      "training_load_estimate": 210,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer",
+        "winter"
+      ],
+      "occurrences_total": 13,
+      "occurrences_by_season": {
+        "summer": 6,
+        "winter": 7
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 10000.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 10000.0,
+          "intensity_pct_lthr": 88.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 5,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 118.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "8K+200x5",
+      "role": "speed_alactic_strides",
+      "distance_m": 9000.0,
+      "duration_sec": 2967,
+      "training_load_estimate": 183,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer",
+        "winter"
+      ],
+      "occurrences_total": 13,
+      "occurrences_by_season": {
+        "summer": 6,
+        "winter": 7
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 8000.0,
+          "intensity_pct_lthr": 88.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 5,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 123.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "力量训练",
+      "role": "strength",
+      "distance_m": 0.0,
+      "duration_sec": 2840,
+      "training_load_estimate": 0,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 13,
+      "occurrences_by_season": {
+        "winter": 13
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 2840,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 12,
+          "target_kind": "duration_sec",
+          "target_value": 60,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 4,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 4,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 4,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "10K+5x200m",
+      "role": "speed_alactic_strides",
+      "distance_m": 11000.0,
+      "duration_sec": 3795,
+      "training_load_estimate": 192,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer",
+        "winter"
+      ],
+      "occurrences_total": 12,
+      "occurrences_by_season": {
+        "summer": 6,
+        "winter": 6
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 10000.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 10000.0,
+          "intensity_pct_lthr": 85.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 5,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 118.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "2k+8k+10K",
+      "role": "long_run_race_specific",
+      "distance_m": 20000.0,
+      "duration_sec": 6830,
+      "training_load_estimate": 326,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer",
+        "winter"
+      ],
+      "occurrences_total": 12,
+      "occurrences_by_season": {
+        "summer": 6,
+        "winter": 6
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 2000.0,
+          "intensity_pct_lthr": 91.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 8000.0,
+          "intensity_pct_lthr": 89.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 10000.0,
+          "intensity_pct_lthr": 87.0,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "16K轻松跑",
+      "role": "long_run_easy",
+      "distance_m": 16000.0,
+      "duration_sec": 6816,
+      "training_load_estimate": 152,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer",
+        "winter"
+      ],
+      "occurrences_total": 9,
+      "occurrences_by_season": {
+        "summer": 4,
+        "winter": 5
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 16000.0,
+          "intensity_pct_lthr": 68.0,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "速度训练",
+      "role": "speed_alactic_strides",
+      "distance_m": 7455.0,
+      "duration_sec": 2606,
+      "training_load_estimate": 148,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 7,
+      "occurrences_by_season": {
+        "winter": 7
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1800,
+          "intensity_pct_lthr": 73.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 3,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 119.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 400.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 400.0,
+          "intensity_pct_lthr": 111.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 800.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 800.0,
+          "intensity_pct_lthr": 105.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "速度训练",
+      "role": "speed_alactic_strides",
+      "distance_m": 8481.0,
+      "duration_sec": 2916,
+      "training_load_estimate": 189,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 7,
+      "occurrences_by_season": {
+        "winter": 7
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1800,
+          "intensity_pct_lthr": 70.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 3,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 120.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 3,
+          "target_kind": "distance_m",
+          "target_value": 400.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 400.0,
+          "intensity_pct_lthr": 113.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 3,
+          "target_kind": "distance_m",
+          "target_value": 800.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 800.0,
+          "intensity_pct_lthr": 107.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "速度训练",
+      "role": "speed_alactic_strides",
+      "distance_m": 7758.0,
+      "duration_sec": 2682,
+      "training_load_estimate": 173,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 7,
+      "occurrences_by_season": {
+        "winter": 7
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1800,
+          "intensity_pct_lthr": 70.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 3,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 120.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 3,
+          "target_kind": "distance_m",
+          "target_value": 400.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 400.0,
+          "intensity_pct_lthr": 115.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 800.0,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 800.0,
+          "intensity_pct_lthr": 109.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "速度训练 6x200",
+      "role": "speed_alactic_strides",
+      "distance_m": 5960.0,
+      "duration_sec": 2173,
+      "training_load_estimate": 119,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 7,
+      "occurrences_by_season": {
+        "winter": 7
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1800,
+          "intensity_pct_lthr": 72.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 4,
+          "target_kind": "duration_sec",
+          "target_value": 20,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 20,
+          "intensity_pct_lthr": 124.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 6,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 120.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "1Kx2+2Kx2",
+      "role": "tempo_combo",
+      "distance_m": 11434.0,
+      "duration_sec": 3967,
+      "training_load_estimate": 195,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 7,
+      "occurrences_by_season": {
+        "winter": 7
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 5000.0,
+          "intensity_pct_lthr": 70.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 4,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": 105.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 1000.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 1000.0,
+          "intensity_pct_lthr": 103.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 2000.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 2000.0,
+          "intensity_pct_lthr": 97.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "1K+2Kx2",
+      "role": "tempo_combo",
+      "distance_m": 10475.0,
+      "duration_sec": 3706,
+      "training_load_estimate": 175,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 7,
+      "occurrences_by_season": {
+        "winter": 7
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 5000.0,
+          "intensity_pct_lthr": 70.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 4,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": 115.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 1000.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 1000.0,
+          "intensity_pct_lthr": 104.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 2000.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 2000.0,
+          "intensity_pct_lthr": 98.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "26K",
+      "role": "long_run_extended",
+      "distance_m": 26000.0,
+      "duration_sec": 9392,
+      "training_load_estimate": 330,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 7,
+      "occurrences_by_season": {
+        "winter": 7
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 16000.0,
+          "intensity_pct_lthr": 79.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 10000.0,
+          "intensity_pct_lthr": 84.0,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "速度训练",
+      "role": "speed_alactic_strides",
+      "distance_m": 5382.0,
+      "duration_sec": 2499,
+      "training_load_estimate": 102,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer"
+      ],
+      "occurrences_total": 6,
+      "occurrences_by_season": {
+        "summer": 6
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1800,
+          "intensity_pct_lthr": 50.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 3,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 119.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 400.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 400.0,
+          "intensity_pct_lthr": 111.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 600.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 600.0,
+          "intensity_pct_lthr": 107.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "速度训练",
+      "role": "speed_alactic_strides",
+      "distance_m": 6811.0,
+      "duration_sec": 2487,
+      "training_load_estimate": 134,
+      "authors": [
+        "刘征"
+      ],
+      "seasons": [
+        "summer"
+      ],
+      "occurrences_total": 6,
+      "occurrences_by_season": {
+        "summer": 6
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1800,
+          "intensity_pct_lthr": 70.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 3,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 120.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 400.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 400.0,
+          "intensity_pct_lthr": 113.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 600.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 600.0,
+          "intensity_pct_lthr": 109.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "速度训练",
+      "role": "speed_alactic_strides",
+      "distance_m": 6891.0,
+      "duration_sec": 2466,
+      "training_load_estimate": 155,
+      "authors": [
+        "刘征"
+      ],
+      "seasons": [
+        "summer"
+      ],
+      "occurrences_total": 6,
+      "occurrences_by_season": {
+        "summer": 6
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1800,
+          "intensity_pct_lthr": 70.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 3,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 120.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 5,
+          "target_kind": "distance_m",
+          "target_value": 400.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 400.0,
+          "intensity_pct_lthr": 115.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "速度训练 6x200",
+      "role": "speed_alactic_strides",
+      "distance_m": 5553.0,
+      "duration_sec": 2098,
+      "training_load_estimate": 102,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer"
+      ],
+      "occurrences_total": 6,
+      "occurrences_by_season": {
+        "summer": 6
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1800,
+          "intensity_pct_lthr": 72.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 6,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 120.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "30min+（800+1500）",
+      "role": "sustained_tempo_strides",
+      "distance_m": 7003.0,
+      "duration_sec": 2627,
+      "training_load_estimate": 109,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer"
+      ],
+      "occurrences_total": 6,
+      "occurrences_by_season": {
+        "summer": 6
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1800,
+          "intensity_pct_lthr": 70.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 4,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": 115.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 800.0,
+          "intensity_pct_lthr": 102.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 1500.0,
+          "intensity_pct_lthr": 96.0,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "30min +（800+1500x2）",
+      "role": "sustained_tempo_strides",
+      "distance_m": 8464.0,
+      "duration_sec": 3065,
+      "training_load_estimate": 148,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer"
+      ],
+      "occurrences_total": 6,
+      "occurrences_by_season": {
+        "summer": 6
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1800,
+          "intensity_pct_lthr": 70.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 4,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": 110.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 800.0,
+          "intensity_pct_lthr": 106.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 1500.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 1500.0,
+          "intensity_pct_lthr": 99.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "2K+8K+10K节奏",
+      "role": "long_run_race_specific",
+      "distance_m": 20000.0,
+      "duration_sec": 7241,
+      "training_load_estimate": 281,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer"
+      ],
+      "occurrences_total": 6,
+      "occurrences_by_season": {
+        "summer": 6
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 2000.0,
+          "intensity_pct_lthr": 89.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 8000.0,
+          "intensity_pct_lthr": 85.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 10000.0,
+          "intensity_pct_lthr": 80.0,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "1K+2K",
+      "role": "tempo_combo",
+      "distance_m": 8472.0,
+      "duration_sec": 3138,
+      "training_load_estimate": 130,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 6,
+      "occurrences_by_season": {
+        "winter": 6
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 5000.0,
+          "intensity_pct_lthr": 70.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 4,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": 115.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 1000.0,
+          "intensity_pct_lthr": 102.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 2000.0,
+          "intensity_pct_lthr": 96.0,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "2K+8K+10K节奏",
+      "role": "long_run_race_specific",
+      "distance_m": 20000.0,
+      "duration_sec": 6700,
+      "training_load_estimate": 311,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 6,
+      "occurrences_by_season": {
+        "winter": 6
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 2000.0,
+          "intensity_pct_lthr": 90.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 8000.0,
+          "intensity_pct_lthr": 88.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 10000.0,
+          "intensity_pct_lthr": 86.0,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "40min+200x5",
+      "role": "sustained_tempo_strides",
+      "distance_m": 7242.0,
+      "duration_sec": 2647,
+      "training_load_estimate": 121,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer"
+      ],
+      "occurrences_total": 5,
+      "occurrences_by_season": {
+        "summer": 5
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 2400,
+          "intensity_pct_lthr": 78.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 5,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 121.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "800x2+1500x2",
+      "role": "speed_alactic_strides",
+      "distance_m": 7852.0,
+      "duration_sec": 2705,
+      "training_load_estimate": 147,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer"
+      ],
+      "occurrences_total": 5,
+      "occurrences_by_season": {
+        "summer": 5
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1200,
+          "intensity_pct_lthr": 70.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 4,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": 105.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 800.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 800.0,
+          "intensity_pct_lthr": 104.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 2,
+          "target_kind": "distance_m",
+          "target_value": 1500.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 1500.0,
+          "intensity_pct_lthr": 98.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "30min +2K",
+      "role": "sustained_tempo_strides",
+      "distance_m": 6666.0,
+      "duration_sec": 2539,
+      "training_load_estimate": 100,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer"
+      ],
+      "occurrences_total": 5,
+      "occurrences_by_season": {
+        "summer": 5
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1800,
+          "intensity_pct_lthr": 70.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 4,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": 115.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 2000.0,
+          "intensity_pct_lthr": 98.0,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "40min+200x5",
+      "role": "sustained_tempo_strides",
+      "distance_m": 7178.0,
+      "duration_sec": 2645,
+      "training_load_estimate": 115,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 5,
+      "occurrences_by_season": {
+        "winter": 5
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 2400,
+          "intensity_pct_lthr": 75.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 5,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 200.0,
+          "intensity_pct_lthr": 121.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "5K + 2K",
+      "role": "tempo_combo",
+      "distance_m": 7468.0,
+      "duration_sec": 2807,
+      "training_load_estimate": 105,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 5,
+      "occurrences_by_season": {
+        "winter": 5
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 5000.0,
+          "intensity_pct_lthr": 70.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 4,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": null,
+          "rest": {
+            "type": "duration_sec",
+            "value": 30
+          }
+        },
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 30,
+          "intensity_pct_lthr": 115.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "open",
+          "target_value": null,
+          "intensity_pct_lthr": null,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "distance_m",
+          "target_value": 2000.0,
+          "intensity_pct_lthr": 98.0,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "恢复跑",
+      "role": "recovery",
+      "distance_m": 2810.0,
+      "duration_sec": 1200,
+      "training_load_estimate": 25,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "occurrences_total": 5,
+      "occurrences_by_season": {
+        "winter": 5
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 1200,
+          "intensity_pct_lthr": 68.0,
+          "rest": null
+        }
+      ]
+    },
+    {
+      "name": "有氧基础60MIN",
+      "role": "aerobic_base",
+      "distance_m": 9169.0,
+      "duration_sec": 3600,
+      "training_load_estimate": 108,
+      "authors": [
+        "赵可"
+      ],
+      "seasons": [
+        "summer"
+      ],
+      "occurrences_total": 4,
+      "occurrences_by_season": {
+        "summer": 4
+      },
+      "exercises": [
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 2700,
+          "intensity_pct_lthr": 73.0,
+          "rest": null
+        },
+        {
+          "sets": 1,
+          "target_kind": "duration_sec",
+          "target_value": 900,
+          "intensity_pct_lthr": 85.0,
+          "rest": null
+        }
+      ]
+    }
+  ]
+}

@@ -22,3 +22,10 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*"]
+
+[tool.setuptools.package-data]
+"app.skills.marathon_st_default" = ["*.md", "*.yaml"]
+"app.skills.marathon_st_default.code" = ["*.md"]
+"app.skills.user_extracted.coach_zhao_unified" = ["*.md", "*.yaml"]
+"app.skills.user_extracted.coach_zhao_unified.code" = ["*.md"]
+"app.skills.user_extracted.coach_zhao_unified.data" = ["*.json"]
