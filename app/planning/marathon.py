@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from datetime import date, timedelta
 from statistics import mean
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+log = logging.getLogger(__name__)
 
 from app.assessment.running import assess_running_ability
 from app.models import (
@@ -116,18 +119,39 @@ def generate_marathon_plan(db: Session, athlete: AthleteProfile, request, race_g
     peak_km = max(safe_high, 55.0 if target_time_sec and target_time_sec <= 4 * 3600 else 42.0)
     start_km = max(24.0, safe_low)
 
-    for week_index in range(1, race_goal.plan_weeks + 1):
-        phase = _phase(week_index, race_goal.plan_weeks)
-        week_target_km = _week_target_km(week_index, race_goal.plan_weeks, start_km, peak_km, phase)
-        week_sessions = _week_workouts(
+    # Try LLM-based plan generation; fall back to rule-based on any failure.
+    llm_weeks: list[list[dict]] | None = None
+    try:
+        from app.planning.llm import generate_marathon_plan_llm  # lazy import keeps tests fast
+
+        llm_weeks = generate_marathon_plan_llm(
+            assessment=assessment,
+            plan_weeks=race_goal.plan_weeks,
+            target_time_sec=target_time_sec,
+            target_pace_sec_per_km=target_pace,
             selected_weekdays=selected_weekdays,
             preferred_long_run_weekday=availability.preferred_long_run_weekday,
-            week_target_km=week_target_km,
-            phase=phase,
-            target_pace=target_pace,
-            week_index=week_index,
             start_date=start_date,
         )
+        log.info("LLM plan generated successfully: %d weeks", len(llm_weeks))
+    except Exception as exc:
+        log.warning("LLM plan generation failed (%s); using rule-based fallback.", exc)
+
+    for week_index in range(1, race_goal.plan_weeks + 1):
+        if llm_weeks is not None and week_index - 1 < len(llm_weeks):
+            week_sessions = llm_weeks[week_index - 1]
+        else:
+            phase = _phase(week_index, race_goal.plan_weeks)
+            week_target_km = _week_target_km(week_index, race_goal.plan_weeks, start_km, peak_km, phase)
+            week_sessions = _week_workouts(
+                selected_weekdays=selected_weekdays,
+                preferred_long_run_weekday=availability.preferred_long_run_weekday,
+                week_target_km=week_target_km,
+                phase=phase,
+                target_pace=target_pace,
+                week_index=week_index,
+                start_date=start_date,
+            )
         for day_index, workout_data in enumerate(week_sessions, start=1):
             workout = StructuredWorkout(plan_id=plan.id, day_index=day_index, **workout_data)
             db.add(workout)

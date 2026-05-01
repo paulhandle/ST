@@ -227,6 +227,19 @@ Objective: Replace the fake COROS automation stub with a working direct-API impl
 
 Next:
 - [x] Probe and implement /training/schedule/update (write endpoint) for real COROS calendar sync.
+- [x] Replace rule-based marathon plan generation with LLM (OpenAI) with rule-based fallback.
 - [ ] Wire real mode into the API (currently only used via RealCorosAutomationClient directly; the factory uses fake mode by default).
 - [ ] Clean up datetime.utcnow() deprecation warnings across routes, sync, planning modules.
 - [ ] Add test coverage for real-mode sync path (currently all tests force fake mode).
+
+# LLM-Based Plan Generation
+
+- [x] Add openai>=1.0 to pyproject.toml.
+- [x] Add OPENAI_* keys to .env and .env.example.
+- [x] Create app/planning/llm.py with generate_marathon_plan_llm().
+- [x] Modify app/planning/marathon.py to use LLM with rule-based fallback.
+- [x] Verify: 2/2 tests pass; LLM produces correct structured workouts with real API.
+
+## LLM Plan Review/Summary
+
+Created `app/planning/llm.py` which calls OpenAI (configurable base URL + model via .env) to generate a full periodized marathon training plan as structured JSON. The LLM receives the athlete's assessment data, race goal, available training days, and target paces; it returns a week-by-week plan with workout types, distances, paces, and RPE bands. `marathon.py` tries LLM first and falls back to the original rule-based generator on any exception, so tests and offline scenarios degrade gracefully. Verified end-to-end: LLM returned correct 4-workout weeks with proper types (easy_run, threshold, long_run, marathon_pace) and realistic distances.
