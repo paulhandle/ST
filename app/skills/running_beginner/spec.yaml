@@ -1,0 +1,15 @@
+slug: running_beginner
+name: 入门跑者计划
+version: "1.0"
+sport: marathon
+author: ST Platform
+tags:
+  - beginner
+  - run-walk
+  - rpe
+  - no-history
+description: >
+  面向零基础或低里程跑者的入门训练方法。以RPE为强度指标，
+  每周1-3次轻松跑，逐步建立有氧基础。适合平均周跑量低于40km的用户。
+applicable_when:
+  max_avg_weekly_km: 40

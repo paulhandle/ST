@@ -262,9 +262,9 @@ Current risks and gaps:
 Next:
 - [x] Probe and implement /training/schedule/update (write endpoint) for real COROS calendar sync.
 - [x] Replace rule-based marathon plan generation with LLM (OpenAI) with rule-based fallback.
-- [ ] Wire real mode into the API (currently only used via RealCorosAutomationClient directly; the factory uses fake mode by default).
-- [ ] Clean up datetime.utcnow() deprecation warnings across routes, sync, planning modules.
-- [ ] Add test coverage for real-mode sync path (currently all tests force fake mode).
+- [x] Wire real mode into the API — `COROS_AUTOMATION_MODE=real` env var already routes to RealCorosAutomationClient via factory; documented in README.
+- [x] Clean up datetime.utcnow() deprecation warnings — already resolved; all modules use datetime.now(UTC).
+- [x] Add test coverage for real-mode sync path — tests/test_real_coros_client.py added (14 tests: login, fetch_history, sync_workouts with mocked urllib).
 
 # LLM-Based Plan Generation
 
@@ -414,3 +414,127 @@ Acceptance criteria:
 - [x] `pnpm type-check` exits 0 after adding test files
 
 Independently verified 2026-05-02 before commit.
+
+---
+
+# Independent Verification Fixes (2026-05-02) — COMPLETE
+
+Objective: Resolve high and medium priority issues found during independent code review.
+
+High priority (source-of-truth inconsistency):
+- [x] README updated to accurately reflect real COROS direct-API implementation (items 1, 4; `/coros/connect` description; `COROS_AUTOMATION_MODE` explanation).
+- [x] README documents `ST_DATABASE_URL` env var.
+
+Medium priority:
+- [x] Test DB isolation: `app/core/config.py` now reads `ST_DATABASE_URL` env var (falls back to `st.db`). All 4 existing test files set `ST_DATABASE_URL=sqlite:///st_test.db` before app imports. `st_test.db` added to `.gitignore`.
+- [x] Real COROS path test coverage: `tests/test_real_coros_client.py` added — 14 tests covering login (success/failure/network error/MD5/region), fetch_history (field mapping, pagination cutoff, metric extraction), sync_workouts (empty input, call count, idInPlan increment, failure handling, not-logged-in guard).
+
+Verification: `uv run python -m unittest discover -s tests -v` → **47/47 pass in 2.2s**.
+
+---
+
+# Block B — Auth + Onboarding + Beginner Skill (2026-05-02)
+
+## Objective
+
+Add multi-user auth (phone OTP → JWT), new-user onboarding wizard,
+`running_beginner` skill as fallback, and Plan tab adjustment entry.
+
+## Design decisions (confirmed 2026-05-02)
+
+- User model: `User` (phone, jwt); `AthleteProfile` gains `user_id` FK; 1 user → N sports
+- Auth: 30-day JWT, no refresh token (Method A); mock OTP returns code in response
+- Onboarding: COROS-only path; self-report fallback when history < threshold
+- Beginner skill: pure rule-based, RPE-only intensity, 1–3 runs/week
+- Plan activation: preview → user confirms → activate
+- Adjustments: accessible from Plan tab "待处理建议" section
+
+## Files to change / add
+
+### Backend
+- `app/models.py` — add `User`, `OTPCode`; add `user_id` FK on `AthleteProfile`
+- `app/core/auth.py` (NEW) — `create_access_token`, `decode_token`, `get_current_user` dependency
+- `app/schemas.py` — add `SendOTPRequest/Response`, `VerifyOTPRequest/Response`, `UserOut`, `OnboardingStatusOut`
+- `app/api/auth.py` (NEW) — `POST /auth/send-otp`, `POST /auth/verify-otp`, `GET /auth/me`
+- `app/api/routes.py` — protect existing routes with `Depends(get_current_user)` where appropriate; add `GET /athletes/{id}/onboarding-status`
+- `app/main.py` — include auth router
+- `app/skills/running_beginner/` (NEW) — `spec.yaml`, `skill.md`, `skill.py`, `code/rules.py`
+- `tests/test_auth.py` (NEW) — auth flow tests (TDD: write failing first)
+- `tests/test_beginner_skill.py` (NEW) — skill generates valid PlanDraft (TDD)
+
+### Frontend
+- `web/app/login/page.tsx` (NEW) — phone input → OTP → verify
+- `web/lib/auth.ts` (NEW) — JWT localStorage helpers, `isAuthenticated()`
+- `web/lib/hooks/useAuth.ts` (NEW) — auth state hook
+- `web/lib/api/client.ts` — add `Authorization` header from stored JWT
+- `web/middleware.ts` (NEW) — redirect `/login` if no JWT
+- `web/app/onboarding/` (NEW) — multi-step wizard (4 steps)
+- `web/app/(tabs)/plan/page.tsx` — add "待处理调整" section
+- `web/__tests__/auth.test.ts` (NEW) — login flow + redirect logic (TDD)
+
+## Implementation order (each step independently verifiable)
+
+### Step 1 — Backend auth foundation (TDD)
+1. Write failing tests in `tests/test_auth.py`
+2. Add `User` + `OTPCode` models, migrations-safe (create_all)
+3. Implement `app/core/auth.py` (JWT utils)
+4. Implement `app/api/auth.py` (3 endpoints)
+5. Wire into `app/main.py`
+6. Run tests → all pass
+
+### Step 2 — Route protection
+1. Add `get_current_user` dependency to athlete routes
+2. Update existing tests to pass JWT header (or skip auth in test mode via env flag)
+3. Run full suite → all pass
+
+### Step 3 — `running_beginner` skill (TDD)
+1. Write failing test: skill generates PlanDraft with ≥ 1 week, RPE-only intensity
+2. Implement skill (spec.yaml + skill.py + rules.py)
+3. Run test → pass
+
+### Step 4 — Frontend auth + protected routes (TDD)
+1. Write failing tests: login page renders, redirects when no JWT
+2. Implement `web/app/login/page.tsx`, `web/lib/auth.ts`, `web/middleware.ts`
+3. Update API client to send Authorization header
+4. Run `pnpm test` → pass
+
+### Step 5 — Onboarding wizard
+1. Write failing test: wizard renders step 1
+2. Implement 4-step wizard pages
+3. Run test → pass
+
+### Step 6 — Plan tab adjustment entry + beginner empty state
+1. Add "待处理调整" section to plan page
+2. Add "设定目标" CTA for empty state
+3. Update component tests
+
+## Verification commands
+
+```bash
+# Backend
+uv run python -m unittest discover -s tests -v   # must stay green throughout
+
+# Frontend
+pnpm test          # vitest unit tests
+pnpm type-check    # tsc --noEmit
+pnpm build         # next build
+```
+
+## Acceptance criteria
+
+- [ ] `POST /auth/send-otp` returns mock OTP code in dev mode
+- [ ] `POST /auth/verify-otp` returns 30-day JWT on correct code
+- [ ] All existing 47 backend tests still pass after route protection added
+- [ ] `running_beginner` skill generates a valid PlanDraft for a user with no history
+- [ ] Login page redirects to onboarding if new user, to dashboard if returning
+- [ ] Onboarding: COROS connect → goal input → plan preview → confirm → dashboard
+- [ ] Plan tab shows pending adjustment count when > 0
+- [ ] `pnpm test` and `pnpm type-check` exit 0
+
+## Out of scope
+
+- Real SMS sending (Aliyun etc.)
+- Refresh tokens / token revocation
+- User A viewing User B's data
+- GPX/FIT upload parser
+- Push notifications

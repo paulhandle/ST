@@ -97,10 +97,32 @@ class TrainingMethod(Base):
     default_mode: Mapped[TrainingMode] = mapped_column(SqlEnum(TrainingMode))
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    phone: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    athletes: Mapped[list["AthleteProfile"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class OTPCode(Base):
+    __tablename__ = "otp_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    phone: Mapped[str] = mapped_column(String(20), index=True)
+    code: Mapped[str] = mapped_column(String(6))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
 class AthleteProfile(Base):
     __tablename__ = "athlete_profiles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(100))
     sport: Mapped[SportType] = mapped_column(SqlEnum(SportType), index=True)
     level: Mapped[AthleteLevel] = mapped_column(SqlEnum(AthleteLevel), default=AthleteLevel.BEGINNER)
@@ -122,6 +144,7 @@ class AthleteProfile(Base):
     availability: Mapped[Optional["TrainingAvailability"]] = relationship(
         back_populates="athlete", cascade="all, delete-orphan"
     )
+    user: Mapped[Optional["User"]] = relationship(back_populates="athletes")
 
 
 class TrainingPlan(Base):

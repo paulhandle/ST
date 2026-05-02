@@ -26,3 +26,16 @@ def format_time(seconds: int) -> str:
     hours = seconds // 3600
     minutes = (seconds % 3600) // 60
     return f"{hours}:{minutes:02d}"
+
+
+class RunningKB:
+    """Concrete running KB instance for passing into SkillContext."""
+    sport = "running"
+    marathon_distance_km = MARATHON_DISTANCE_KM
+    half_marathon_distance_km = HALF_MARATHON_DISTANCE_KM
+
+    def target_pace_sec_per_km(self, target_time_sec: int, distance_km: float) -> float:
+        return target_pace_sec_per_km(target_time_sec, distance_km)
+
+    def format_pace(self, sec_per_km: float) -> str:
+        return format_pace(sec_per_km)

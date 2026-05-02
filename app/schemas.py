@@ -618,3 +618,32 @@ class CoachMessageRequest(BaseModel):
 class CoachMessageResponse(BaseModel):
     user_message: CoachMessageOut
     coach_message: CoachMessageOut
+
+
+# ── Auth schemas ─────────────────────────────────────────────────────────────
+
+class SendOTPRequest(BaseModel):
+    phone: str = Field(min_length=8, max_length=20)
+
+
+class SendOTPResponse(BaseModel):
+    message: str
+    otp_code: int  # mock only — remove when real SMS is wired
+
+
+class VerifyOTPRequest(BaseModel):
+    phone: str = Field(min_length=8, max_length=20)
+    code: str = Field(min_length=6, max_length=6)
+
+
+class VerifyOTPResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user_id: int
+
+
+class UserOut(BaseModel):
+    id: int
+    phone: str
+
+    model_config = {"from_attributes": True}
