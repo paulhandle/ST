@@ -176,6 +176,10 @@ class AthleteActivityOut(BaseModel):
     training_load: float | None = None
     perceived_effort: int | None = None
     feedback_text: str | None = None
+    matched_workout_id: int | None = None
+    matched_workout_title: str | None = None
+    match_status: str = "unmatched"  # completed | partial | miss | rest | unmatched
+    delta_summary: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -384,6 +388,9 @@ class TodayOut(BaseModel):
     week_index: int | None
     workout: StructuredWorkoutOut | None
     matched_activity_id: int | None
+    yesterday_workout: StructuredWorkoutOut | None = None
+    yesterday_activity: AthleteActivityOut | None = None
+    recovery_recommendation: dict | None = None
 
 
 class WeekOut(BaseModel):
@@ -435,3 +442,179 @@ class WorkoutMatchStatusOut(BaseModel):
     workout_id: int
     matched_activity: AthleteActivityOut | None
     diff: MatchDiff | None
+
+
+# ── Block A1 schemas ─────────────────────────────────────────────────────────
+
+
+class DashboardAthleteRef(BaseModel):
+    id: int
+    name: str
+    current_skill: SkillManifestOut | None = None
+
+
+class DashboardGreeting(BaseModel):
+    time_of_day: str  # "morning" | "afternoon" | "evening"
+    date: str  # ISO YYYY-MM-DD
+    weekday_short: str  # Mon..Sun
+    week_index: int | None = None
+    week_phase: str | None = None
+
+
+class DashboardTodaySection(BaseModel):
+    plan_id: int | None = None
+    week_index: int | None = None
+    workout: StructuredWorkoutOut | None = None
+    matched_activity: AthleteActivityOut | None = None
+    match_status: str | None = None  # completed | partial | miss | rest | unmatched | null
+
+
+class DashboardWeekDay(BaseModel):
+    date: date
+    weekday: int  # 0=Mon..6=Sun
+    title: str | None = None
+    distance_km: float = 0.0
+    duration_min: int = 0
+    status: str  # done | partial | miss | today | plan | rest
+
+
+class DashboardThisWeek(BaseModel):
+    plan_id: int | None = None
+    week_index: int | None = None
+    total_weeks: int | None = None
+    phase: str | None = None
+    is_recovery: bool = False
+    days: list[DashboardWeekDay] = []
+    completed_km: float = 0.0
+    planned_km: float = 0.0
+    completed_quality: int = 0
+    planned_quality: int = 0
+
+
+class DashboardGoal(BaseModel):
+    label: str | None = None  # e.g. "sub-3:30"
+    race_date: date | None = None
+    days_until: int | None = None
+    target_time_sec: int | None = None
+    prediction_history: list[dict] = []
+    monthly_delta_sec: int | None = None  # negative = faster (good)
+
+
+class DashboardVolumeWeek(BaseModel):
+    week_index: int
+    week_label: str
+    executed_km: float
+    planned_km: float
+    completion_pct: float
+    is_current: bool
+
+
+class DashboardRecentActivity(BaseModel):
+    id: int
+    started_at: datetime
+    title: str
+    distance_km: float
+    duration_min: int
+    avg_pace_sec_per_km: float | None = None
+    avg_hr: int | None = None
+    match_status: str
+    delta_summary: str | None = None
+
+
+class DashboardReadiness(BaseModel):
+    resting_hr: int | None = None
+    resting_hr_trend: str | None = None  # "down" | "up" | "flat"
+    weekly_training_load: int | None = None
+    weekly_training_load_trend: str | None = None
+    lthr: int | None = None
+    ltsp_sec_per_km: float | None = None
+
+
+class DashboardMeta(BaseModel):
+    skill_slug: str | None = None
+    skill_name: str | None = None
+    skill_version: str | None = None
+    last_sync_at: datetime | None = None
+    last_sync_status: str | None = None  # ok | error | never
+
+
+class DashboardOut(BaseModel):
+    athlete: DashboardAthleteRef
+    greeting: DashboardGreeting
+    pending_adjustment: dict | None = None
+    today: DashboardTodaySection
+    this_week: DashboardThisWeek
+    goal: DashboardGoal
+    volume_history: list[DashboardVolumeWeek] = []
+    recent_activities: list[DashboardRecentActivity] = []
+    readiness: DashboardReadiness
+    meta: DashboardMeta
+
+
+class PlanVolumeCurvePoint(BaseModel):
+    week_index: int
+    phase: str
+    is_recovery: bool
+    is_current: bool
+    planned_km: float
+    executed_km: float
+    longest_run_km: float
+
+
+class PlanVolumeCurveOut(BaseModel):
+    plan_id: int
+    weeks: list[PlanVolumeCurvePoint]
+    peak_planned_km: float
+    peak_executed_km: float
+
+
+class RegeneratePreviewOut(BaseModel):
+    plan_id: int
+    new_skill_slug: str
+    applicable: bool
+    applicability_reason: str
+    frozen_completed: int
+    frozen_missed: int
+    regenerated_count: int
+    weeks_affected: int
+    days_affected_start: date | None
+    days_affected_end: date | None
+
+
+class AdjustmentAffectedWorkout(BaseModel):
+    workout_id: int
+    date: date
+    title: str
+    field: str  # "distance_m" | "duration_min" | "skip" | "workout_type"
+    before: str
+    after: str
+    note: str | None = None
+
+
+class PlanAdjustmentDetailOut(PlanAdjustmentOut):
+    affected_workouts: list[AdjustmentAffectedWorkout] = []
+
+
+class PlanAdjustmentApplyRequest(BaseModel):
+    selected_workout_ids: list[int] | None = None
+
+
+class CoachMessageOut(BaseModel):
+    id: int
+    athlete_id: int
+    role: str
+    text: str
+    suggested_actions_json: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CoachMessageRequest(BaseModel):
+    athlete_id: int
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class CoachMessageResponse(BaseModel):
+    user_message: CoachMessageOut
+    coach_message: CoachMessageOut

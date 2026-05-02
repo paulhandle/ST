@@ -418,7 +418,19 @@ class PlanAdjustment(Base):
     recommendation: Mapped[str] = mapped_column(Text)
     effective_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     effective_end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    affected_workouts_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     plan: Mapped["TrainingPlan"] = relationship(back_populates="adjustments")
+
+
+class CoachMessage(Base):
+    __tablename__ = "coach_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    athlete_id: Mapped[int] = mapped_column(ForeignKey("athlete_profiles.id"), index=True)
+    role: Mapped[str] = mapped_column(String(20))  # "user" | "coach"
+    text: Mapped[str] = mapped_column(Text)
+    suggested_actions_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), index=True)

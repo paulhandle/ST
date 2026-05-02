@@ -6,6 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+import json
+import os
+
 from app.kb.running_assessment import assess_running_ability
 from app.tools.coros.automation import coros_automation_client
 from app.tools.coros.credentials import encrypt_secret
@@ -16,7 +19,9 @@ from app.ingestion.service import import_provider_history
 from app.models import (
     AdjustmentStatus,
     AthleteActivity,
+    AthleteMetricSnapshot,
     AthleteProfile,
+    CoachMessage,
     DeviceAccount,
     DeviceType,
     PlanAdjustment,
@@ -43,11 +48,26 @@ from app.core.matching import (
     match_workout_to_activity,
 )
 from app.schemas import (
+    AdjustmentAffectedWorkout,
     AthleteActivityOut,
     AthleteCreate,
     AthleteOut,
+    CoachMessageOut,
+    CoachMessageRequest,
+    CoachMessageResponse,
     CorosConnectRequest,
     CorosStatusOut,
+    DashboardAthleteRef,
+    DashboardGoal,
+    DashboardGreeting,
+    DashboardMeta,
+    DashboardOut,
+    DashboardReadiness,
+    DashboardRecentActivity,
+    DashboardThisWeek,
+    DashboardTodaySection,
+    DashboardVolumeWeek,
+    DashboardWeekDay,
     DeviceAccountOut,
     DeviceConnectRequest,
     HistoryImportOut,
@@ -57,15 +77,20 @@ from app.schemas import (
     MarathonPlanOut,
     MatchDiff,
     ModeRecommendationOut,
+    PlanAdjustmentApplyRequest,
+    PlanAdjustmentDetailOut,
     PlanAdjustmentOut,
     PlanConfirmOut,
     PlanGenerateRequest,
     PlanStatusUpdate,
     PlanSyncOut,
+    PlanVolumeCurveOut,
+    PlanVolumeCurvePoint,
     ProviderSyncRecordOut,
     RaceGoalOut,
     RegenerateFromTodayOut,
     RegenerateFromTodayRequest,
+    RegeneratePreviewOut,
     RunningAssessmentOut,
     SkillDetailOut,
     SkillManifestOut,
@@ -292,11 +317,12 @@ def import_history(athlete_id: int, request: HistoryImportRequest, db: Session =
 @router.get("/athletes/{athlete_id}/history", response_model=list[AthleteActivityOut])
 def get_history(athlete_id: int, db: Session = Depends(get_db)):
     _athlete_or_404(db, athlete_id)
-    return db.execute(
+    activities = db.execute(
         select(AthleteActivity)
         .where(AthleteActivity.athlete_id == athlete_id)
         .order_by(AthleteActivity.started_at.desc())
     ).scalars().all()
+    return [_activity_with_match(db, a) for a in activities]
 
 
 @router.get("/athletes/{athlete_id}/assessment", response_model=RunningAssessmentOut)
@@ -561,8 +587,13 @@ def get_today(athlete_id: int, db: Session = Depends(get_db)) -> TodayOut:
         raise HTTPException(status_code=404, detail="No active or draft plan for this athlete")
 
     today = date.today()
+    yesterday = today - timedelta(days=1)
     workout: StructuredWorkout | None = next(
         (w for w in plan.structured_workouts if w.scheduled_date == today),
+        None,
+    )
+    yesterday_workout: StructuredWorkout | None = next(
+        (w for w in plan.structured_workouts if w.scheduled_date == yesterday),
         None,
     )
 
@@ -574,6 +605,16 @@ def get_today(athlete_id: int, db: Session = Depends(get_db)) -> TodayOut:
         if activity is not None:
             matched_activity_id = activity.id
 
+    yesterday_workout_out: StructuredWorkoutOut | None = None
+    yesterday_activity_out: AthleteActivityOut | None = None
+    if yesterday_workout is not None:
+        yesterday_workout_out = StructuredWorkoutOut.model_validate(yesterday_workout)
+        y_activity = match_workout_to_activity(db, yesterday_workout)
+        if y_activity is not None:
+            yesterday_activity_out = _activity_with_match(db, y_activity)
+
+    recovery = _compute_recovery_recommendation(db, plan, workout)
+
     return TodayOut(
         plan_id=plan.id,
         plan_title=plan.title,
@@ -581,6 +622,9 @@ def get_today(athlete_id: int, db: Session = Depends(get_db)) -> TodayOut:
         week_index=workout.week_index if workout else None,
         workout=workout_out,
         matched_activity_id=matched_activity_id,
+        yesterday_workout=yesterday_workout_out,
+        yesterday_activity=yesterday_activity_out,
+        recovery_recommendation=recovery,
     )
 
 
@@ -929,11 +973,8 @@ def _availability_for(db: Session, athlete_id: int):
     class _AvailabilityShim:
         weekly_training_days = row.weekly_training_days if row else 5
         preferred_long_run_weekday = row.preferred_long_run_weekday if row else 6
-        unavailable_weekdays = (
-            [int(v) for v in (row.unavailable_weekdays or "").split(",") if v.strip().isdigit()]
-            if row
-            else []
-        )
+        # Orchestrator's _parse_unavailable expects the raw comma-string.
+        unavailable_weekdays = (row.unavailable_weekdays or "") if row else ""
         max_weekday_duration_min = row.max_weekday_duration_min if row else None
         max_weekend_duration_min = row.max_weekend_duration_min if row else None
         strength_training_enabled = row.strength_training_enabled if row else True
@@ -956,6 +997,879 @@ def get_workout_match_status(
     diff: MatchDiff | None = None
     matched_out = None
     if activity is not None:
-        matched_out = AthleteActivityOut.model_validate(activity)
+        matched_out = _activity_with_match(db, activity)
         diff = MatchDiff(**compute_match_diff(workout, activity))
     return WorkoutMatchStatusOut(workout_id=workout.id, matched_activity=matched_out, diff=diff)
+
+
+# ── Block A1: Activity enrichment helpers ────────────────────────────────────
+
+
+def _format_delta_summary(workout: StructuredWorkout, activity: AthleteActivity) -> str | None:
+    """Pick the most-significant single delta and format as a Chinese-friendly string."""
+    diff = compute_match_diff(workout, activity)
+
+    pace_diff = diff.get("avg_pace_diff_sec_per_km")
+    if pace_diff is not None and abs(pace_diff) >= 3:
+        sign = "+" if pace_diff > 0 else ""
+        return f"配速 {sign}{int(pace_diff)}s/km"
+
+    if (
+        workout.target_hr_min is not None
+        and workout.target_hr_max is not None
+        and activity.avg_hr is not None
+    ):
+        target_mid = (workout.target_hr_min + workout.target_hr_max) / 2.0
+        hr_diff = activity.avg_hr - target_mid
+        if abs(hr_diff) >= 2:
+            sign = "+" if hr_diff > 0 else ""
+            return f"HR {sign}{int(round(hr_diff))} bpm"
+
+    distance_pct = diff.get("distance_pct")
+    if distance_pct is not None and abs(distance_pct) >= 5:
+        sign = "+" if distance_pct > 0 else ""
+        return f"距离 {sign}{distance_pct:.1f}%"
+
+    duration_pct = diff.get("duration_pct")
+    if duration_pct is not None and abs(duration_pct) >= 5:
+        sign = "+" if duration_pct > 0 else ""
+        return f"时长 {sign}{duration_pct:.1f}%"
+
+    if pace_diff is not None or distance_pct is not None or duration_pct is not None:
+        return "执行符合计划"
+    return None
+
+
+def _classify_match_status(workout: StructuredWorkout | None, activity: AthleteActivity) -> str:
+    if workout is None:
+        return "unmatched"
+    diff = compute_match_diff(workout, activity)
+    distance_pct = diff.get("distance_pct")
+    if distance_pct is None:
+        return "completed"
+    if distance_pct < -25:
+        return "miss"
+    if distance_pct < -10:
+        return "partial"
+    return "completed"
+
+
+def _activity_with_match(db: Session, activity: AthleteActivity) -> AthleteActivityOut:
+    """Build an AthleteActivityOut that also includes match info + delta_summary."""
+    base = AthleteActivityOut.model_validate(activity).model_dump()
+    matched_workout: StructuredWorkout | None = None
+    if activity.matched_workout_id is not None:
+        matched_workout = db.get(StructuredWorkout, activity.matched_workout_id)
+
+    if matched_workout is not None:
+        base["matched_workout_id"] = matched_workout.id
+        base["matched_workout_title"] = matched_workout.title
+        base["match_status"] = _classify_match_status(matched_workout, activity)
+        base["delta_summary"] = _format_delta_summary(matched_workout, activity)
+    else:
+        base["matched_workout_id"] = None
+        base["matched_workout_title"] = None
+        base["match_status"] = "unmatched"
+        base["delta_summary"] = None
+
+    return AthleteActivityOut(**base)
+
+
+def _compute_recovery_recommendation(
+    db: Session,
+    plan: TrainingPlan,
+    today_workout: StructuredWorkout | None,
+) -> dict | None:
+    """If 4+ workouts in the last 7 days are MISSED, surface a degraded recommendation."""
+    today = date.today()
+    week_ago = today - timedelta(days=7)
+    missed_count = sum(
+        1
+        for w in plan.structured_workouts
+        if week_ago <= w.scheduled_date < today and w.status == WorkoutStatus.MISSED
+    )
+    if missed_count < 4:
+        return None
+    return {
+        "degraded_workout_title": "20 min 慢跑 · 步频检测",
+        "ethos_quote": "缺训不补",
+        "original_workout_title": today_workout.title if today_workout else None,
+    }
+
+
+# ── Block A1: Dashboard ──────────────────────────────────────────────────────
+
+
+def _greeting_for(now: datetime) -> DashboardGreeting:
+    hour = now.hour
+    if hour < 12:
+        tod = "morning"
+    elif hour < 18:
+        tod = "afternoon"
+    else:
+        tod = "evening"
+    return DashboardGreeting(
+        time_of_day=tod,
+        date=now.date().isoformat(),
+        weekday_short=now.strftime("%a"),
+    )
+
+
+def _label_for_time(target_time_sec: int | None) -> str | None:
+    if not target_time_sec:
+        return None
+    h = target_time_sec // 3600
+    m = (target_time_sec % 3600) // 60
+    return f"sub-{h}:{m:02d}"
+
+
+def _week_strip_status(
+    workout: StructuredWorkout | None,
+    matched: AthleteActivity | None,
+    day: date,
+    today: date,
+) -> str:
+    if workout is None:
+        return "today" if day == today else "rest"
+    if workout.status == WorkoutStatus.COMPLETED:
+        if matched is not None:
+            cls = _classify_match_status(workout, matched)
+            if cls == "completed":
+                return "done"
+            if cls == "partial":
+                return "partial"
+            if cls == "miss":
+                return "miss"
+        return "done"
+    if workout.status == WorkoutStatus.MISSED:
+        return "miss"
+    if day == today:
+        return "today"
+    if day < today:
+        # past but not completed/missed: treat as miss unless an activity matched
+        if matched is not None:
+            return _classify_match_status(workout, matched)
+        return "miss"
+    return "plan"
+
+
+@router.get("/athletes/{athlete_id}/dashboard", response_model=DashboardOut)
+def get_athlete_dashboard(athlete_id: int, db: Session = Depends(get_db)) -> DashboardOut:
+    athlete = _athlete_or_404(db, athlete_id)
+    plan = _active_or_draft_plan_for_athlete(db, athlete_id)
+
+    now = datetime.now(UTC)
+    today = date.today()
+
+    greeting = _greeting_for(now)
+
+    # ── Athlete + skill ref ───────────────────────────────────────────────
+    current_skill_out: SkillManifestOut | None = None
+    skill_slug = plan.active_skill_slug if plan else None
+    if skill_slug:
+        try:
+            skill = load_skill(skill_slug)
+            current_skill_out = _manifest_to_out(skill.manifest)
+        except (FileNotFoundError, ValueError, AttributeError):
+            current_skill_out = None
+
+    athlete_ref = DashboardAthleteRef(
+        id=athlete.id, name=athlete.name, current_skill=current_skill_out
+    )
+
+    # ── Today section ─────────────────────────────────────────────────────
+    today_workout: StructuredWorkout | None = None
+    matched_today: AthleteActivity | None = None
+    if plan is not None:
+        today_workout = next(
+            (w for w in plan.structured_workouts if w.scheduled_date == today), None
+        )
+        if today_workout is not None:
+            matched_today = match_workout_to_activity(db, today_workout)
+            greeting.week_index = today_workout.week_index
+            greeting.week_phase = _phase_for(today_workout.week_index, plan.weeks)
+
+    today_section = DashboardTodaySection(
+        plan_id=plan.id if plan else None,
+        week_index=today_workout.week_index if today_workout else None,
+        workout=StructuredWorkoutOut.model_validate(today_workout) if today_workout else None,
+        matched_activity=_activity_with_match(db, matched_today) if matched_today else None,
+        match_status=(
+            _classify_match_status(today_workout, matched_today)
+            if matched_today is not None and today_workout is not None
+            else None
+        ),
+    )
+
+    # ── This week section ─────────────────────────────────────────────────
+    this_week = DashboardThisWeek()
+    if plan is not None:
+        # Anchor week on today_workout's week if available; else find week containing today
+        week_index: int | None = today_workout.week_index if today_workout else None
+        if week_index is None:
+            future = [
+                w for w in plan.structured_workouts if w.scheduled_date >= today
+            ]
+            if future:
+                week_index = min(future, key=lambda w: w.scheduled_date).week_index
+            elif plan.structured_workouts:
+                week_index = plan.structured_workouts[-1].week_index
+
+        if week_index is not None:
+            week_workouts = sorted(
+                [w for w in plan.structured_workouts if w.week_index == week_index],
+                key=lambda w: w.scheduled_date,
+            )
+            phase = _phase_for(week_index, plan.weeks)
+            is_recovery = _is_recovery_week(week_workouts)
+            planned_km = sum((w.distance_m or 0) for w in week_workouts) / 1000.0
+            planned_quality = sum(1 for w in week_workouts if _is_quality(w.workout_type))
+
+            completed_km = 0.0
+            completed_quality = 0
+            days: list[DashboardWeekDay] = []
+
+            for w in week_workouts:
+                matched = match_workout_to_activity(db, w)
+                if matched is not None and w.status == WorkoutStatus.COMPLETED:
+                    completed_km += (matched.distance_m or 0) / 1000.0
+                    if _is_quality(w.workout_type):
+                        completed_quality += 1
+
+                status = _week_strip_status(w, matched, w.scheduled_date, today)
+                day_distance_km = ((matched.distance_m if matched else (w.distance_m or 0)) or 0) / 1000.0
+                day_duration_min = (
+                    (matched.duration_sec // 60) if matched else (w.duration_min or 0)
+                )
+                days.append(
+                    DashboardWeekDay(
+                        date=w.scheduled_date,
+                        weekday=w.scheduled_date.weekday(),
+                        title=w.title,
+                        distance_km=round(day_distance_km, 2),
+                        duration_min=int(day_duration_min),
+                        status=status,
+                    )
+                )
+
+            this_week = DashboardThisWeek(
+                plan_id=plan.id,
+                week_index=week_index,
+                total_weeks=plan.weeks,
+                phase=phase,
+                is_recovery=is_recovery,
+                days=days,
+                completed_km=round(completed_km, 2),
+                planned_km=round(planned_km, 2),
+                completed_quality=completed_quality,
+                planned_quality=planned_quality,
+            )
+
+    # ── Goal ──────────────────────────────────────────────────────────────
+    goal = DashboardGoal()
+    if plan is not None:
+        goal.label = _label_for_time(plan.target_time_sec)
+        goal.race_date = plan.race_date
+        goal.target_time_sec = plan.target_time_sec
+        if plan.race_date is not None:
+            goal.days_until = (plan.race_date - today).days
+
+    pred_rows = db.execute(
+        select(AthleteMetricSnapshot)
+        .where(AthleteMetricSnapshot.athlete_id == athlete_id)
+        .where(AthleteMetricSnapshot.metric_type == "race_predictor_marathon")
+        .order_by(AthleteMetricSnapshot.measured_at.desc())
+        .limit(12)
+    ).scalars().all()
+    pred_rows_asc = list(reversed(pred_rows))
+    goal.prediction_history = [
+        {
+            "measured_at": r.measured_at.isoformat(),
+            "predicted_time_sec": int(r.value),
+        }
+        for r in pred_rows_asc
+    ]
+    if len(pred_rows_asc) >= 2:
+        latest = pred_rows_asc[-1]
+        cutoff = latest.measured_at - timedelta(days=28)
+        prior = next(
+            (r for r in pred_rows_asc if r.measured_at <= cutoff),
+            pred_rows_asc[0] if pred_rows_asc[0] is not latest else None,
+        )
+        if prior is not None and prior is not latest:
+            goal.monthly_delta_sec = int(latest.value) - int(prior.value)
+
+    # ── Volume history (last 8 weeks) ─────────────────────────────────────
+    volume_history: list[DashboardVolumeWeek] = []
+    current_week_index = today_workout.week_index if today_workout else None
+    if plan is not None and current_week_index is not None:
+        for offset in range(-7, 1):
+            wi = current_week_index + offset
+            if wi < 1 or wi > plan.weeks:
+                continue
+            wk_workouts = [w for w in plan.structured_workouts if w.week_index == wi]
+            planned_km_w = sum((w.distance_m or 0) for w in wk_workouts) / 1000.0
+            if wk_workouts:
+                wk_start = min(w.scheduled_date for w in wk_workouts)
+                wk_end = max(w.scheduled_date for w in wk_workouts)
+                acts = db.execute(
+                    select(AthleteActivity)
+                    .where(AthleteActivity.athlete_id == athlete_id)
+                    .where(AthleteActivity.discipline == "run")
+                    .where(AthleteActivity.started_at >= datetime.combine(wk_start, datetime.min.time()))
+                    .where(AthleteActivity.started_at <= datetime.combine(wk_end + timedelta(days=1), datetime.min.time()))
+                ).scalars().all()
+                executed_km_w = sum((a.distance_m or 0) for a in acts) / 1000.0
+            else:
+                executed_km_w = 0.0
+            completion = (executed_km_w / planned_km_w * 100.0) if planned_km_w > 0 else 0.0
+            label = "W00" if offset == 0 else (f"W{offset:+d}".replace("+", "+"))
+            # Spec says "W-7", "W-6"... "W05" (current). Use a simple prefix.
+            if offset == 0:
+                label = f"W{wi:02d}"
+            else:
+                label = f"W{offset}"
+            volume_history.append(
+                DashboardVolumeWeek(
+                    week_index=wi,
+                    week_label=label,
+                    executed_km=round(executed_km_w, 2),
+                    planned_km=round(planned_km_w, 2),
+                    completion_pct=round(completion, 1),
+                    is_current=(offset == 0),
+                )
+            )
+
+    # ── Recent activities (last 7) ────────────────────────────────────────
+    recent_acts = db.execute(
+        select(AthleteActivity)
+        .where(AthleteActivity.athlete_id == athlete_id)
+        .order_by(AthleteActivity.started_at.desc())
+        .limit(7)
+    ).scalars().all()
+    recent_activities: list[DashboardRecentActivity] = []
+    for a in recent_acts:
+        matched_workout: StructuredWorkout | None = None
+        if a.matched_workout_id is not None:
+            matched_workout = db.get(StructuredWorkout, a.matched_workout_id)
+        title = matched_workout.title if matched_workout is not None else "自由跑"
+        match_status = (
+            _classify_match_status(matched_workout, a) if matched_workout is not None else "unmatched"
+        )
+        delta = _format_delta_summary(matched_workout, a) if matched_workout is not None else None
+        recent_activities.append(
+            DashboardRecentActivity(
+                id=a.id,
+                started_at=a.started_at,
+                title=title,
+                distance_km=round((a.distance_m or 0) / 1000.0, 2),
+                duration_min=int((a.duration_sec or 0) // 60),
+                avg_pace_sec_per_km=a.avg_pace_sec_per_km,
+                avg_hr=int(a.avg_hr) if a.avg_hr is not None else None,
+                match_status=match_status,
+                delta_summary=delta,
+            )
+        )
+
+    # ── Pending adjustment ────────────────────────────────────────────────
+    pending = db.execute(
+        select(PlanAdjustment)
+        .where(PlanAdjustment.athlete_id == athlete_id)
+        .where(PlanAdjustment.status == AdjustmentStatus.PROPOSED)
+        .order_by(PlanAdjustment.created_at.desc())
+    ).scalars().first()
+    pending_dict: dict | None = None
+    if pending is not None:
+        headline = (pending.reason or "")[:50]
+        pending_dict = {"id": pending.id, "reason_headline": headline}
+
+    # ── Readiness ─────────────────────────────────────────────────────────
+    readiness = _build_readiness(db, athlete_id)
+
+    # ── Meta ──────────────────────────────────────────────────────────────
+    coros_account = _device_account(db, athlete_id, DeviceType.COROS)
+    last_sync_at = None
+    last_sync_status = "never"
+    if coros_account is not None:
+        last_sync_at = coros_account.last_import_at or coros_account.last_sync_at
+        if last_sync_at is not None:
+            last_sync_status = "ok" if not coros_account.last_error else "error"
+        elif coros_account.last_error:
+            last_sync_status = "error"
+
+    meta = DashboardMeta(
+        skill_slug=skill_slug,
+        skill_name=current_skill_out.name if current_skill_out else None,
+        skill_version=current_skill_out.version if current_skill_out else None,
+        last_sync_at=last_sync_at,
+        last_sync_status=last_sync_status,
+    )
+
+    return DashboardOut(
+        athlete=athlete_ref,
+        greeting=greeting,
+        pending_adjustment=pending_dict,
+        today=today_section,
+        this_week=this_week,
+        goal=goal,
+        volume_history=volume_history,
+        recent_activities=recent_activities,
+        readiness=readiness,
+        meta=meta,
+    )
+
+
+def _build_readiness(db: Session, athlete_id: int) -> DashboardReadiness:
+    now = datetime.now(UTC)
+
+    def _latest_metric(metric_type: str):
+        return db.execute(
+            select(AthleteMetricSnapshot)
+            .where(AthleteMetricSnapshot.athlete_id == athlete_id)
+            .where(AthleteMetricSnapshot.metric_type == metric_type)
+            .order_by(AthleteMetricSnapshot.measured_at.desc())
+        ).scalars().first()
+
+    rhr_row = _latest_metric("resting_hr")
+    rhr = int(rhr_row.value) if rhr_row else None
+    rhr_trend: str | None = None
+    if rhr_row is not None:
+        cutoff = now.replace(tzinfo=None) - timedelta(days=14)
+        rows = db.execute(
+            select(AthleteMetricSnapshot)
+            .where(AthleteMetricSnapshot.athlete_id == athlete_id)
+            .where(AthleteMetricSnapshot.metric_type == "resting_hr")
+            .where(AthleteMetricSnapshot.measured_at >= cutoff)
+        ).scalars().all()
+        if rows:
+            avg = sum(r.value for r in rows) / len(rows)
+            if rhr is not None:
+                if rhr < avg - 1:
+                    rhr_trend = "down"
+                elif rhr > avg + 1:
+                    rhr_trend = "up"
+                else:
+                    rhr_trend = "flat"
+
+    week_ago = now - timedelta(days=7)
+    two_weeks_ago = now - timedelta(days=14)
+    cur_acts = db.execute(
+        select(AthleteActivity)
+        .where(AthleteActivity.athlete_id == athlete_id)
+        .where(AthleteActivity.started_at >= week_ago.replace(tzinfo=None))
+    ).scalars().all()
+    prev_acts = db.execute(
+        select(AthleteActivity)
+        .where(AthleteActivity.athlete_id == athlete_id)
+        .where(AthleteActivity.started_at >= two_weeks_ago.replace(tzinfo=None))
+        .where(AthleteActivity.started_at < week_ago.replace(tzinfo=None))
+    ).scalars().all()
+    cur_load = sum((a.training_load or 0) for a in cur_acts)
+    prev_load = sum((a.training_load or 0) for a in prev_acts)
+    weekly_load = int(cur_load) if cur_acts else None
+    load_trend: str | None = None
+    if cur_acts:
+        if cur_load < prev_load - 1:
+            load_trend = "down"
+        elif cur_load > prev_load + 1:
+            load_trend = "up"
+        else:
+            load_trend = "flat"
+
+    lthr_row = _latest_metric("lthr")
+    ltsp_row = _latest_metric("ltsp")
+
+    return DashboardReadiness(
+        resting_hr=rhr,
+        resting_hr_trend=rhr_trend,
+        weekly_training_load=weekly_load,
+        weekly_training_load_trend=load_trend,
+        lthr=int(lthr_row.value) if lthr_row else None,
+        ltsp_sec_per_km=float(ltsp_row.value) if ltsp_row else None,
+    )
+
+
+# ── Block A1: Plan volume curve ──────────────────────────────────────────────
+
+
+@router.get("/plans/{plan_id}/volume-curve", response_model=PlanVolumeCurveOut)
+def get_plan_volume_curve(plan_id: int, db: Session = Depends(get_db)) -> PlanVolumeCurveOut:
+    plan = db.execute(
+        select(TrainingPlan)
+        .where(TrainingPlan.id == plan_id)
+        .options(selectinload(TrainingPlan.structured_workouts))
+    ).scalar_one_or_none()
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    today = date.today()
+    weeks_data: dict[int, list[StructuredWorkout]] = {}
+    for w in plan.structured_workouts:
+        weeks_data.setdefault(w.week_index, []).append(w)
+
+    current_week_index = None
+    for wi, ws in weeks_data.items():
+        wk_start = min(w.scheduled_date for w in ws)
+        wk_end = max(w.scheduled_date for w in ws)
+        if wk_start <= today <= wk_end:
+            current_week_index = wi
+            break
+
+    points: list[PlanVolumeCurvePoint] = []
+    peak_planned = 0.0
+    peak_executed = 0.0
+    for wi in sorted(weeks_data.keys()):
+        ws = weeks_data[wi]
+        planned_km = sum((w.distance_m or 0) for w in ws) / 1000.0
+        longest = max(((w.distance_m or 0) for w in ws), default=0.0) / 1000.0
+        wk_start = min(w.scheduled_date for w in ws)
+        wk_end = max(w.scheduled_date for w in ws)
+        acts = db.execute(
+            select(AthleteActivity)
+            .where(AthleteActivity.athlete_id == plan.athlete_id)
+            .where(AthleteActivity.discipline == "run")
+            .where(AthleteActivity.started_at >= datetime.combine(wk_start, datetime.min.time()))
+            .where(
+                AthleteActivity.started_at
+                <= datetime.combine(wk_end + timedelta(days=1), datetime.min.time())
+            )
+        ).scalars().all()
+        executed_km = sum((a.distance_m or 0) for a in acts) / 1000.0
+        peak_planned = max(peak_planned, planned_km)
+        peak_executed = max(peak_executed, executed_km)
+        points.append(
+            PlanVolumeCurvePoint(
+                week_index=wi,
+                phase=_phase_for(wi, plan.weeks),
+                is_recovery=_is_recovery_week(ws),
+                is_current=(wi == current_week_index),
+                planned_km=round(planned_km, 2),
+                executed_km=round(executed_km, 2),
+                longest_run_km=round(longest, 2),
+            )
+        )
+
+    return PlanVolumeCurveOut(
+        plan_id=plan.id,
+        weeks=points,
+        peak_planned_km=round(peak_planned, 2),
+        peak_executed_km=round(peak_executed, 2),
+    )
+
+
+# ── Block A1: Regenerate preview ─────────────────────────────────────────────
+
+
+@router.get("/plans/{plan_id}/regenerate-preview", response_model=RegeneratePreviewOut)
+def get_plan_regenerate_preview(
+    plan_id: int,
+    skill_slug: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+) -> RegeneratePreviewOut:
+    plan = db.execute(
+        select(TrainingPlan)
+        .where(TrainingPlan.id == plan_id)
+        .options(
+            selectinload(TrainingPlan.structured_workouts),
+            selectinload(TrainingPlan.race_goal),
+        )
+    ).scalar_one_or_none()
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    athlete = db.get(AthleteProfile, plan.athlete_id)
+    if athlete is None:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+
+    try:
+        skill = load_skill(skill_slug)
+    except (FileNotFoundError, ValueError, AttributeError) as exc:
+        raise HTTPException(status_code=404, detail=f"Skill not found: {skill_slug}") from exc
+
+    today = date.today()
+    frozen_workouts = [w for w in plan.structured_workouts if w.scheduled_date < today]
+    future_workouts = [w for w in plan.structured_workouts if w.scheduled_date >= today]
+
+    frozen_completed = sum(
+        1 for w in frozen_workouts if w.status == WorkoutStatus.COMPLETED
+    )
+    frozen_missed = sum(
+        1
+        for w in frozen_workouts
+        if w.status == WorkoutStatus.MISSED or w.feedback is None
+    ) - sum(1 for w in frozen_workouts if w.status == WorkoutStatus.COMPLETED and w.feedback is None)
+    # Simpler: missed = MISSED state OR (past and feedback is None and not completed)
+    frozen_missed = sum(
+        1
+        for w in frozen_workouts
+        if w.status == WorkoutStatus.MISSED
+        or (w.feedback is None and w.status != WorkoutStatus.COMPLETED)
+    )
+
+    weeks_affected = len({w.week_index for w in future_workouts})
+    days_affected_start = min((w.scheduled_date for w in future_workouts), default=None)
+    days_affected_end = max((w.scheduled_date for w in future_workouts), default=None)
+
+    # Build context to ask the skill if it's applicable.
+    base_goal = plan.race_goal
+    frozen_week_count = len({w.week_index for w in frozen_workouts}) if frozen_workouts else 0
+    remaining_weeks = max(1, plan.weeks - frozen_week_count)
+
+    derived_goal = RaceGoal(
+        athlete_id=plan.athlete_id,
+        sport=plan.sport,
+        distance=base_goal.distance if base_goal else plan.sport.value,
+        target_type=base_goal.target_type if base_goal else (
+            "target_time" if plan.target_time_sec else "finish"
+        ),
+        target_time_sec=plan.target_time_sec,
+        race_date=plan.race_date,
+        training_start_date=today,
+        plan_weeks=remaining_weeks,
+    )
+
+    availability = _availability_for(db, plan.athlete_id)
+    from app.core.orchestrator import _build_context, _llm_enabled
+
+    ctx = _build_context(
+        db=db,
+        athlete=athlete,
+        availability=availability,
+        race_goal=derived_goal,
+        start_date=today,
+        profile_block="",
+        llm_enabled=_llm_enabled(),
+    )
+    ok, why = skill.applicable(ctx)
+
+    # Estimate regenerated_count: assume same number as future_workouts when
+    # applicable. (The actual generator is what knows the real count, so we
+    # use the existing future workouts as a proxy.)
+    regenerated_count = len(future_workouts) if ok else 0
+
+    return RegeneratePreviewOut(
+        plan_id=plan.id,
+        new_skill_slug=skill_slug,
+        applicable=ok,
+        applicability_reason=why or "ok",
+        frozen_completed=frozen_completed,
+        frozen_missed=frozen_missed,
+        regenerated_count=regenerated_count,
+        weeks_affected=weeks_affected,
+        days_affected_start=days_affected_start,
+        days_affected_end=days_affected_end,
+    )
+
+
+# ── Block A1: Adjustment detail + apply ──────────────────────────────────────
+
+
+def _adjustment_detail_out(adjustment: PlanAdjustment) -> PlanAdjustmentDetailOut:
+    affected: list[AdjustmentAffectedWorkout] = []
+    if adjustment.affected_workouts_json:
+        try:
+            data = json.loads(adjustment.affected_workouts_json)
+            for entry in data or []:
+                affected.append(AdjustmentAffectedWorkout(**entry))
+        except (ValueError, TypeError):
+            affected = []
+    base = PlanAdjustmentOut.model_validate(adjustment).model_dump()
+    return PlanAdjustmentDetailOut(**base, affected_workouts=affected)
+
+
+@router.get("/plan-adjustments/{adjustment_id}", response_model=PlanAdjustmentDetailOut)
+def get_plan_adjustment(
+    adjustment_id: int, db: Session = Depends(get_db)
+) -> PlanAdjustmentDetailOut:
+    adjustment = db.get(PlanAdjustment, adjustment_id)
+    if adjustment is None:
+        raise HTTPException(status_code=404, detail="Adjustment not found")
+    return _adjustment_detail_out(adjustment)
+
+
+def _format_distance_for_display(distance_m: float | None) -> str:
+    if distance_m is None:
+        return "0 km"
+    return f"{distance_m / 1000.0:.1f} km"
+
+
+def _parse_distance_to_m(value: str | float | int) -> float:
+    """Accept 'NN km' or numeric meters."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value).strip().lower()
+    if s.endswith("km"):
+        return float(s[:-2].strip()) * 1000.0
+    if s.endswith("m"):
+        return float(s[:-1].strip())
+    return float(s)
+
+
+@router.post("/plan-adjustments/{adjustment_id}/apply", response_model=PlanAdjustmentDetailOut)
+def apply_plan_adjustment(
+    adjustment_id: int,
+    payload: PlanAdjustmentApplyRequest,
+    db: Session = Depends(get_db),
+) -> PlanAdjustmentDetailOut:
+    adjustment = db.get(PlanAdjustment, adjustment_id)
+    if adjustment is None:
+        raise HTTPException(status_code=404, detail="Adjustment not found")
+
+    affected_data: list[dict] = []
+    if adjustment.affected_workouts_json:
+        try:
+            affected_data = json.loads(adjustment.affected_workouts_json) or []
+        except (ValueError, TypeError):
+            affected_data = []
+
+    selected_ids = payload.selected_workout_ids
+    selected_set: set[int] | None = set(selected_ids) if selected_ids is not None else None
+
+    try:
+        for entry in affected_data:
+            wid = int(entry["workout_id"])
+            if selected_set is not None and wid not in selected_set:
+                continue
+            workout = db.get(StructuredWorkout, wid)
+            if workout is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Affected workout {wid} not found",
+                )
+            field = entry.get("field")
+            after = entry.get("after")
+            if field == "distance_m":
+                workout.distance_m = _parse_distance_to_m(after)
+            elif field == "duration_min":
+                workout.duration_min = int(_to_number(after))
+            elif field == "skip":
+                workout.status = WorkoutStatus.MISSED
+                workout.distance_m = 0
+            elif field == "workout_type":
+                workout.workout_type = str(after)
+            else:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Unknown affected workout field: {field}",
+                )
+            workout.updated_at = datetime.now(UTC)
+
+        adjustment.status = AdjustmentStatus.CONFIRMED
+        adjustment.confirmed_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(adjustment)
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Apply failed: {exc}") from exc
+
+    return _adjustment_detail_out(adjustment)
+
+
+def _to_number(value: str | float | int) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value).strip().lower()
+    if s.endswith("min"):
+        return float(s[:-3].strip())
+    return float(s)
+
+
+# ── Block A1: Coach chat ─────────────────────────────────────────────────────
+
+
+_AI_UNAVAILABLE_REPLY = "AI 教练当前不可用，请稍后再试"
+
+
+@router.post("/coach/message", response_model=CoachMessageResponse)
+def post_coach_message(
+    payload: CoachMessageRequest, db: Session = Depends(get_db)
+) -> CoachMessageResponse:
+    athlete = _athlete_or_404(db, payload.athlete_id)
+
+    user_msg = CoachMessage(
+        athlete_id=athlete.id, role="user", text=payload.message
+    )
+    db.add(user_msg)
+    db.flush()
+
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    coach_text = _AI_UNAVAILABLE_REPLY
+    suggested_actions: list[dict] = []
+
+    if api_key:
+        try:
+            from app.core.checkin import (
+                get_latest_plan,
+                get_recent_activities,
+                get_upcoming_workouts,
+                interpret_checkin,
+            )
+
+            plan = get_latest_plan(db)
+            upcoming = get_upcoming_workouts(db, plan.id) if plan else []
+            recent = get_recent_activities(db, athlete.id)
+            history_rows = db.execute(
+                select(CoachMessage)
+                .where(CoachMessage.athlete_id == athlete.id)
+                .order_by(CoachMessage.created_at.asc())
+            ).scalars().all()
+            conv_history = [
+                {
+                    "role": ("assistant" if m.role == "coach" else "user"),
+                    "content": m.text,
+                }
+                for m in history_rows
+                if m.id != user_msg.id
+            ]
+            result = interpret_checkin(
+                user_message=payload.message,
+                upcoming_workouts=upcoming,
+                recent_activities=recent,
+                profile_block=athlete.notes or "",
+                conversation_history=conv_history,
+                plan_title=plan.title if plan else "",
+            )
+            coach_text = result.get("reply") or _AI_UNAVAILABLE_REPLY
+            suggested_actions = result.get("adjustments") or []
+        except Exception as exc:  # pragma: no cover - LLM failure path
+            coach_text = _AI_UNAVAILABLE_REPLY
+            suggested_actions = []
+
+    coach_msg = CoachMessage(
+        athlete_id=athlete.id,
+        role="coach",
+        text=coach_text,
+        suggested_actions_json=(
+            json.dumps(suggested_actions, ensure_ascii=False) if suggested_actions else None
+        ),
+    )
+    db.add(coach_msg)
+    db.commit()
+    db.refresh(user_msg)
+    db.refresh(coach_msg)
+
+    return CoachMessageResponse(
+        user_message=CoachMessageOut.model_validate(user_msg),
+        coach_message=CoachMessageOut.model_validate(coach_msg),
+    )
+
+
+@router.get(
+    "/coach/conversations/{athlete_id}", response_model=list[CoachMessageOut]
+)
+def get_coach_conversations(
+    athlete_id: int,
+    limit: int = Query(default=50, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> list[CoachMessageOut]:
+    _athlete_or_404(db, athlete_id)
+    rows = db.execute(
+        select(CoachMessage)
+        .where(CoachMessage.athlete_id == athlete_id)
+        .order_by(CoachMessage.created_at.desc())
+        .limit(limit)
+    ).scalars().all()
+    return [CoachMessageOut.model_validate(r) for r in rows]

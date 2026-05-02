@@ -133,3 +133,26 @@ How: Followed the plan at `~/.claude/plans/golden-roaming-acorn.md`. Pure struct
 Result: `uv run python -m unittest discover -s tests`: **2/2 pass in ~5 seconds**. End-to-end smoke test: `uv run python -c "from app.skills import load_skill, list_skills; print(list_skills()); skill = load_skill('marathon_st_default'); ..."` produces a 12-week, 4-workouts/week marathon plan with `BASE_BUILD_PEAK` mode and proper warmup/work/cooldown step structure. The `/marathon/plans/generate` route preserves its existing API contract — clients see no behavior change.
 
 Out of scope (deferred to MVP+1.5): skill-creator UI/flow, COROS `/training/schedule/query` historical date-range probe, second skill (e.g., 80/20 polarized), second sport (half marathon).
+
+## 2026-05-01 - Block A1 frontend-contract endpoints
+
+Why: The web frontend needs aggregate + detail endpoints that the existing API does not provide. `docs/api-frontend-contract.md` specifies eight new/enhanced endpoints (dashboard, volume curve, regenerate preview, adjustment detail+apply, coach chat send/list, plus enrichments to today/history). Implementing them on the backend unblocks the Next.js frontend work.
+
+How: Followed the actionable spec from the user prompt.
+
+- **Models** (`app/models.py`): added `affected_workouts_json` Text column on `PlanAdjustment`; added new `CoachMessage` table (`id, athlete_id, role, text, suggested_actions_json, created_at`).
+- **Schemas** (`app/schemas.py`): enriched `AthleteActivityOut` with `matched_workout_id`, `matched_workout_title`, `match_status`, `delta_summary`. Extended `TodayOut` with `yesterday_workout`, `yesterday_activity`, `recovery_recommendation`. Added Block A1 schemas: `Dashboard*`, `PlanVolumeCurve*`, `RegeneratePreviewOut`, `AdjustmentAffectedWorkout`, `PlanAdjustmentDetailOut`, `PlanAdjustmentApplyRequest`, `CoachMessage*`.
+- **Routes** (`app/api/routes.py`):
+  - `GET /athletes/{id}/dashboard` — aggregates greeting, today's workout + match, this-week strip, goal w/ prediction history (12 most recent `race_predictor_marathon` snapshots), 8-week volume history (planned vs executed), 7 most recent activities, readiness panel (rhr trend vs 14-day avg, weekly load trend, lthr, ltsp), pending adjustment, last sync meta.
+  - `GET /plans/{id}/volume-curve` — full per-week planned/executed/longest-run with `is_current` flag and peak values.
+  - `GET /plans/{id}/regenerate-preview?skill_slug=X` — read-only sibling of regenerate-from-today: builds derived race goal context, asks `skill.applicable(ctx)`, returns counts + applicability.
+  - `GET /plan-adjustments/{id}` — adjustment detail with parsed `affected_workouts_json`.
+  - `POST /plan-adjustments/{id}/apply` — atomic mutation: walks `affected_workouts_json`, applies `distance_m`, `duration_min`, `skip` (sets `MISSED` + zeroes distance), or `workout_type`. Returns 422 when a referenced workout is missing.
+  - `POST /coach/message` — persists user msg, dispatches to `interpret_checkin()` when `OPENAI_API_KEY` is set; otherwise stub reply "AI 教练当前不可用，请稍后再试". Persists coach reply with optional `suggested_actions_json`.
+  - `GET /coach/conversations/{athlete_id}?limit=50` — newest-first pagination.
+  - Enhanced `GET /athletes/{id}/history` to wrap each row through `_activity_with_match(db, a)` so `match_status` and `delta_summary` are populated.
+  - Enhanced `GET /athletes/{id}/today` with yesterday's workout + matched activity and the `recovery_recommendation` heuristic (≥4 missed in last 7 days).
+  - Bug fix as side-effect: the `_AvailabilityShim` in `_availability_for()` was returning a Python list for `unavailable_weekdays`, but `app.core.orchestrator._parse_unavailable` expects the raw comma-string from the model. Replaced the list-comprehension with the raw string. This unblocked the regenerate-preview path that goes through `_build_context`.
+- **Tests** (`tests/test_block_a1.py`): 14 tests across 7 TestCase classes covering dashboard with/without plan/activities, volume curve, regenerate preview applicable + not-applicable (frozen most weeks so derived `plan_weeks` < 12), adjustment apply happy paths + 422, coach stub fallback when `OPENAI_API_KEY` empty, coach conversation pagination, history enrichment, today recovery + yesterday surfacing.
+
+Result: `uv run python -m py_compile $(find app -name "*.py")` clean. `uv run python -m unittest discover -s tests -v` reports **33 tests pass in ~2.3s** (19 existing + 14 new). No commit yet — awaiting user review.

@@ -321,3 +321,104 @@ app/
 - Probe COROS `/training/schedule/query` with historical date range to capture coach-prescribed past plans
 - Second skill (e.g., 80/20 polarized) to validate skill-swap independence
 - Second sport (half marathon) to validate sport-swap independence
+
+---
+
+# Block A — Backend API for Frontend (2026-05-02) — COMPLETE
+
+Objective: Add REST endpoints required by the frontend: skill catalog, today/week views, workout feedback, skill regenerate, activity matching.
+
+Verification: `uv run python -m unittest discover -s tests -v` — 19/19 pass.
+
+---
+
+# Block A1 — Aggregate Endpoints for Frontend Dashboard (2026-05-02) — COMPLETE
+
+Objective: Add 7 aggregate/new endpoints and enrich 2 existing ones per `docs/api-frontend-contract.md`.
+
+New endpoints:
+- `GET /athletes/{id}/dashboard`
+- `GET /plans/{id}/volume-curve`
+- `GET /plans/{id}/regenerate-preview`
+- `GET /plan-adjustments/{id}`
+- `POST /plan-adjustments/{id}/apply`
+- `POST /coach/message`
+- `GET /coach/conversations/{athlete_id}`
+
+Enhanced:
+- `GET /athletes/{id}/history` (match_status + delta_summary)
+- `GET /athletes/{id}/today` (yesterday + recovery_recommendation)
+
+Files changed: `app/models.py`, `app/schemas.py`, `app/api/routes.py`, `tests/test_block_a1.py` (14 new tests).
+
+Verification: `uv run python -m unittest discover -s tests -v` — 33/33 pass in 2.4s (independently verified 2026-05-02).
+
+Bug fixed as side-effect: `_AvailabilityShim.unavailable_weekdays` was returning a list instead of a comma-string; fixed so regenerate-preview path through `_build_context` works.
+
+Not committed — awaiting review.
+
+---
+
+# Frontend Scaffold — Next.js web/ (2026-05-02) — DONE, TESTS MISSING
+
+Objective: Scaffold `web/` with Next.js 14 App Router + TypeScript + Tailwind + shadcn/ui + SWR matching the sketch wireframes.
+
+Files created: `web/package.json`, `web/tsconfig.json`, `web/next.config.js`, `web/tailwind.config.ts`, `web/app/layout.tsx`, `web/app/(tabs)/layout.tsx`, four tab pages (dashboard/today/week/plan), all sub-components, `lib/api/client.ts`, `lib/api/types.ts`, SWR hooks.
+
+Verification run:
+- `pnpm type-check` — exit 0, no errors.
+- `pnpm build` — exit 0, 9 pages compiled.
+- `curl http://localhost:3000/dashboard` — HTTP 200 with dev server running.
+
+**KNOWN DEBT — rules.md violation:**
+- Iron Law 3: No automated tests exist for the frontend. This was not caught before implementation started.
+- No plan was written to `tasks/todo.md` before implementation.
+
+**Required follow-up (must complete before this task is "done"):**
+- [ ] Write frontend tests (at minimum: route rendering, API hook mock, tab navigation).
+- [ ] Choose test framework (Vitest + React Testing Library recommended for Next.js App Router).
+- [ ] Write failing tests first, then verify they pass against current scaffold.
+
+Out of scope for scaffold phase: E2E Playwright tests, visual regression, CI pipeline.
+
+---
+
+# Task: Commit Block A1 backend (2026-05-02)
+
+Objective: Commit verified Block A1 backend changes to git with atomic message.
+
+Files to stage: `app/models.py`, `app/schemas.py`, `app/api/routes.py`, `tests/test_block_a1.py`, `tasks/devlog.md`, `tasks/todo.md`.
+
+Acceptance criteria:
+- [ ] `uv run python -m unittest discover -s tests -v` exits 0 immediately before commit
+- [ ] Commit message follows `feat(api): ...` pattern from repo history
+- [ ] `web/` directory excluded from this commit (separate frontend commit after tests pass)
+
+---
+
+# Task: Frontend tests — Vitest + RTL (2026-05-02)
+
+Objective: Add automated unit tests for the Next.js frontend to satisfy Iron Law 3.
+
+Files to add:
+- `web/vitest.config.ts`
+- `web/vitest.setup.ts`
+- `web/__tests__/pages.test.tsx` — each tab page renders without crash
+- `web/__tests__/hooks.test.ts` — SWR hooks call correct URLs
+- `web/__tests__/components.test.tsx` — SkillChip, PaceRangeBar, StatusDot render correctly
+
+Approach (TDD):
+1. Install `vitest @vitejs/plugin-react @testing-library/react @testing-library/jest-dom`
+2. Write failing tests first (pages throw because SWR fetches fail without mock)
+3. Add MSW or inline fetch mock
+4. Confirm tests pass
+
+Test commands: `pnpm test` (vitest run)
+
+Acceptance criteria:
+- [ ] `pnpm test` exits 0
+- [ ] At minimum: 4 page render tests + 3 hook URL tests + 2 component tests
+- [ ] Tests run in < 30s
+- [ ] No snapshot tests (too brittle for sketch UI)
+
+Out of scope: E2E Playwright, visual regression, CI pipeline.
