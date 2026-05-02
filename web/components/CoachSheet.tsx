@@ -1,0 +1,156 @@
+'use client'
+
+import { useRef, useState } from 'react'
+import useSWR from 'swr'
+import { fetcher, postJson } from '@/lib/api/client'
+import type { CoachMessage } from '@/lib/api/types'
+
+const ATHLETE_ID = 1
+
+interface Props {
+  open: boolean
+  onClose: () => void
+}
+
+export default function CoachSheet({ open, onClose }: Props) {
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  const { data, mutate } = useSWR<CoachMessage[]>(
+    open ? `/api/coach/conversations/${ATHLETE_ID}?limit=50` : null,
+    fetcher,
+  )
+
+  const messages = data ?? []
+
+  async function send() {
+    const msg = text.trim()
+    if (!msg || sending) return
+    setSending(true)
+    setText('')
+    try {
+      await postJson('/api/coach/message', { athlete_id: ATHLETE_ID, text: msg })
+      await mutate()
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  if (!open) return null
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        display: 'flex', flexDirection: 'column',
+        background: 'var(--paper)',
+      }}
+      className="fade-in"
+    >
+      {/* header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '14px 16px',
+        borderBottom: '1.5px solid var(--rule)',
+      }}>
+        <span className="hand" style={{ fontSize: 18, fontWeight: 700 }}>教练</span>
+        <button
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--ink-faint)' }}
+        >×</button>
+      </div>
+
+      {/* messages */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {messages.length === 0 && (
+          <p className="hand text-faint" style={{ fontSize: 14, textAlign: 'center', marginTop: 40 }}>
+            有什么问题尽管问 👋
+          </p>
+        )}
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            style={{
+              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+              maxWidth: '80%',
+            }}
+          >
+            <div
+              className="hand"
+              style={{
+                padding: '8px 12px',
+                borderRadius: m.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                background: m.role === 'user' ? 'var(--ink)' : 'var(--paper)',
+                color: m.role === 'user' ? 'var(--paper)' : 'var(--ink)',
+                border: m.role === 'coach' ? '1.5px solid var(--rule)' : 'none',
+                fontSize: 14,
+                lineHeight: 1.5,
+              }}
+            >
+              {m.text}
+            </div>
+
+            {m.suggested_actions && m.suggested_actions.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                {m.suggested_actions.map((a, i) => (
+                  <button key={i} className="sk-pill sk-pill--accent" style={{ cursor: 'pointer', background: 'none', border: '1.2px solid var(--accent)' }}>
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* input */}
+      <div style={{
+        padding: '12px 16px',
+        borderTop: '1px solid var(--rule-soft)',
+        display: 'flex', gap: 8, alignItems: 'flex-end',
+        paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+      }}>
+        <textarea
+          className="hand"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+          placeholder="发消息…"
+          rows={1}
+          style={{
+            flex: 1,
+            resize: 'none',
+            border: '1.5px solid var(--rule)',
+            borderRadius: 8,
+            padding: '8px 12px',
+            fontSize: 14,
+            background: 'var(--paper)',
+            color: 'var(--ink)',
+            fontFamily: 'var(--font-hand)',
+            outline: 'none',
+          }}
+        />
+        <button
+          onClick={send}
+          disabled={!text.trim() || sending}
+          style={{
+            padding: '8px 16px',
+            background: text.trim() ? 'var(--ink)' : 'var(--rule)',
+            color: 'var(--paper)',
+            border: 'none',
+            borderRadius: 8,
+            fontFamily: 'var(--font-hand)',
+            fontSize: 14,
+            cursor: text.trim() ? 'pointer' : 'default',
+            transition: 'background 0.15s',
+          }}
+        >
+          发送
+        </button>
+      </div>
+    </div>
+  )
+}

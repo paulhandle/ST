@@ -1,0 +1,282 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Sketch-aesthetic design tokens ─────────────────────────────────── */
+:root {
+  --ink:          #1a1a1a;
+  --ink-faint:    #888888;
+  --ink-mid:      #555555;
+  --paper:        #fafaf6;
+  --paper-warm:   #f5f2eb;
+  --accent:       #d63b2f;
+  --accent-light: rgba(214, 59, 47, 0.12);
+  --rule:         rgba(26, 26, 26, 0.18);
+  --rule-soft:    rgba(26, 26, 26, 0.08);
+  --radius:       8px;
+
+  --font-hand:  'Kalam', cursive;
+  --font-annot: 'Caveat', cursive;
+  --font-mono:  'ui-monospace', 'SFMono-Regular', monospace;
+  --font-sans:  'system-ui', '-apple-system', sans-serif;
+
+  /* safe areas for mobile notch/home-bar */
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* tab bar height */
+  --tabbar-h: 64px;
+}
+
+/* ── Base reset ──────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Typography helpers ──────────────────────────────────────────────── */
+.hand   { font-family: var(--font-hand) }
+.annot  { font-family: var(--font-annot) }
+.mono   { font-family: var(--font-mono) }
+
+/* ── Sketch border mixin (SVG filter gives wobbly feel) ──────────────── */
+.sk-border {
+  border: 1.5px solid var(--ink);
+  border-radius: 4px;
+}
+
+.sk-border-accent {
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+}
+
+/* ── Card ────────────────────────────────────────────────────────────── */
+.sk-card {
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+
+.sk-card-soft {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+
+/* ── Pill / chip ─────────────────────────────────────────────────────── */
+.sk-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1.2px solid var(--ink);
+  border-radius: 999px;
+  font-family: var(--font-hand);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.sk-pill--accent {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sk-pill--filled {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* ── Skill chip (header pill) ────────────────────────────────────────── */
+.skill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  font-family: var(--font-hand);
+  font-size: 12px;
+  background: var(--paper);
+  cursor: pointer;
+  user-select: none;
+}
+
+.skill-chip-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--accent);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── Tab bar ─────────────────────────────────────────────────────────── */
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--tabbar-h) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: var(--paper);
+  border-top: 1.5px solid var(--rule);
+  display: flex;
+  align-items: stretch;
+  z-index: 100;
+}
+
+.tabbar-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  font-family: var(--font-hand);
+  font-size: 11px;
+  color: var(--ink-faint);
+  padding: 8px 4px;
+  transition: color 0.15s;
+  border: none;
+  background: none;
+  text-decoration: none;
+}
+
+.tabbar-item.active {
+  color: var(--accent);
+}
+
+.tabbar-icon {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Coach FAB ───────────────────────────────────────────────────────── */
+.coach-fab {
+  position: fixed;
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 16px);
+  right: 20px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-family: var(--font-hand);
+  box-shadow: 2px 3px 0 rgba(26, 26, 26, 0.25);
+  z-index: 99;
+  transition: transform 0.15s;
+}
+
+.coach-fab:active { transform: scale(0.95); }
+
+/* ── Page shell ──────────────────────────────────────────────────────── */
+.page-shell {
+  min-height: 100dvh;
+  padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 8px);
+  padding-top: var(--safe-top);
+  overflow-y: auto;
+}
+
+/* ── Section header ──────────────────────────────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 16px 16px 8px;
+}
+
+.section-title {
+  font-family: var(--font-hand);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* ── Divider ─────────────────────────────────────────────────────────── */
+.sk-divider {
+  height: 1px;
+  background: var(--rule-soft);
+  margin: 0 16px;
+}
+
+/* ── Adjustment banner ───────────────────────────────────────────────── */
+.adj-banner {
+  margin: 8px 16px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent-light);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-hand);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ── Status dot ──────────────────────────────────────────────────────── */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.status-dot.completed  { background: var(--ink); }
+.status-dot.partial    { background: var(--ink-mid); }
+.status-dot.rest       { background: var(--rule); border: 1px solid var(--ink-faint); }
+.status-dot.miss       { background: transparent; border: 1.5px solid var(--accent); }
+.status-dot.future     { background: transparent; border: 1px solid var(--rule); }
+
+/* ── Scrollable row ──────────────────────────────────────────────────── */
+.scroll-row {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-row::-webkit-scrollbar { display: none; }
+
+/* ── Utility ─────────────────────────────────────────────────────────── */
+.between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.text-faint { color: var(--ink-faint); }
+.text-accent { color: var(--accent); }
+
+/* ── Animations ──────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.2s ease forwards; }

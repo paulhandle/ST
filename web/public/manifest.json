@@ -1,0 +1,10 @@
+{
+  "name": "ST · 跑步训练",
+  "short_name": "ST",
+  "description": "智能马拉松训练平台",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#fafaf6",
+  "theme_color": "#fafaf6",
+  "icons": []
+}
