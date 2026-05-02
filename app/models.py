@@ -140,6 +140,7 @@ class TrainingPlan(Base):
     race_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     target_time_sec: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    active_skill_slug: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
@@ -235,12 +236,16 @@ class AthleteActivity(Base):
     training_load: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     perceived_effort: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     feedback_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    matched_workout_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("structured_workouts.id"), nullable=True, index=True
+    )
     raw_payload_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     athlete: Mapped["AthleteProfile"] = relationship(back_populates="activities")
     laps: Mapped[list["ActivityLap"]] = relationship(back_populates="activity", cascade="all, delete-orphan")
+    matched_workout: Mapped[Optional["StructuredWorkout"]] = relationship(foreign_keys=[matched_workout_id])
 
 
 class ActivityLap(Base):
@@ -344,6 +349,9 @@ class StructuredWorkout(Base):
     provider_sync_records: Mapped[list["ProviderSyncRecord"]] = relationship(
         back_populates="workout", cascade="all, delete-orphan"
     )
+    feedback: Mapped[Optional["WorkoutFeedback"]] = relationship(
+        back_populates="workout", cascade="all, delete-orphan", uselist=False
+    )
 
 
 class WorkoutStep(Base):
@@ -382,6 +390,21 @@ class ProviderSyncRecord(Base):
 
     plan: Mapped["TrainingPlan"] = relationship(back_populates="provider_sync_records")
     workout: Mapped[Optional["StructuredWorkout"]] = relationship(back_populates="provider_sync_records")
+
+
+class WorkoutFeedback(Base):
+    __tablename__ = "workout_feedback"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workout_id: Mapped[int] = mapped_column(
+        ForeignKey("structured_workouts.id"), unique=True, index=True
+    )
+    status: Mapped[str] = mapped_column(String(20))  # "completed" | "partial" | "skipped"
+    rpe: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    note: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+
+    workout: Mapped["StructuredWorkout"] = relationship(back_populates="feedback")
 
 
 class PlanAdjustment(Base):

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.matching import match_activity_to_workout
 from app.models import ActivityLap, AthleteActivity, AthleteMetricSnapshot, AthleteProfile
 
 
@@ -44,6 +45,11 @@ def import_provider_history(
 
         for lap in item.get("laps", []):
             db.add(ActivityLap(activity_id=activity.id, **_lap_payload(lap)))
+
+        # Try to auto-match this activity to a planned workout.
+        db.flush()
+        matched = match_activity_to_workout(db, activity.id)
+        activity.matched_workout_id = matched.id if matched is not None else None
 
     metric_count = 0
     for metric in metrics or []:

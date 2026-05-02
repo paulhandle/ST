@@ -289,6 +289,7 @@ class MarathonPlanGenerateRequest(BaseModel):
     training_start_date: date | None = None
     plan_weeks: int = Field(default=16, ge=4, le=30)
     availability: TrainingAvailabilityIn = Field(default_factory=TrainingAvailabilityIn)
+    skill_slug: str = Field(default="marathon_st_default", min_length=1, max_length=120)
 
 
 class MarathonPlanOut(BaseModel):
@@ -355,3 +356,82 @@ class PlanAdjustmentOut(BaseModel):
     confirmed_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+# ── Block A schemas ──────────────────────────────────────────────────────────
+
+
+class SkillManifestOut(BaseModel):
+    slug: str
+    name: str
+    version: str
+    sport: str
+    supported_goals: list[str]
+    description: str
+    author: str = ""
+    tags: list[str] = []
+    requires_llm: bool = False
+
+
+class SkillDetailOut(SkillManifestOut):
+    methodology_md: str
+
+
+class TodayOut(BaseModel):
+    plan_id: int | None
+    plan_title: str | None
+    skill_slug: str | None
+    week_index: int | None
+    workout: StructuredWorkoutOut | None
+    matched_activity_id: int | None
+
+
+class WeekOut(BaseModel):
+    plan_id: int
+    week_index: int
+    phase: str  # "base" | "block" | "taper" | "unknown"
+    is_recovery: bool
+    total_distance_m: float
+    total_duration_min: int
+    quality_count: int
+    workouts: list[StructuredWorkoutOut]
+
+
+class WorkoutFeedbackIn(BaseModel):
+    status: str = Field(min_length=1)
+    rpe: int | None = Field(default=None, ge=1, le=10)
+    note: str | None = Field(default=None, max_length=500)
+
+
+class WorkoutFeedbackOut(BaseModel):
+    id: int
+    workout_id: int
+    status: str
+    rpe: int | None
+    note: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RegenerateFromTodayRequest(BaseModel):
+    skill_slug: str = Field(min_length=1, max_length=120)
+
+
+class RegenerateFromTodayOut(BaseModel):
+    plan_id: int
+    frozen_count: int
+    regenerated_count: int
+    new_skill_slug: str
+
+
+class MatchDiff(BaseModel):
+    distance_pct: float | None
+    duration_pct: float | None
+    avg_pace_diff_sec_per_km: float | None
+
+
+class WorkoutMatchStatusOut(BaseModel):
+    workout_id: int
+    matched_activity: AthleteActivityOut | None
+    diff: MatchDiff | None

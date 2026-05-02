@@ -115,4 +115,30 @@ def _is_safe_slug(slug: str) -> bool:
     return bool(slug) and slug.replace("_", "").replace("-", "").isalnum()
 
 
-__all__ = ["Skill", "SkillManifest", "load_skill", "list_skills"]
+def resolve_skill_dir(slug: str) -> tuple[Path, str]:
+    """Public alias for :func:`_resolve_skill_dir` (kept private historically)."""
+    return _resolve_skill_dir(slug)
+
+
+def load_skill_methodology(slug: str) -> str:
+    """Return the contents of the skill's ``skill.md`` file.
+
+    Raises FileNotFoundError if the skill or its methodology doc is missing.
+    """
+    if not _is_safe_slug(slug):
+        raise ValueError(f"Invalid skill slug: {slug!r}")
+    skill_dir, _ = _resolve_skill_dir(slug)
+    md_path = skill_dir / "skill.md"
+    if not md_path.exists():
+        return ""
+    return md_path.read_text(encoding="utf-8")
+
+
+__all__ = [
+    "Skill",
+    "SkillManifest",
+    "load_skill",
+    "list_skills",
+    "resolve_skill_dir",
+    "load_skill_methodology",
+]
