@@ -1,6 +1,7 @@
 import unittest
 import os
 
+os.environ.setdefault("ST_DATABASE_URL", "sqlite:///st_test.db")
 os.environ["COROS_AUTOMATION_MODE"] = "fake"
 os.environ.pop("OPENAI_API_KEY", None)  # force rule-based skill path; deterministic + fast
 
