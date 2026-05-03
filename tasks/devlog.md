@@ -248,3 +248,38 @@ Result: `uv run python -m py_compile $(find app -name "*.py")` clean. `uv run py
 - `pnpm type-check` 通过
 - `pnpm build` 通过，新增 5 个编译单元（/skills、/skills/[slug] 动态路由、/adjustments/[id]、/activities）
 - 通过 `gh pr create` 提交 PR，分支 `feat/block-c-screens`
+
+## 2026-05-04 — Block D: Route protection + navigation
+
+### Why
+세 가지 문제를 한 번에 해결:
+1. `/skills`, `/activities` 페이지가 앱 내에서 접근 불가 — Settings 페이지에서 링크 제공
+2. 백엔드 API가 인증 없이 모든 athlete/plan 데이터를 반환 — 소규모 다중 사용자 서비스로는 부적합
+3. `test_block_a.py`의 LLM 비활성화 버그 (pop vs 빈 문자열) — 테스트가 262초 걸리던 문제
+
+### How
+
+**백엔드 라우트 보호 (`app/api/routes.py`)**
+
+- `from app.core.auth import get_current_user` import 추가
+- 21개 라우트 함수에 `_user: "User" = Depends(get_current_user)` 파라미터 추가 (Python 스크립트로 일괄 처리)
+- `post_coach_message` 는 여러 줄 시그니처로 스크립트 미적용 → 수동 추가
+- 공개 유지: `/health`, `/sports`, `/training/*`, `/skills`, `/skills/{slug}`
+
+**테스트 수정 (TDD: 실패 먼저 작성)**
+
+- `tests/test_auth.py`: `ProtectedRoutesTestCase` 6개 테스트 추가 — 인증 없이 401, 토큰 있으면 200/404 반환
+- `tests/helpers.py`: `get_test_token(client, phone)` + `auth(token)` 공유 헬퍼
+- `test_block_a.py`, `test_block_a1.py`, `test_coros_marathon_mvp.py`, `test_history_assessment.py`: 모든 setUp에 `self.token = get_test_token(self.client)` 추가, 모든 HTTP 호출에 `headers=auth(self.token)` 전달
+- `os.environ.pop("OPENAI_API_KEY", None)` → `os.environ["OPENAI_API_KEY"] = ""` 수정 (`load_local_env`의 `setdefault`가 `.env`에서 덮어쓰는 버그 수정) — 테스트 시간 262s → 1.2s
+
+**프론트엔드 내비게이션 (`web/`)**
+
+- `web/app/settings/page.tsx` 전면 개편: 섹션 기반 설정 페이지 (훈련 · 데이터 · 계정), Skills/Activities/COROS 링크, 로그아웃 (JWT 삭제 + /login 리다이렉트)
+- `web/app/(tabs)/dashboard/page.tsx`: header 우상단에 ⚙ 아이콘 추가 → `/settings` 링크
+
+### Result
+
+- 백엔드 77/77 테스트 통과 (18 auth + 17 block_a + 14 block_a1 + 14 beginner + 14 real_coros + 0 existing = 77)
+- 프론트엔드 50/50 테스트 통과
+- `pnpm type-check` 통과, `pnpm build` 13페이지 컴파일 통과
