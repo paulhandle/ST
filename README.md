@@ -2,10 +2,10 @@
 
 `ST` 是一个面向耐力运动员的训练任务规划后端 MVP，当前重点是 COROS-first 的全马训练闭环：
 
-1. COROS 历史运动数据导入与能力评估
+1. COROS 历史运动数据导入与能力评估（支持真实 COROS 直连 API）
 2. 全马目标可行性判断，例如 sub-4:00
-3. 结构化全马训练计划生成
-4. 用户确认后同步到 COROS 日历（当前为 fake COROS 自动化适配器）
+3. 结构化全马训练计划生成（LLM + 规则回退）
+4. 用户确认后同步到 COROS 日历（`COROS_AUTOMATION_MODE=real` 启用真实 API 写入）
 5. 训练执行后的周度调整建议
 
 旧版通用训练方法、Garmin/COROS mock 同步接口仍保留兼容。
@@ -43,23 +43,31 @@ app/
 
 ## 技术栈
 
-- Python 3.11+
-- FastAPI
-- SQLAlchemy + SQLite
+**后端**
+- Python 3.11+、FastAPI、SQLAlchemy + SQLite
 - httpx（FastAPI TestClient 测试依赖）
-- Playwright（真实 COROS Training Hub 探测）
+- Playwright（真实 COROS Training Hub 探测，可选）
+
+**前端**（`web/`）
+- Next.js 14 App Router + TypeScript + Tailwind CSS
+- SWR（数据请求）、Recharts（图表）
+- Vitest + React Testing Library（单元测试）
+- 运行：`cd web && pnpm dev`（端口 3000，代理 API 到 8000）
 
 ## 快速启动
 
 ```bash
+# 后端
 cd /Users/paul/Work/ST
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload   # http://127.0.0.1:8000
+
+# 前端（另开终端）
+cd web
+pnpm install
+pnpm dev                               # http://localhost:3000
 ```
 
-服务默认地址：`http://127.0.0.1:8000`
+API 文档：`http://127.0.0.1:8000/docs`
 
 ## 本地 COROS 配置
 
@@ -71,11 +79,12 @@ cp .env.example .env
 
 关键变量：
 
-- `ST_SECRET_KEY`：本地凭据加密密钥
-- `COROS_AUTOMATION_MODE=fake|real`：默认 `fake`
-- `COROS_USERNAME` / `COROS_PASSWORD`：真实 COROS 账号密码，仅供本地探测使用
-- `COROS_TRAINING_HUB_URL`：默认 `https://training.coros.com`
-- `COROS_HEADLESS=false`：探测阶段建议保留可视浏览器
+- `ST_SECRET_KEY`：JWT 签名密钥（auth 系统使用）及本地凭据加密密钥
+- `COROS_AUTOMATION_MODE=fake|real`：默认 `fake`（单元测试强制使用 fake）。设为 `real` 后 API 将使用 `RealCorosAutomationClient`，直接调用 `teamapi.coros.com` + `teamcnapi.coros.com` 完成 MD5 登录、活动分页拉取、日历写入，无需 Playwright
+- `COROS_USERNAME` / `COROS_PASSWORD`：真实 COROS 账号密码，仅供本地探测脚本使用（API 层使用 `/coros/connect` 接口存储凭据）
+- `COROS_TRAINING_HUB_URL`：默认 `https://training.coros.com`（探测脚本用）
+- `COROS_HEADLESS=false`：Playwright 探测阶段建议保留可视浏览器
+- `ST_DATABASE_URL`：数据库路径，默认 `sqlite:///st.db`；测试自动设为 `sqlite:///st_test.db` 以隔离生产数据
 
 真实页面探测：
 
@@ -91,6 +100,52 @@ uv run playwright install chromium
 
 探测结果会写入 `var/coros_probe/`，该目录已被忽略。
 
+## Auth
+
+所有 athlete/plan 路由均需要 Bearer token（后续逐步加保护，当前 auth 路由已完整）。
+
+```bash
+# 1. 获取 OTP（mock 模式直接返回 code）
+curl -X POST http://127.0.0.1:8000/auth/send-otp \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "13800138000"}'
+# → {"message":"验证码已发送","otp_code":123456}
+
+# 2. 验证 OTP，获取 JWT
+curl -X POST http://127.0.0.1:8000/auth/send-otp \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "13800138000", "code": "123456"}'
+# → {"access_token":"...","token_type":"bearer","user_id":1}
+
+# 3. 后续请求带上 token
+curl http://127.0.0.1:8000/auth/me \
+  -H "Authorization: Bearer <token>"
+```
+
+Token 有效期 30 天，无 refresh token。OTP 10 分钟过期，单次使用。
+
+## Skills（训练方法论）
+
+| slug | 描述 | 适用场景 |
+|------|------|---------|
+| `marathon_st_default` | ST 默认全马方法论，LLM + 规则混合 | 有一定训练基础的跑者 |
+| `coach_zhao_unified` | 赵可统一马拉松法，季节自适应 | 按照该训练体系的跑者 |
+| `running_beginner` | 入门跑者计划，纯规则 RPE 强度 | 零基础或周跑量 < 40 km |
+
+加新 skill：在 `app/skills/<slug>/` 下放 `skill.md`、`spec.yaml`、`skill.py`（导出 `skill` 实例）。
+
+## 前端页面
+
+| 路径 | 说明 |
+|------|------|
+| `/login` | 手机 OTP 登录 |
+| `/onboarding` | 新用户引导（COROS 连接 → 目标设定 → 训练日 → 确认） |
+| `/dashboard` | 训练概览（今日、本周、目标、训练量、状态） |
+| `/today` | 今日课程详情 + 标记完成 |
+| `/week` | 本周训练日历 |
+| `/plan` | 计划总览 + 待处理调整入口 |
+| `/settings` | Skill 选择 |
+
 ## 关键 API
 
 - `GET /sports`：支持运动类型
@@ -103,7 +158,7 @@ uv run playwright install chromium
 - `POST /devices/connect`：绑定 Garmin/COROS 账号
 - `POST /plans/{id}/sync`：同步计划到设备（mock）
 - `GET /sync-tasks?plan_id=1`：查看同步记录
-- `POST /coros/connect`：连接 COROS 账号（MVP 为本地 fake 自动化）
+- `POST /coros/connect`：连接 COROS 账号（`fake` 模式本地验证；`real` 模式直连 COROS API）
 - `POST /coros/import?athlete_id=1`：导入 COROS 历史数据
 - `POST /athletes/{id}/assessment/run`：按目标重新计算路跑/全马能力评估
 - `POST /marathon/plans/generate`：生成结构化全马计划
@@ -204,9 +259,17 @@ curl -X POST http://127.0.0.1:8000/plans/1/sync \
 ## 验证
 
 ```bash
+# 后端
 uv run python -m py_compile $(find app -name "*.py")
-uv run python -m unittest discover -s tests -v
+uv run python -m unittest discover -s tests -v   # 71 tests
+
+# 前端
+cd web
+pnpm test        # 35 tests
+pnpm type-check
 
 # Skill 注册器冒烟测试
 uv run python -c "from app.skills import list_skills; print([m.slug for m in list_skills()])"
 ```
+
+测试自动将 `ST_DATABASE_URL` 设为 `sqlite:///st_test.db`，与生产 `st.db` 隔离。

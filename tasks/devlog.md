@@ -134,6 +134,20 @@ Result: `uv run python -m unittest discover -s tests`: **2/2 pass in ~5 seconds*
 
 Out of scope (deferred to MVP+1.5): skill-creator UI/flow, COROS `/training/schedule/query` historical date-range probe, second skill (e.g., 80/20 polarized), second sport (half marathon).
 
+## 2026-05-02 - Independent verification fixes
+
+Why: Independent code review found high-priority README/code inconsistency (README claimed fake-only COROS while real direct-API was fully implemented) and medium-priority gaps: test suite used the same `st.db` as operational data, and real COROS client had zero automated test coverage.
+
+How:
+- `app/core/config.py`: `DATABASE_URL` now reads `ST_DATABASE_URL` env var first, falling back to `st.db`. This is the single change that enables test isolation.
+- All 4 existing test files: added `os.environ.setdefault("ST_DATABASE_URL", "sqlite:///st_test.db")` before any app imports. Tests now write to `st_test.db` and never touch the operational `st.db`.
+- `.gitignore`: added `st_test.db`.
+- `tests/test_real_coros_client.py`: 14 new unit tests for `RealCorosAutomationClient`, using `unittest.mock.patch("urllib.request.urlopen", ...)` with `MagicMock` context managers (`__enter__.return_value = m`). Covers: MD5 password hashing, token/host extraction, region routing, network error handling, field unit mapping (distance/time/pace/timezone), pagination cutoff, dashboard metric extraction, marathon prediction extraction, sync idInPlan sequencing, schedule/update call count, and error propagation.
+- `README.md`: updated intro item 4, `/coros/connect` API description, `COROS_AUTOMATION_MODE` documentation (fake vs real behavior), and added `ST_DATABASE_URL` env var.
+- `tasks/todo.md`: closed all deferred items from the Project Re-Read phase.
+
+Result: `uv run python -m unittest discover -s tests -v` → **47/47 pass in 2.2s**. `st.db` is untouched by tests.
+
 ## 2026-05-01 - Block A1 frontend-contract endpoints
 
 Why: The web frontend needs aggregate + detail endpoints that the existing API does not provide. `docs/api-frontend-contract.md` specifies eight new/enhanced endpoints (dashboard, volume curve, regenerate preview, adjustment detail+apply, coach chat send/list, plus enrichments to today/history). Implementing them on the backend unblocks the Next.js frontend work.
@@ -156,3 +170,53 @@ How: Followed the actionable spec from the user prompt.
 - **Tests** (`tests/test_block_a1.py`): 14 tests across 7 TestCase classes covering dashboard with/without plan/activities, volume curve, regenerate preview applicable + not-applicable (frozen most weeks so derived `plan_weeks` < 12), adjustment apply happy paths + 422, coach stub fallback when `OPENAI_API_KEY` empty, coach conversation pagination, history enrichment, today recovery + yesterday surfacing.
 
 Result: `uv run python -m py_compile $(find app -name "*.py")` clean. `uv run python -m unittest discover -s tests -v` reports **33 tests pass in ~2.3s** (19 existing + 14 new). No commit yet — awaiting user review.
+
+## 2026-05-02 – Block B: Auth + running_beginner skill + frontend onboarding
+
+### Why
+多用户支持需要身份认证层。用户反馈缺少登录页、新人引导和无计划时的默认状态。同时发现新用户没有 COROS 历史时平台无法评估能力，需要一个入门级 skill 兜底。
+
+### How
+
+**后端 — Auth（`app/api/auth.py`、`app/core/auth.py`、`app/models.py`）**
+
+- 新增 `User`（phone、created_at）和 `OTPCode`（phone、code、expires_at、used）模型
+- `AthleteProfile` 增加可选 `user_id` FK，支持一个用户多个运动档案
+- 30 天无 refresh 的 JWT（stdlib HMAC-SHA256，无第三方依赖）
+- `POST /auth/send-otp`：生成 6 位 OTP，mock 模式直接返回 code；`POST /auth/verify-otp`：验证 OTP → 返回 JWT + user_id；`GET /auth/me`：需要 Bearer token
+- OTP 10 分钟过期，单次使用
+
+**后端 — `running_beginner` skill（`app/skills/running_beginner/`）**
+
+- 纯规则，不调 LLM
+- 16 周三阶段模板：适应期（1-4周）→ 建基期（5-10周）→ 巩固期（11-16周）
+- 全程 RPE 4-5 强度，每周 1-3 次，每次不超过 90 分钟
+- `applicable()` 门控：平均周跑量超过 40 km 时返回 False，建议使用进阶方法论
+
+**前端 — Auth（`web/lib/auth.ts`、`web/middleware.ts`、`web/lib/api/client.ts`）**
+
+- JWT 存储在 `localStorage['st_token']`
+- `middleware.ts`：所有非 `/login`、非 `/api` 路径检查 token，无则跳转 `/login`
+- API client 所有请求自动加 `Authorization: Bearer <token>`
+
+**前端 — 登录页（`web/app/login/page.tsx`）**
+
+- 两步状态机：phone → OTP → 登录
+- 新用户（is_new_user）跳转 `/onboarding`，返回用户跳转 `/dashboard`
+
+**前端 — Onboarding（`web/app/onboarding/page.tsx`）**
+
+- 4 步向导：COROS 连接（可跳过）→ 目标设定（比赛日期、目标时间、经验水平）→ 训练日选择 → 确认
+- 完成后依次调：`POST /athletes`、`POST /coros/connect`（optional）、`POST /athletes/{id}/goals`
+
+**前端 — 空状态 + 调整入口**
+
+- `EmptyPlanState`：无计划时在 dashboard 和 plan tab 展示"设定目标 →"CTA，链接到 `/onboarding`
+- `PendingAdjustmentSection`：plan tab 底部显示待处理调整数量 + 标题，链接到 `/adjustments/{id}`
+
+### Result
+
+- 后端新增 12 个 auth 测试 + 12 个 beginner skill 测试，全套 71/71 通过（2.6s）
+- 前端新增 15 个测试（auth.test.ts、login.test.tsx、onboarding.test.tsx、step6.test.tsx），全套 35/35 通过（< 1s）
+- `pnpm type-check` 和 `pnpm build` 通过
+- **未解决**：auth 路由保护（`get_current_user` dependency）尚未加到现有 athlete/plan 路由上，待 Block C 前做路由级保护加固
