@@ -9,6 +9,7 @@ import VolumeCard from '@/components/dashboard/VolumeCard'
 import WeekStrip from '@/components/dashboard/WeekStrip'
 import RecentActivities from '@/components/dashboard/RecentActivities'
 import ReadinessPanel from '@/components/dashboard/ReadinessPanel'
+import EmptyPlanState from '@/components/EmptyPlanState'
 
 export default function DashboardPage() {
   const { dashboard, isLoading, error } = useDashboard()
@@ -30,6 +31,9 @@ export default function DashboardPage() {
       </div>
     )
   }
+
+  // No plan yet — show onboarding CTA after header
+  const noPlan = !dashboard.today.plan_id
 
   const { greeting, athlete, pending_adjustment, today, this_week, goal, volume_history, recent_activities, readiness, meta } = dashboard
 
@@ -68,8 +72,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ── No plan → empty state CTA ──────────────────────── */}
+      {noPlan && <EmptyPlanState />}
+
       {/* ── Adjustment banner ──────────────────────────────── */}
-      {pending_adjustment && (
+      {!noPlan && pending_adjustment && (
         <AdjustmentBanner adjustment={pending_adjustment} />
       )}
 

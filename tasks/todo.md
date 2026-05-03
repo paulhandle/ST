@@ -433,7 +433,7 @@ Verification: `uv run python -m unittest discover -s tests -v` → **47/47 pass 
 
 ---
 
-# Block B — Auth + Onboarding + Beginner Skill (2026-05-02)
+# Block B — Auth + Onboarding + Beginner Skill (2026-05-02) — COMPLETE
 
 ## Objective
 

@@ -5,6 +5,8 @@ import { fetcher } from '@/lib/api/client'
 import { useDashboard } from '@/lib/hooks/useDashboard'
 import type { VolumeCurveWeek } from '@/lib/api/types'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts'
+import PendingAdjustmentSection from '@/components/plan/PendingAdjustmentSection'
+import EmptyPlanState from '@/components/EmptyPlanState'
 
 interface PlanDetail {
   id: number
@@ -31,6 +33,11 @@ export default function PlanPage() {
   )
 
   const currentWeek = dashboard?.this_week.week_index ?? 1
+
+  // No plan yet — show empty state
+  if (!planId && dashboard) {
+    return <EmptyPlanState />
+  }
 
   if (!plan) {
     return (
@@ -105,6 +112,11 @@ export default function PlanPage() {
             <WeekRow key={w.week_index} week={w} isCurrent={w.week_index === currentWeek} />
           ))}
         </div>
+      )}
+
+      {/* ── Pending adjustment ─────────────────────────────── */}
+      {dashboard?.pending_adjustment && (
+        <PendingAdjustmentSection adjustment={dashboard.pending_adjustment} />
       )}
     </div>
   )
