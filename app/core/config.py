@@ -2,7 +2,7 @@ from pathlib import Path
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DATABASE_URL = f"sqlite:///{BASE_DIR / 'st.db'}"
+DATABASE_URL = os.environ.get("ST_DATABASE_URL") or f"sqlite:///{BASE_DIR / 'st.db'}"
 
 
 def load_local_env(path: Path | None = None) -> None:

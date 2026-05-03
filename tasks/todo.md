@@ -538,3 +538,71 @@ pnpm build         # next build
 - User A viewing User B's data
 - GPX/FIT upload parser
 - Push notifications
+
+---
+
+# Block C — Skills / Adjustment / Activities screens (2026-05-03)
+
+## Objective
+
+Build the three remaining frontend screens per `docs/api-frontend-contract.md`:
+1. `/skills` + `/skills/[slug]` — skill 列表、方法论阅读器、切换确认对话框
+2. `/adjustments/[id]` — 调整详情 + 接受/拒绝
+3. `/activities` — 历史跑量列表
+
+所有后端端点已在 Block A / A1 完成。本 block 纯前端工作。
+
+## Files to change / add
+
+### Frontend pages
+- `web/app/skills/page.tsx` (NEW) — skill 列表，含当前 skill 标记和切换入口
+- `web/app/skills/[slug]/page.tsx` (NEW) — skill.md 方法论阅读器
+- `web/app/adjustments/[id]/page.tsx` (NEW) — 调整详情 + accept/reject
+- `web/app/activities/page.tsx` (NEW) — 历史活动列表
+
+### Frontend components
+- `web/components/skills/SkillList.tsx` (NEW)
+- `web/components/skills/SwitchSkillDialog.tsx` (NEW) — regenerate-preview + confirm
+- `web/components/adjustments/AffectedWorkoutRow.tsx` (NEW)
+- `web/components/activities/ActivityRow.tsx` (NEW)
+
+### Tests (TDD — write failing first)
+- `web/__tests__/blockC.test.tsx` (NEW) — component unit tests
+
+### Docs
+- `tasks/devlog.md` — Block C entry
+- `README.md` — no new API endpoints, but update front-end routes table if needed
+
+## Approach (TDD per step)
+
+1. Write all failing tests in `web/__tests__/blockC.test.tsx`
+2. Run `pnpm test` — confirm failure
+3. Implement components + pages
+4. Run `pnpm test` — confirm pass
+5. `pnpm type-check` + `pnpm build`
+6. Push branch → `gh pr create`
+
+## Test commands
+
+```bash
+cd web && pnpm test        # must stay green
+pnpm type-check
+pnpm build
+```
+
+## Acceptance criteria
+
+- [ ] `/skills` renders skill list, marks active skill, has "切换" button
+- [ ] `/skills/[slug]` renders skill.md content (as preformatted text minimum)
+- [ ] SwitchSkillDialog shows regenerate-preview counts before confirming
+- [ ] `/adjustments/[id]` shows reason, recommendation, affected workout rows
+- [ ] Accept button calls `POST /plan-adjustments/{id}/apply`, reject calls existing endpoint
+- [ ] `/activities` shows activity list with match_status dot + delta_summary
+- [ ] All components have unit tests covering key rendering behavior
+- [ ] `pnpm test` exits 0, `pnpm build` exits 0
+
+## Out of scope
+
+- Real markdown rendering (use `<pre>` for skill.md — full MDX overkill for now)
+- Pagination for activities (show last 50, single page)
+- Push notifications for new adjustments

@@ -220,3 +220,31 @@ Result: `uv run python -m py_compile $(find app -name "*.py")` clean. `uv run py
 - 前端新增 15 个测试（auth.test.ts、login.test.tsx、onboarding.test.tsx、step6.test.tsx），全套 35/35 通过（< 1s）
 - `pnpm type-check` 和 `pnpm build` 通过
 - **未解决**：auth 路由保护（`get_current_user` dependency）尚未加到现有 athlete/plan 路由上，待 Block C 前做路由级保护加固
+
+## 2026-05-03 — Block C: Skills / Adjustment / Activities screens
+
+### Why
+前端缺少三个核心屏幕：skill 选择与方法论阅读、计划调整详情、历史活动列表。后端端点在 Block A/A1 已完成，本次纯前端工作。使用 feature branch `feat/block-c-screens`，通过 PR 合入 main。
+
+### How
+
+**组件（TDD — 15 个测试先写后实现）**
+
+- `SkillList`：展示 skill 卡片，标记当前 skill，提供"切换"按钮（inactive skill）和"查看方法论"链接
+- `SwitchSkillDialog`：显示 regenerate-preview 统计（重新生成课数、影响周数、保留已完成/缺训课数），applicable=false 时禁用确认按钮并展示原因
+- `AffectedWorkoutRow`：展示受调整影响的单条课程（日期、标题、变更摘要）
+- `ActivityRow`：展示单条历史活动（状态 dot、距离/配速、delta_summary）
+
+**页面**
+
+- `/skills` — 拉 `GET /skills`，点击"切换"先调 `GET /plans/{id}/regenerate-preview` 拿 preview，再弹 SwitchSkillDialog，确认后调 `POST /plans/{id}/regenerate-from-today` 并跳转 dashboard
+- `/skills/[slug]` — 拉 `GET /skills/{slug}`，以 `<pre>` 渲染 `methodology_md`（暂不做 Markdown 渲染）
+- `/adjustments/[id]` — 拉 `GET /plan-adjustments/{id}`，展示受影响课程列表，接受调用 `POST /plan-adjustments/{id}/apply`，拒绝调用 `POST /plan-adjustments/{id}/reject`，完成后 1.2s 内返回
+- `/activities` — 拉 `GET /athletes/{id}/history`，顶部汇总统计（总次数/总公里/完成率），图例说明 5 种状态色点
+
+### Result
+
+- 50/50 前端测试通过（< 1s）
+- `pnpm type-check` 通过
+- `pnpm build` 通过，新增 5 个编译单元（/skills、/skills/[slug] 动态路由、/adjustments/[id]、/activities）
+- 通过 `gh pr create` 提交 PR，分支 `feat/block-c-screens`

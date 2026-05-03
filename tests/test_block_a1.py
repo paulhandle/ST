@@ -5,6 +5,7 @@ import os
 import unittest
 from datetime import UTC, date, datetime, timedelta
 
+os.environ.setdefault("ST_DATABASE_URL", "sqlite:///st_test.db")
 os.environ["COROS_AUTOMATION_MODE"] = "fake"
 # Ensure the LLM path is disabled in tests. We must set this BEFORE importing
 # app.main, which transitively loads .env via app.core.config.load_local_env()

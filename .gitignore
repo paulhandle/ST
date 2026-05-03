@@ -3,6 +3,7 @@ __pycache__/
 *.egg-info/
 .venv/
 st.db
+st_test.db
 .env
 .st_profile.toml
 var/
