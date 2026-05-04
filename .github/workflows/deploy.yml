@@ -1,0 +1,80 @@
+name: Deploy to fly.io
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test before deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.5.11"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install backend deps
+        run: uv sync --frozen
+
+      - name: Backend tests
+        run: uv run python -m unittest discover -s tests -v
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9.0.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install frontend deps
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Frontend type-check
+        working-directory: web
+        run: pnpm type-check
+
+      - name: Frontend tests
+        working-directory: web
+        run: pnpm test
+
+  deploy-api:
+    name: Deploy API
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        run: flyctl deploy --config fly/api.toml --dockerfile Dockerfile.api --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  deploy-web:
+    name: Deploy Web
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        working-directory: web
+        run: flyctl deploy --config ../fly/web.toml --dockerfile Dockerfile --remote-only --build-arg BACKEND_URL=https://api.performanceprotocol.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
