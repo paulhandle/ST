@@ -39,15 +39,14 @@ describe('PendingAdjustmentSection', () => {
 })
 
 describe('EmptyPlanState', () => {
-  it('renders a CTA to set goal', () => {
+  it('renders a CTA to generate plan', () => {
     render(<EmptyPlanState />)
-    // The link text is "设定目标 →"
-    expect(screen.getByRole('link', { name: /设定目标/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /生成训练计划/ })).toBeInTheDocument()
   })
 
-  it('links to onboarding', () => {
+  it('links to plan generate wizard', () => {
     render(<EmptyPlanState />)
-    expect(screen.getByRole('link', { name: /设定目标/ })).toHaveAttribute('href', '/onboarding')
+    expect(screen.getByRole('link', { name: /生成训练计划/ })).toHaveAttribute('href', '/plan/generate')
   })
 
   it('shows encouraging copy', () => {
