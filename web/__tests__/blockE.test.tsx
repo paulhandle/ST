@@ -80,3 +80,60 @@ describe('PlanGeneratePage', () => {
     expect(screen.getByText(/分析/)).toBeInTheDocument()
   })
 })
+
+vi.mock('@/lib/hooks/useCalendar', () => ({
+  useCalendar: () => ({
+    days: [
+      { date: '2026-05-04', status: 'completed', title: '跑步 8.0km', sport: 'run',
+        workout_type: 'easy_run', activity_id: 1, workout_id: 10,
+        distance_km: 8.0, duration_min: 48 },
+      { date: '2026-05-10', status: 'planned', title: 'Long Run', sport: 'run',
+        workout_type: 'long_run', activity_id: null, workout_id: 20,
+        distance_km: 18.0, duration_min: 110 },
+    ],
+    isLoading: false,
+    error: null,
+    refresh: vi.fn(),
+  }),
+}))
+
+import MonthStrip from '@/components/activities/MonthStrip'
+
+describe('MonthStrip', () => {
+  it('renders today day number', () => {
+    const today = new Date().getDate().toString()
+    render(<MonthStrip days={[]} selectedDate={null} onSelectDate={vi.fn()} />)
+    expect(screen.getAllByText(today).length).toBeGreaterThan(0)
+  })
+
+  it('calls onSelectDate when a day is clicked', () => {
+    const onSelect = vi.fn()
+    render(<MonthStrip days={[]} selectedDate={null} onSelectDate={onSelect} />)
+    screen.getAllByRole('button')[0].click()
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+})
+
+import ActivitiesPage from '@/app/(tabs)/activities/page'
+
+describe('ActivitiesPage', () => {
+  it('renders filter chips', () => {
+    render(<ActivitiesPage />)
+    expect(screen.getByText('全部')).toBeInTheDocument()
+    expect(screen.getByText('跑步')).toBeInTheDocument()
+    expect(screen.getByText('骑车')).toBeInTheDocument()
+    expect(screen.getByText('力量')).toBeInTheDocument()
+  })
+
+  it('renders list items from calendar data', () => {
+    render(<ActivitiesPage />)
+    expect(screen.getByText('跑步 8.0km')).toBeInTheDocument()
+    expect(screen.getByText('Long Run')).toBeInTheDocument()
+  })
+
+  it('renders MonthStrip with today visible', () => {
+    render(<ActivitiesPage />)
+    const today = new Date().getDate().toString()
+    expect(screen.getAllByText(today).length).toBeGreaterThan(0)
+  })
+})

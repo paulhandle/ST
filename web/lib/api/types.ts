@@ -351,3 +351,19 @@ export interface HistoryImportOut {
   metric_count: number
   message: string
 }
+
+/* ── Calendar ────────────────────────────────────────────── */
+
+export type CalendarStatus = 'completed' | 'partial' | 'miss' | 'unmatched' | 'planned'
+
+export interface CalendarDay {
+  date: string               // YYYY-MM-DD
+  status: CalendarStatus
+  title: string | null
+  sport: string | null       // discipline: run | cycle | strength
+  workout_type: string | null
+  activity_id: number | null
+  workout_id: number | null
+  distance_km: number | null
+  duration_min: number | null
+}
