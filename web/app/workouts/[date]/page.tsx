@@ -92,7 +92,7 @@ export default function WorkoutDetailPage({ params }: { params: { date: string }
           </div>
           {recovery_recommendation ? (
             <div style={{ padding: '12px 16px', background: 'var(--accent-light)',
-                          border: '1.5px solid var(--accent)', borderRadius: 8, textAlign: 'left',
+                          border: '1px solid var(--accent)', borderRadius: 'var(--radius)', textAlign: 'left',
                           margin: '0 16px' }}>
               <div className="hand" style={{ fontSize: 13, color: 'var(--accent)' }}>
                 &quot;{recovery_recommendation.ethos_quote}&quot;
@@ -149,7 +149,7 @@ export default function WorkoutDetailPage({ params }: { params: { date: string }
           {workout.adaptation_notes && (
             <div style={{ margin: '0 16px 16px', padding: '10px 14px',
                           background: 'var(--accent-light)',
-                          border: '1.5px solid var(--accent)', borderRadius: 6 }}>
+                          border: '1px solid var(--accent)', borderRadius: 'var(--radius)' }}>
               <span className="hand" style={{ fontSize: 13, color: 'var(--accent)' }}>
                 {workout.adaptation_notes}
               </span>
@@ -176,13 +176,13 @@ export default function WorkoutDetailPage({ params }: { params: { date: string }
                   onClick={() => mark(s)}
                   disabled={marking || !!marked}
                   style={{
-                    flex: 1, padding: '10px', borderRadius: 8,
+                    flex: 1, padding: '10px', borderRadius: 'var(--radius)',
                     fontFamily: 'var(--font-hand)', fontSize: 14,
                     cursor: (marking || !!marked) ? 'default' : 'pointer',
                     opacity: (marking || !!marked) && marked !== s ? 0.5 : 1,
-                    border: s === 'skipped' ? 'none' : '1.5px solid var(--ink)',
-                    background: (s === 'completed' || marked === s) ? 'var(--ink)' : 'var(--paper)',
-                    color: (s === 'completed' || marked === s) ? 'var(--paper)' : 'var(--ink)',
+                    border: s === 'skipped' ? 'none' : '1px solid var(--accent)',
+                    background: (s === 'completed' || marked === s) ? 'var(--accent)' : 'var(--paper)',
+                    color: (s === 'completed' || marked === s) ? '#050505' : 'var(--ink)',
                   }}
                 >
                   {s === 'completed' ? '完成 ✓' : s === 'partial' ? '部分' : '跳过'}

@@ -1,5 +1,29 @@
 # Dev Log
 
+## 2026-05-04 - Stitch homepage + global black/orange theme
+
+Why: User supplied a Stitch homepage design under `docs/homepage-design/` and asked to build the homepage, sync the italic logo treatment to every page, and make the homepage's black/orange visual system consistent across the whole web app. The previous root route redirected to `/dashboard`, so production visitors had no public product homepage.
+
+How:
+- Read `docs/homepage-design/stitch_performanceprotocol_endurance_platform/DESIGN.md`, `code.html`, and `screen.png` to extract the visual system: deep charcoal surfaces, safety orange primary actions, electric blue for data/sync accents, Inter + Space Grotesk, sharp engineered panels, and uppercase bold italic logo.
+- Added `web/components/BrandLogo.tsx` and reused it on the homepage, login page, authenticated topbar, and homepage footer.
+- Replaced `web/app/page.tsx` redirect with a public homepage containing sticky nav, hero, product dashboard preview, data/evidence panels, workflow, methodology, final CTA, and footer.
+- Updated `web/middleware.ts` so `/` is public while protected app routes still redirect unauthenticated users to `/login`.
+- Updated `web/app/layout.tsx` to use Inter and Space Grotesk via `next/font`, and changed viewport theme color to `#0a0a0a`.
+- Reworked `web/app/globals.css` tokens and homepage CSS around charcoal/orange/blue. Existing cards, pills, tabbar, coach FAB, topbar, and page shell now inherit the technical palette.
+- Rethemed the most visible shared/app controls with old light/red/rounded styling: login inputs and CTAs, onboarding and plan-generation primary controls, activities filters/month strip, week/plan selected rows, skill list/dialog, coach sheet, workout action buttons, pending adjustment cards, workout-step rows, and empty-plan CTA.
+- Fixed a responsive typography issue caught during screenshot verification: the `PerformanceProtocol` hero title overlapped the preview panel on desktop and created an 8px horizontal overflow on mobile. Replaced viewport-scaling type with fixed breakpoint sizes and verified no horizontal overflow.
+
+Result:
+- `cd web && pnpm test`: 62/62 pass.
+- `cd web && pnpm type-check`: pass.
+- `cd web && pnpm build`: pass; 15 app routes generated, middleware compiled. Initial sandboxed build failed because Next.js could not fetch Google Fonts; reran with approved network permission and passed.
+- `uv run python -m unittest discover -s tests -v`: 83/83 pass.
+- Local route checks with Next dev server: `/` returned HTTP 200, `/login` returned HTTP 200, and unauthenticated `/dashboard` returned HTTP 307 to `/login`.
+- Playwright visual checks passed for desktop homepage, mobile homepage, and mobile login. Assertions covered visible logo, hero title, CTA, product preview, dark background token, orange accent token, and no mobile horizontal overflow. Screenshots saved to `/private/tmp/pp-homepage-check/`.
+- `git diff --check`: pass.
+- No README update was required because no dependencies, environment variables, API contracts, or startup commands changed.
+
 ## 2026-05-04 - PerformanceProtocol brand cleanup
 
 Why: User asked to remove internal `ST` branding from product-facing surfaces, avoid Chinese product names, and stop using marathon-only positioning such as "智能马拉松训练". Internal compatibility identifiers should remain stable, but UI/docs should consistently use the real product name.

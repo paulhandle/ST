@@ -32,7 +32,7 @@ const STATUS_META: Record<string, { color: string; label: string }> = {
   partial:   { color: 'var(--ink-mid)',          label: '部分' },
   miss:      { color: 'var(--accent)',           label: '缺训' },
   unmatched: { color: 'var(--ink-faint)',        label: '自由' },
-  planned:   { color: 'rgba(214,59,47,0.5)',     label: '计划' },
+  planned:   { color: 'rgba(255,77,0,0.55)',     label: '计划' },
 }
 
 export default function ActivitiesPage() {
@@ -90,10 +90,10 @@ export default function ActivitiesPage() {
             onClick={() => setFilter(f.key)}
             className="hand"
             style={{
-              padding: '4px 12px', borderRadius: 999, fontSize: 12, cursor: 'pointer',
-              border: `1.2px solid ${filter === f.key ? 'var(--ink)' : 'var(--rule)'}`,
-              background: filter === f.key ? 'var(--ink)' : 'var(--paper)',
-              color: filter === f.key ? 'var(--paper)' : 'var(--ink)',
+              padding: '4px 12px', borderRadius: 'var(--radius)', fontSize: 12, cursor: 'pointer',
+              border: `1px solid ${filter === f.key ? 'var(--accent)' : 'var(--rule)'}`,
+              background: filter === f.key ? 'var(--accent)' : 'var(--paper)',
+              color: filter === f.key ? '#050505' : 'var(--ink)',
               whiteSpace: 'nowrap', flexShrink: 0,
             }}
           >
@@ -160,7 +160,7 @@ function DayRow({ day, isSelected }: { day: CalendarDay; isSelected: boolean }) 
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '11px 16px',
         borderBottom: '1px solid var(--rule-soft)',
-        background: isSelected ? 'rgba(26,26,26,0.03)' : undefined,
+        background: isSelected ? 'var(--accent-light)' : undefined,
       }}>
         <div style={{ width: 30, textAlign: 'center', flexShrink: 0 }}>
           <div className="hand" style={{ fontSize: 16, fontWeight: 600, lineHeight: 1 }}>

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import CoachButton from '@/components/CoachButton'
+import BrandLogo from '@/components/BrandLogo'
 
 const TABS = [
   { href: '/dashboard',  label: '概览', icon: TabIconDashboard },
@@ -16,6 +17,11 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <>
+      <div className="app-topbar">
+        <BrandLogo href="/dashboard" compact />
+        <Link href="/settings" className="app-topbar-link">Settings</Link>
+      </div>
+
       <div className="page-shell">{children}</div>
 
       <nav className="tabbar">

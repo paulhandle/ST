@@ -1,104 +1,136 @@
-# Brand Cleanup: PerformanceProtocol
+# Homepage + Global Theme
 
 **Branch:** `brand-cleanup`
 
 ## Objective
 
-Remove product-facing `ST`, Chinese product names, and marathon-only positioning from the web app, public metadata, API display metadata, skill names, and README. Use **PerformanceProtocol** as the only product brand.
+Implement the Stitch-designed public homepage from `docs/homepage-design/`, make `/` public, and propagate the homepage's italic technical logo plus black/orange visual system across the web app.
 
-## Context
+## Prior Context
 
-Deployment PR #3 (`feat/fly-deploy` -> `main`) is open, mergeable, and CI passed. Production deployment, DNS, TLS, and health checks were already verified. This branch is intentionally separate from the Fly.io deployment PR.
+Brand cleanup is already complete on this branch:
+
+- Product-facing brand is `PerformanceProtocol`.
+- Old `ST` product copy and Chinese product names were removed.
+- README is English and documents `ST_*` only as legacy/internal compatibility.
+- Verification already passed: backend 83/83, frontend 62/62, type-check.
+
+## Source Design
+
+Read:
+
+- `docs/homepage-design/stitch_performanceprotocol_endurance_platform/DESIGN.md`
+- `docs/homepage-design/stitch_performanceprotocol_endurance_platform/code.html`
+- `docs/homepage-design/stitch_performanceprotocol_endurance_platform/screen.png`
+
+Design requirements extracted:
+
+- Deep charcoal app background.
+- Safety orange primary action color.
+- Electric blue only for secondary data/sync states.
+- Inter for functional UI; Space Grotesk for data labels and metrics.
+- Logo: uppercase, bold, italic, tight technical wordmark.
+- Sharp/engineered panels with crisp borders and tonal layering.
+- Avoid gradients and soft decorative effects.
 
 ## Files Likely To Change
 
-- `README.md`
-- `pyproject.toml`
-- `app/main.py`
-- `app/api/routes.py`
-- `app/core/profile.py`
-- `app/skills/marathon_st_default/`
-- `app/skills/running_beginner/spec.yaml`
-- `app/skills/user_extracted/coach_zhao_unified/`
-- `web/app/login/page.tsx`
+- `web/app/page.tsx`
+- `web/middleware.ts`
+- `web/app/globals.css`
 - `web/app/layout.tsx`
-- `web/public/manifest.json`
-- `web/components/EmptyPlanState.tsx`
-- affected frontend tests under `web/__tests__/`
-- relevant design docs under `docs/`
+- `web/app/login/page.tsx`
+- `web/app/(tabs)/layout.tsx`
+- shared components under `web/components/`
+- frontend tests under `web/__tests__/`
+- `tasks/devlog.md`
 
 ## Implementation Approach
 
-- Keep internal compatibility identifiers unchanged where renaming would create migration risk: package name `st`, env vars such as `ST_SECRET_KEY` / `ST_DATABASE_URL`, `st_token`, Fly app names, database filenames, and historical route names.
-- Replace user-visible brand with `PerformanceProtocol`.
-- Remove `PerformanceProtocol · 表现提升协议` and similar Chinese product naming; README and metadata should present the product in English.
-- Replace “smart marathon training” / marathon-only labels with endurance-training positioning where the UI is not specifically about a marathon race plan.
-- Rename bundled skill display text from `ST Default Marathon Plan` to `PerformanceProtocol Marathon Plan`.
-- Update tests that assert old brand text.
+- Add a reusable `BrandLogo` component so the italic wordmark is shared by homepage, login, and authenticated app chrome.
+- Replace the root redirect with a real public homepage based on Stitch's structure: nav, hero, product preview, data panels, workflow/value sections, final CTA, footer.
+- Update middleware so `/` is public while authenticated app routes stay protected.
+- Move the black/orange theme into CSS tokens so existing pages inherit the new system without broad one-off rewrites.
+- Keep functional page layouts intact; theme unification should be token-driven first, targeted component edits only where needed.
+- Preserve existing Chinese product workflow copy inside app where it is not brand naming; this task is visual/theme and homepage, not full i18n.
+
+## Progress Checklist
+
+- [x] Read homepage design source under `docs/homepage-design/`.
+- [x] Replace `/` redirect with public homepage implementation.
+- [x] Add shared italic `BrandLogo` wordmark.
+- [x] Apply shared logo to homepage, login, and authenticated app chrome.
+- [x] Update global tokens to black/orange technical palette.
+- [x] Keep `/` public while preserving auth protection for app routes.
+- [x] Run frontend unit tests.
+- [x] Run frontend type-check.
+- [x] Run production build.
+- [x] Run backend regression tests.
+- [x] Manually verify homepage/login/app routing and visual consistency.
+- [x] Update devlog with implementation and verification results.
+- [x] Add final review summary.
 
 ## Verification Commands
 
 ```bash
-rg -n "ST|智能马拉松训练|表现提升协议|ST Default|ST team|ST Platform|ST ·" README.md pyproject.toml app web docs -g '!web/node_modules' -g '!web/.next' -g '!web/pnpm-lock.yaml'
-uv run python -m unittest discover -s tests -v
 cd web && pnpm test
 cd web && pnpm type-check
+cd web && pnpm build
+uv run python -m unittest discover -s tests -v
 ```
 
-Expected `rg` leftovers are only internal compatibility identifiers or historical task/dev logs, not current product-facing UI/docs.
+Manual/visual verification:
 
-## Progress
-
-- [x] Confirm branch and existing brand residue.
-- [x] Write scoped plan and acceptance criteria.
-- [x] Replace login page brand copy with `PerformanceProtocol`.
-- [x] Replace web metadata and PWA manifest brand copy.
-- [x] Replace API title/root/health service display.
-- [x] Rename bundled skill display names/authors and generated titles.
-- [x] Rewrite README in English with explicit legacy/internal `ST_*` compatibility note.
-- [x] Refresh design docs that still described the product as `ST`.
-- [x] Update frontend tests for new copy.
-- [x] Run verification.
+- Run `cd web && pnpm dev`.
+- Verify `/` renders homepage without auth.
+- Verify `/login` still renders.
+- Verify `/dashboard` still redirects to `/login` without auth.
+- Check homepage, login, and at least one authenticated page share the same black/orange theme and italic logo.
 
 ## Acceptance Criteria
 
-- Login page uses `PerformanceProtocol` and no Chinese product subtitle.
-- Web app metadata/manifest uses `PerformanceProtocol`.
-- README clearly states the product brand is `PerformanceProtocol`; `ST` is only documented as a legacy internal codename for environment variables/package paths.
-- OpenAPI title and health responses use `PerformanceProtocol`.
-- Bundled skill display names and generated workout titles do not start with `ST`.
-- Frontend/backend tests and type-check pass.
+- `/` is a public homepage matching the Stitch direction closely enough to be recognizable.
+- Homepage primary CTA links to `/login`; methodology CTA links to `/skills` or an appropriate public/placeholder target without breaking.
+- Middleware allows `/` publicly but keeps app routes protected.
+- Login and authenticated app chrome use the same italic uppercase logo treatment.
+- Global visual tokens are black/orange-first across pages.
+- Frontend tests/type-check/build pass.
+- Backend tests still pass because middleware/API behavior changes should not affect backend.
 
 ## Out Of Scope
 
-- Renaming Python package/module paths, database files, env vars, cookie keys, Fly app names, or GitHub repository name.
-- Implementing the homepage design.
-- Implementing SMS provider integration.
-- Merging PR #3 or changing production DNS/Fly infrastructure.
+- SMS provider integration.
+- Full authenticated app redesign.
+- New marketing CMS/content system.
+- Removing all Chinese operational copy from the app.
+- Modifying Fly infrastructure or production DNS.
 
 ## Review/Summary
 
-Brand cleanup is complete on branch `brand-cleanup`.
+Homepage and global theme work is complete on branch `brand-cleanup`.
 
 Changed:
 
-- Login page now displays `PerformanceProtocol` and `Endurance performance system`.
-- App metadata and PWA manifest now use `PerformanceProtocol`.
-- FastAPI title plus root/health service names now use `PerformanceProtocol`.
-- Built-in skill display names changed to `PerformanceProtocol Marathon Plan` and `Beginner Runner Plan`.
-- Generated default marathon workout titles no longer start with `ST`.
-- README was rewritten in English and clarifies that `ST` remains only for legacy/internal compatibility identifiers.
-- Outdated web design docs were refreshed to describe PerformanceProtocol, current auth, deployment, and route reality.
+- Replaced the root `/` redirect with a public PerformanceProtocol homepage based on the Stitch design.
+- Added shared `BrandLogo` and applied the italic uppercase wordmark to homepage, login, authenticated app topbar, and footer.
+- Updated middleware so `/` and `/login` are public while app routes such as `/dashboard` remain protected.
+- Swapped the frontend font setup to Inter + Space Grotesk and moved the app to black/charcoal, safety orange, and electric-blue data accents.
+- Rethemed primary buttons, selected states, panels, tab/app chrome, coach sheet, skill dialogs, plan controls, workout controls, and related shared components to match the homepage system.
+- Fixed responsive homepage typography after screenshot verification caught mobile horizontal overflow and desktop title overlap risk.
 
 Verification:
 
-- `uv run python -m py_compile app/main.py app/api/routes.py app/core/profile.py app/skills/marathon_st_default/skill.py app/skills/marathon_st_default/code/rules.py app/skills/running_beginner/skill.py app/skills/running_beginner/code/rules.py app/skills/user_extracted/coach_zhao_unified/skill.py`: pass
-- `uv run python -m unittest discover -s tests -v`: 83/83 pass
-- `cd web && pnpm test`: 62/62 pass
-- `cd web && pnpm type-check`: pass
-- Brand residue scan shows `ST` only in explicit legacy/internal codename notes and the local `/Users/paul/Work/ST` path.
+- `cd web && pnpm test`: 62/62 pass.
+- `cd web && pnpm type-check`: pass.
+- `cd web && pnpm build`: pass; 15 app routes generated and middleware compiled.
+- `uv run python -m unittest discover -s tests -v`: 83/83 pass.
+- `curl -i http://127.0.0.1:3000/`: HTTP 200.
+- `curl -i http://127.0.0.1:3000/login`: HTTP 200.
+- `curl -i http://127.0.0.1:3000/dashboard`: HTTP 307 redirect to `/login` without auth.
+- Playwright visual checks passed for desktop and mobile homepage plus mobile login. Assertions covered visible logo, hero title, CTA, product preview, dark background token, orange accent token, and no mobile horizontal overflow. Screenshots are in `/private/tmp/pp-homepage-check/`.
 
 Notes:
 
-- `pnpm install --lockfile-only` could not complete because the sandbox proxy blocked npm registry metadata (`ERR_PNPM_META_FETCH_FAIL`). No lockfile change was needed for the package display-name change.
-- Untracked `.DS_Store` files and `docs/homepage-design/` were present before finalization and were not touched by this task.
+- `pnpm build` initially failed in the sandbox because Next.js needed to fetch Google Fonts; reran with approved network permission and the final build passed.
+- No README change was needed because this did not alter startup commands, environment configuration, dependencies, or API contracts.
+- Untracked `.DS_Store` files and `docs/homepage-design/` remain untouched.

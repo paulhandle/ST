@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveToken, getToken } from '@/lib/auth'
+import BrandLogo from '@/components/BrandLogo'
 
 type Step = 'phone' | 'otp'
 
@@ -77,7 +78,7 @@ export default function LoginPage() {
       background: 'var(--paper)',
     }}>
       {/* Brand */}
-      <div className="hand" style={{ fontSize: 40, fontWeight: 700, marginBottom: 8 }}>PerformanceProtocol</div>
+      <BrandLogo href="/" />
       <div className="annot text-faint" style={{ fontSize: 14, marginBottom: 48 }}>Endurance performance system</div>
 
       <div style={{ width: '100%', maxWidth: 360 }}>
@@ -97,8 +98,8 @@ export default function LoginPage() {
             style={{
               width: '100%',
               padding: '12px 14px',
-              border: '1.5px solid var(--rule)',
-              borderRadius: 8,
+              border: '1px solid var(--rule)',
+              borderRadius: 'var(--radius)',
               fontSize: 16,
               background: 'var(--paper)',
               color: 'var(--ink)',
@@ -128,8 +129,8 @@ export default function LoginPage() {
               style={{
                 width: '100%',
                 padding: '12px 14px',
-                border: '1.5px solid var(--ink)',
-                borderRadius: 8,
+                border: '1px solid var(--accent)',
+                borderRadius: 'var(--radius)',
                 fontSize: 20,
                 letterSpacing: 6,
                 background: 'var(--paper)',
@@ -156,10 +157,10 @@ export default function LoginPage() {
             style={{
               width: '100%',
               padding: '14px',
-              background: phone.length >= 11 ? 'var(--ink)' : 'var(--rule)',
-              color: 'var(--paper)',
+              background: phone.length >= 11 ? 'var(--accent)' : 'var(--rule)',
+              color: '#050505',
               border: 'none',
-              borderRadius: 8,
+              borderRadius: 'var(--radius)',
               fontFamily: 'var(--font-hand)',
               fontSize: 16,
               cursor: phone.length >= 11 ? 'pointer' : 'default',
@@ -176,10 +177,10 @@ export default function LoginPage() {
               style={{
                 width: '100%',
                 padding: '14px',
-                background: otp.length === 6 ? 'var(--ink)' : 'var(--rule)',
-                color: 'var(--paper)',
+                background: otp.length === 6 ? 'var(--accent)' : 'var(--rule)',
+                color: '#050505',
                 border: 'none',
-                borderRadius: 8,
+                borderRadius: 'var(--radius)',
                 fontFamily: 'var(--font-hand)',
                 fontSize: 16,
                 cursor: otp.length === 6 ? 'pointer' : 'default',

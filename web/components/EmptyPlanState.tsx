@@ -20,9 +20,9 @@ export default function EmptyPlanState() {
         style={{
           display: 'inline-block',
           padding: '14px 32px',
-          background: 'var(--ink)',
-          color: 'var(--paper)',
-          borderRadius: 8,
+          background: 'var(--accent)',
+          color: '#050505',
+          borderRadius: 'var(--radius)',
           fontFamily: 'var(--font-hand)',
           fontSize: 16,
           textDecoration: 'none',

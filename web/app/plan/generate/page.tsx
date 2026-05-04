@@ -173,7 +173,7 @@ export default function PlanGeneratePage() {
           {([1, 2, 3, 4, 5] as Step[]).map(n => (
             <div key={n} style={{
               width: 6, height: 6, borderRadius: '50%',
-              background: n <= s.step ? 'var(--ink)' : 'var(--rule)',
+              background: n <= s.step ? 'var(--accent)' : 'var(--rule)',
             }} />
           ))}
         </div>
@@ -183,8 +183,8 @@ export default function PlanGeneratePage() {
       <div style={{ flex: 1, padding: '24px 20px', maxWidth: 440, width: '100%',
                     alignSelf: 'center', overflowY: 'auto' }}>
         {s.error && (
-          <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8,
-                        background: 'var(--accent-light)', border: '1.5px solid var(--accent)' }}>
+          <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 'var(--radius)',
+                        background: 'var(--accent-light)', border: '1px solid var(--accent)' }}>
             <span className="hand" style={{ fontSize: 13, color: 'var(--accent)' }}>{s.error}</span>
           </div>
         )}
@@ -293,7 +293,7 @@ function Step2Status({ assessment, importResult }: {
 
       {assessment.warnings.length > 0 && (
         <div style={{ padding: '10px 14px', background: 'var(--accent-light)',
-                      border: '1.5px solid var(--accent)', borderRadius: 8 }}>
+                      border: '1px solid var(--accent)', borderRadius: 'var(--radius)' }}>
           {assessment.warnings.map((w, i) => (
             <div key={i} className="hand" style={{ fontSize: 13, color: 'var(--accent)' }}>⚠ {w}</div>
           ))}
@@ -344,10 +344,10 @@ function Step3Config({ skills, selectedSkill, targetH, targetM, planWeeks, weekl
           {[12, 16, 20, 24].map(w => (
             <button key={w} onClick={() => onChange({ planWeeks: w })} className="hand"
               style={{
-                flex: 1, padding: '10px 4px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-                border: `1.5px solid ${planWeeks === w ? 'var(--ink)' : 'var(--rule)'}`,
-                background: planWeeks === w ? 'var(--ink)' : 'var(--paper)',
-                color: planWeeks === w ? 'var(--paper)' : 'var(--ink)',
+                flex: 1, padding: '10px 4px', borderRadius: 'var(--radius)', fontSize: 13, cursor: 'pointer',
+                border: `1px solid ${planWeeks === w ? 'var(--accent)' : 'var(--rule)'}`,
+                background: planWeeks === w ? 'var(--accent)' : 'var(--paper)',
+                color: planWeeks === w ? '#050505' : 'var(--ink)',
               }}>
               {w}周
             </button>
@@ -360,10 +360,10 @@ function Step3Config({ skills, selectedSkill, targetH, targetM, planWeeks, weekl
           {[3, 4, 5, 6].map(d => (
             <button key={d} onClick={() => onChange({ weeklyDays: d })} className="hand"
               style={{
-                flex: 1, padding: '10px 4px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-                border: `1.5px solid ${weeklyDays === d ? 'var(--ink)' : 'var(--rule)'}`,
-                background: weeklyDays === d ? 'var(--ink)' : 'var(--paper)',
-                color: weeklyDays === d ? 'var(--paper)' : 'var(--ink)',
+                flex: 1, padding: '10px 4px', borderRadius: 'var(--radius)', fontSize: 13, cursor: 'pointer',
+                border: `1px solid ${weeklyDays === d ? 'var(--accent)' : 'var(--rule)'}`,
+                background: weeklyDays === d ? 'var(--accent)' : 'var(--paper)',
+                color: weeklyDays === d ? '#050505' : 'var(--ink)',
               }}>
               {d}天
             </button>
@@ -375,9 +375,9 @@ function Step3Config({ skills, selectedSkill, targetH, targetM, planWeeks, weekl
         {skills.map(skill => (
           <div key={skill.slug} onClick={() => onChange({ selectedSkill: skill.slug })}
             style={{
-              padding: '12px 14px', marginBottom: 10, borderRadius: 8, cursor: 'pointer',
-              border: `1.5px solid ${selectedSkill === skill.slug ? 'var(--ink)' : 'var(--rule)'}`,
-              background: selectedSkill === skill.slug ? 'var(--paper-warm)' : 'var(--paper)',
+              padding: '12px 14px', marginBottom: 10, borderRadius: 'var(--radius)', cursor: 'pointer',
+              border: `1px solid ${selectedSkill === skill.slug ? 'var(--accent)' : 'var(--rule)'}`,
+              background: selectedSkill === skill.slug ? 'var(--accent-light)' : 'var(--paper)',
             }}>
             <div className="hand" style={{ fontSize: 15, fontWeight: 700 }}>{skill.name}</div>
             <div className="hand text-faint" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
@@ -466,8 +466,8 @@ function Step5Preview({ plan, syncResult, loading, onConfirmSync, onDone }: {
 
 function StatBox({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
-    <div style={{ flex: 1, padding: '12px 14px', background: 'var(--paper-warm)',
-                  borderRadius: 8, textAlign: 'center' }}>
+    <div style={{ flex: 1, padding: '12px 14px', background: 'var(--surface-low)',
+                  border: '1px solid var(--rule-soft)', borderRadius: 'var(--radius)', textAlign: 'center' }}>
       <div className="hand text-faint" style={{ fontSize: 11, marginBottom: 4 }}>{label}</div>
       <div className="hand" style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{value}</div>
       {unit && <div className="hand text-faint" style={{ fontSize: 11, marginTop: 2 }}>{unit}</div>}
@@ -505,8 +505,8 @@ function PrimaryBtn({ children, onClick, loading }: {
       disabled={loading}
       style={{
         width: '100%', padding: '14px',
-        background: loading ? 'var(--rule)' : 'var(--ink)',
-        color: 'var(--paper)', border: 'none', borderRadius: 8,
+        background: loading ? 'var(--rule)' : 'var(--accent)',
+        color: '#050505', border: 'none', borderRadius: 'var(--radius)',
         fontFamily: 'var(--font-hand)', fontSize: 16,
         cursor: loading ? 'default' : 'pointer',
       }}
@@ -518,7 +518,7 @@ function PrimaryBtn({ children, onClick, loading }: {
 
 const selectStyle: React.CSSProperties = {
   flex: 1, padding: '10px 12px',
-  border: '1.5px solid var(--rule)', borderRadius: 8,
+  border: '1px solid var(--rule)', borderRadius: 'var(--radius)',
   fontSize: 15, background: 'var(--paper)', color: 'var(--ink)',
   fontFamily: 'var(--font-hand)', outline: 'none',
 }

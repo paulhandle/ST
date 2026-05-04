@@ -1,18 +1,18 @@
 import type { Metadata, Viewport } from 'next'
-import { Barlow_Condensed, Barlow } from 'next/font/google'
+import { Inter, Space_Grotesk } from 'next/font/google'
 import './globals.css'
 
-const barlowCondensed = Barlow_Condensed({
-  weight: ['400', '600', '700'],
+const inter = Inter({
+  weight: ['400', '500', '600', '700', '800', '900'],
   subsets: ['latin'],
-  variable: '--font-hand',
+  variable: '--font-sans',
   display: 'swap',
 })
 
-const barlow = Barlow({
-  weight: ['400', '500', '600'],
+const spaceGrotesk = Space_Grotesk({
+  weight: ['500', '600', '700'],
   subsets: ['latin'],
-  variable: '--font-annot',
+  variable: '--font-data',
   display: 'swap',
 })
 
@@ -27,12 +27,12 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#fafaf6',
+  themeColor: '#0a0a0a',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${barlowCondensed.variable} ${barlow.variable}`}>
+    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <body>{children}</body>
     </html>
   )

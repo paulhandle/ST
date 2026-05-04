@@ -40,9 +40,9 @@ function StepRow({ step }: { step: WorkoutStepOut }) {
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10,
       padding: '8px 12px',
-      background: 'var(--paper)',
+      background: 'var(--surface-low)',
       border: '1px solid var(--rule-soft)',
-      borderRadius: 6,
+      borderRadius: 'var(--radius)',
     }}>
       <span className="hand" style={{
         width: 32, textAlign: 'center', fontSize: 12,

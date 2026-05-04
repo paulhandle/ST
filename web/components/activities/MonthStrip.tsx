@@ -8,7 +8,7 @@ const DOT_COLOR: Record<CalendarStatus, string> = {
   partial:   'var(--ink-mid)',
   miss:      'var(--accent)',
   unmatched: 'var(--ink-faint)',
-  planned:   'rgba(214,59,47,0.4)',
+  planned:   'rgba(255,77,0,0.45)',
 }
 
 interface Props {
@@ -90,16 +90,16 @@ export default function MonthStrip({ days, selectedDate, onSelectDate }: Props) 
               {isFirstOfMonth ? `${monthNum}月` : '·'}
             </div>
 
-            {/* Day number circle */}
+            {/* Day number block */}
             <div style={{
-              width: 26, height: 26, borderRadius: '50%',
+              width: 26, height: 26, borderRadius: 'var(--radius)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: isSelected ? 'var(--ink)' : 'transparent',
-              border: isToday && !isSelected ? '1.5px solid var(--ink)' : 'none',
+              background: isSelected ? 'var(--accent)' : 'transparent',
+              border: isToday && !isSelected ? '1px solid var(--accent)' : 'none',
             }}>
               <span className="hand" style={{
                 fontSize: 12, lineHeight: 1,
-                color: isSelected ? 'var(--paper)' : isToday ? 'var(--ink)' : 'var(--ink-faint)',
+                color: isSelected ? '#050505' : isToday ? 'var(--accent)' : 'var(--ink-faint)',
                 fontWeight: isToday || isSelected ? 700 : 400,
               }}>
                 {dayNum}
