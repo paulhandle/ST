@@ -2,7 +2,7 @@
 # Org: performance-protocol
 # Region: Singapore (sin)
 
-app = "st-web"
+app = "pp-web"
 primary_region = "sin"
 
 [env]

@@ -19,8 +19,8 @@ set -euo pipefail
 FLY_ORG="performance-protocol"
 REGION="sin"                              # Singapore
 API_APP="st-api"
-WEB_APP="st-web"
-DB_APP="st-db"
+WEB_APP="pp-web"
+DB_APP="pp-db"
 DOMAIN_API="api.performanceprotocol.io"
 DOMAIN_WEB="performanceprotocol.io"
 DOMAIN_WWW="www.performanceprotocol.io"
