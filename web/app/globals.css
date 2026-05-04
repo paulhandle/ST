@@ -15,8 +15,8 @@
   --rule-soft:    rgba(26, 26, 26, 0.08);
   --radius:       8px;
 
-  --font-hand:  'Kalam', cursive;
-  --font-annot: 'Caveat', cursive;
+  --font-hand:  'Barlow Condensed', 'Barlow', sans-serif;
+  --font-annot: 'Barlow', 'Barlow Condensed', sans-serif;
   --font-mono:  'ui-monospace', 'SFMono-Regular', monospace;
   --font-sans:  'system-ui', '-apple-system', sans-serif;
 

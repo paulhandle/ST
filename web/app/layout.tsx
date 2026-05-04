@@ -1,16 +1,16 @@
 import type { Metadata, Viewport } from 'next'
-import { Kalam, Caveat } from 'next/font/google'
+import { Barlow_Condensed, Barlow } from 'next/font/google'
 import './globals.css'
 
-const kalam = Kalam({
-  weight: ['300', '400', '700'],
+const barlowCondensed = Barlow_Condensed({
+  weight: ['400', '600', '700'],
   subsets: ['latin'],
   variable: '--font-hand',
   display: 'swap',
 })
 
-const caveat = Caveat({
-  weight: ['400', '500', '700'],
+const barlow = Barlow({
+  weight: ['400', '500', '600'],
   subsets: ['latin'],
   variable: '--font-annot',
   display: 'swap',
@@ -32,7 +32,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" className={`${kalam.variable} ${caveat.variable}`}>
+    <html lang="zh-CN" className={`${barlowCondensed.variable} ${barlow.variable}`}>
       <body>{children}</body>
     </html>
   )

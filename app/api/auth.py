@@ -55,17 +55,19 @@ def verify_otp(body: VerifyOTPRequest, db: Session = Depends(get_db)):
     otp.used = True
     db.flush()
 
+    is_new_user = False
     user = db.query(User).filter(User.phone == body.phone).first()
     if user is None:
         user = User(phone=body.phone)
         db.add(user)
         db.flush()
+        is_new_user = True
 
     db.commit()
     db.refresh(user)
 
     token = create_access_token(user.id)
-    return VerifyOTPResponse(access_token=token, token_type="bearer", user_id=user.id)
+    return VerifyOTPResponse(access_token=token, token_type="bearer", user_id=user.id, is_new_user=is_new_user)
 
 
 @router.get("/me", response_model=UserOut)

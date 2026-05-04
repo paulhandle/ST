@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { saveToken } from '@/lib/auth'
+import { saveToken, getToken } from '@/lib/auth'
 
 type Step = 'phone' | 'otp'
 
@@ -13,6 +13,16 @@ export default function LoginPage() {
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Migrate pre-cookie sessions: if localStorage already has a valid token,
+  // saveToken re-syncs it to the cookie and we skip the login flow entirely
+  useEffect(() => {
+    const existing = getToken()
+    if (existing) {
+      saveToken(existing)
+      router.replace('/dashboard')
+    }
+  }, [router])
 
   async function sendOtp() {
     setError(null)

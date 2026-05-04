@@ -644,3 +644,24 @@ pnpm build
 
 - 细粒度权限（用户只能访问自己的数据）—— 留待用户规模增长后再做
 - Token 刷新 / 登出接口
+
+---
+
+# Product Naming Exploration — PP Short Name (2026-05-04)
+
+## Objective
+
+Understand the current product positioning and propose product names whose abbreviation can be `PP`.
+
+## Plan
+
+- [x] Review README, PRD, technical design, frontend copy, and skill descriptions for product positioning.
+- [x] Extract the strongest naming anchors: user, job-to-be-done, product loop, and differentiation.
+- [x] Generate grouped `PP` name candidates with rationale and tradeoffs.
+- [x] Add a Review/Summary section for future agents.
+
+## Review/Summary
+
+The current product is best positioned as a COROS-first marathon training loop, not a generic AI running plan generator. Its strongest naming anchors are: pluggable training methodology (`Skill`), extraction of coach methodology from history (`skill-creator`), structured plan generation, COROS import/sync, execution monitoring, weekly adjustment, and safety-aware goal feasibility.
+
+Naming implications for `PP`: avoid names that over-index on "pace" alone because they understate the methodology/system layer and collide with current market language. Quick external sanity checks found close running products or platform terms around `PacePilot`, `PacePartner`, Garmin `PacePro`, and COROS `Pace Strategy`, so stronger directions are likely around `Protocol`, `Path`, `Pattern`, `Planner`, or `Program`.
