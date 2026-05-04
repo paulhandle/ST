@@ -52,6 +52,7 @@ from app.core.matching import (
 from app.schemas import (
     AdjustmentAffectedWorkout,
     AthleteActivityOut,
+    CalendarDayOut,
     AthleteCreate,
     AthleteOut,
     CoachMessageOut,
@@ -687,6 +688,93 @@ def get_workout_by_date(
         yesterday_activity=yesterday_activity_out,
         recovery_recommendation=None,
     )
+
+
+_DISCIPLINE_LABEL: dict[str, str] = {
+    "run": "跑步", "cycle": "骑车", "swim": "游泳",
+    "strength": "力量", "walk": "步行",
+}
+
+
+@router.get("/athletes/{athlete_id}/calendar", response_model=list[CalendarDayOut])
+def get_calendar(
+    athlete_id: int,
+    from_date: str = Query(...),
+    to_date: str = Query(...),
+    db: Session = Depends(get_db),
+    _user: "User" = Depends(get_current_user),
+) -> list[CalendarDayOut]:
+    _athlete_or_404(db, athlete_id)
+    try:
+        from_d = date.fromisoformat(from_date)
+        to_d = date.fromisoformat(to_date)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid date format, expected YYYY-MM-DD")
+
+    today = date.today()
+
+    from_dt = datetime.combine(from_d, datetime.min.time())
+    to_dt = datetime.combine(to_d, datetime.max.time())
+    activities = db.execute(
+        select(AthleteActivity)
+        .where(AthleteActivity.athlete_id == athlete_id)
+        .where(AthleteActivity.started_at >= from_dt)
+        .where(AthleteActivity.started_at <= to_dt)
+        .options(selectinload(AthleteActivity.matched_workout))
+        .order_by(AthleteActivity.started_at)
+    ).scalars().all()
+
+    acts_by_date: dict[date, list[AthleteActivity]] = {}
+    for act in activities:
+        d = act.started_at.date()
+        acts_by_date.setdefault(d, []).append(act)
+
+    plan = _active_or_draft_plan_for_athlete(db, athlete_id)
+    workouts_by_date: dict[date, StructuredWorkout] = {}
+    if plan:
+        for w in plan.structured_workouts:
+            if from_d <= w.scheduled_date <= to_d:
+                workouts_by_date[w.scheduled_date] = w
+
+    all_dates = sorted(set(acts_by_date) | set(workouts_by_date))
+    result: list[CalendarDayOut] = []
+
+    for d in all_dates:
+        acts = acts_by_date.get(d, [])
+        workout = workouts_by_date.get(d)
+
+        if acts:
+            act = acts[0]
+            mw = act.matched_workout
+            status = _classify_match_status(mw, act)
+            label = _DISCIPLINE_LABEL.get(act.discipline, act.discipline)
+            dist_str = f" {act.distance_m / 1000:.1f}km" if act.distance_m else ""
+            result.append(CalendarDayOut(
+                date=d.isoformat(),
+                status=status,
+                title=f"{label}{dist_str}",
+                sport=act.discipline,
+                workout_type=mw.workout_type if mw else None,
+                activity_id=act.id,
+                workout_id=mw.id if mw else None,
+                distance_km=round(act.distance_m / 1000, 2) if act.distance_m else None,
+                duration_min=round(act.duration_sec / 60) if act.duration_sec else None,
+            ))
+        elif workout:
+            status = "planned" if d > today else "miss"
+            result.append(CalendarDayOut(
+                date=d.isoformat(),
+                status=status,
+                title=workout.title,
+                sport=workout.discipline,
+                workout_type=workout.workout_type,
+                activity_id=None,
+                workout_id=workout.id,
+                distance_km=round(workout.distance_m / 1000, 2) if workout.distance_m else None,
+                duration_min=workout.duration_min,
+            ))
+
+    return result
 
 
 @router.get("/plans/{plan_id}/week", response_model=WeekOut)
