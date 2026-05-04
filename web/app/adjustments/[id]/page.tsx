@@ -107,8 +107,9 @@ export default function AdjustmentPage({ params }: { params: Promise<{ id: strin
                 className="hand"
                 style={{
                   flex: 1, padding: '13px',
-                  border: '1.5px solid var(--rule)',
-                  borderRadius: 8, background: 'none',
+                  border: '1px solid var(--rule)',
+                  borderRadius: 'var(--radius)', background: 'none',
+                  color: 'var(--ink)',
                   fontSize: 15, cursor: acting ? 'default' : 'pointer',
                 }}
               >
@@ -120,8 +121,8 @@ export default function AdjustmentPage({ params }: { params: Promise<{ id: strin
                 className="hand"
                 style={{
                   flex: 2, padding: '13px',
-                  background: 'var(--ink)', color: 'var(--paper)',
-                  border: 'none', borderRadius: 8,
+                  background: 'var(--accent)', color: '#050505',
+                  border: 'none', borderRadius: 'var(--radius)',
                   fontSize: 15, cursor: acting ? 'default' : 'pointer',
                   opacity: acting ? 0.7 : 1,
                 }}

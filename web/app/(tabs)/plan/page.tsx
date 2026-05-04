@@ -133,8 +133,9 @@ function PhaseStrip({ curve, currentWeek }: { curve: VolumeCurveWeek[]; currentW
             flex: p.count,
             minWidth: 40,
             padding: '6px 8px',
-            background: 'var(--rule-soft)',
-            borderRadius: 4,
+            background: 'var(--surface-low)',
+            border: '1px solid var(--rule-soft)',
+            borderRadius: 'var(--radius)',
             textAlign: 'center',
           }}
         >
@@ -163,7 +164,7 @@ function WeekRow({ week, isCurrent }: { week: VolumeCurveWeek; isCurrent: boolea
       display: 'flex', alignItems: 'center', gap: 12,
       padding: '10px 16px',
       borderBottom: '1px solid var(--rule-soft)',
-      background: isCurrent ? 'rgba(214, 59, 47, 0.04)' : undefined,
+      background: isCurrent ? 'var(--accent-light)' : undefined,
     }}>
       <div style={{ width: 32, flexShrink: 0 }}>
         <div className="hand" style={{
@@ -179,9 +180,9 @@ function WeekRow({ week, isCurrent }: { week: VolumeCurveWeek; isCurrent: boolea
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ height: 4, borderRadius: 2, background: 'var(--rule-soft)', overflow: 'hidden' }}>
+        <div style={{ height: 4, borderRadius: 'var(--radius)', background: 'var(--rule-soft)', overflow: 'hidden' }}>
           <div style={{
-            height: '100%', borderRadius: 2,
+            height: '100%', borderRadius: 'var(--radius)',
             background: isCurrent ? 'var(--accent)' : 'var(--ink)',
             width: `${Math.min(100, pct)}%`,
           }} />

@@ -1,4 +1,4 @@
-# ST Web — Dashboard / Home Tab Design Prompt
+# PerformanceProtocol Web — Dashboard / Home Tab Design Prompt
 
 > Use alongside `web-design-context.md` (full project brief). This document
 > focuses only on the **Dashboard** tab. Other tabs (Today / Week / Plan)

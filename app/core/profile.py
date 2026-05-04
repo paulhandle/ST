@@ -37,7 +37,7 @@ def load_profile(path: Path | None = None) -> AthleteProfileData:
 
 def save_profile(profile: AthleteProfileData, path: Path | None = None) -> None:
     p = path or PROFILE_PATH
-    lines = ["# ST Athlete Training Profile\n\n"]
+    lines = ["# PerformanceProtocol Athlete Training Profile\n\n"]
     for key, value in asdict(profile).items():
         if value is None or value == "":
             continue

@@ -41,16 +41,16 @@ describe('PendingAdjustmentSection', () => {
 describe('EmptyPlanState', () => {
   it('renders a CTA to generate plan', () => {
     render(<EmptyPlanState />)
-    expect(screen.getByRole('link', { name: /生成训练计划/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Generate plan/ })).toBeInTheDocument()
   })
 
   it('links to plan generate wizard', () => {
     render(<EmptyPlanState />)
-    expect(screen.getByRole('link', { name: /生成训练计划/ })).toHaveAttribute('href', '/plan/generate')
+    expect(screen.getByRole('link', { name: /Generate plan/ })).toHaveAttribute('href', '/plan/generate')
   })
 
   it('shows encouraging copy', () => {
     render(<EmptyPlanState />)
-    expect(screen.getByText(/马拉松训练/)).toBeInTheDocument()
+    expect(screen.getByText(/training cycle/i)).toBeInTheDocument()
   })
 })

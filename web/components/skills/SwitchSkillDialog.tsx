@@ -12,13 +12,14 @@ export default function SwitchSkillDialog({ skillName, preview, onConfirm, onCan
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 300,
-      background: 'rgba(26,26,26,0.4)',
+      background: 'rgba(0,0,0,0.72)',
       display: 'flex', alignItems: 'flex-end',
     }}>
       <div style={{
         width: '100%',
-        background: 'var(--paper)',
-        borderRadius: '16px 16px 0 0',
+        background: 'var(--surface-low)',
+        border: '1px solid var(--rule)',
+        borderRadius: 'var(--radius) var(--radius) 0 0',
         padding: '24px 20px 32px',
       }} className="fade-in">
         <div className="hand" style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
@@ -29,8 +30,8 @@ export default function SwitchSkillDialog({ skillName, preview, onConfirm, onCan
           <div style={{
             padding: '12px 14px', marginBottom: 16,
             background: 'var(--accent-light)',
-            border: '1.5px solid var(--accent)',
-            borderRadius: 8,
+            border: '1px solid var(--accent)',
+            borderRadius: 'var(--radius)',
           }}>
             <div className="hand" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, marginBottom: 4 }}>
               暂不适用
@@ -58,8 +59,9 @@ export default function SwitchSkillDialog({ skillName, preview, onConfirm, onCan
             className="hand"
             style={{
               flex: 1, padding: '13px',
-              border: '1.5px solid var(--rule)',
-              borderRadius: 8, background: 'none',
+              border: '1px solid var(--rule)',
+              borderRadius: 'var(--radius)', background: 'none',
+              color: 'var(--ink)',
               fontSize: 15, cursor: 'pointer',
             }}
           >
@@ -71,9 +73,9 @@ export default function SwitchSkillDialog({ skillName, preview, onConfirm, onCan
             className="hand"
             style={{
               flex: 2, padding: '13px',
-              background: preview.applicable ? 'var(--ink)' : 'var(--rule)',
-              color: 'var(--paper)',
-              border: 'none', borderRadius: 8,
+              background: preview.applicable ? 'var(--accent)' : 'var(--rule)',
+              color: '#050505',
+              border: 'none', borderRadius: 'var(--radius)',
               fontSize: 15,
               cursor: preview.applicable && !loading ? 'pointer' : 'default',
               opacity: loading ? 0.7 : 1,
@@ -91,8 +93,8 @@ function StatCell({ label, value }: { label: string; value: string }) {
   return (
     <div style={{
       padding: '10px 12px',
-      background: 'var(--paper-warm)',
-      borderRadius: 8,
+      background: 'var(--surface)',
+      borderRadius: 'var(--radius)',
       border: '1px solid var(--rule-soft)',
     }}>
       <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>{value}</div>

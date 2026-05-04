@@ -76,10 +76,10 @@ export default function SkillsPage() {
         loadingPreview ? (
           <div style={{
             position: 'fixed', inset: 0, zIndex: 300,
-            background: 'rgba(26,26,26,0.3)',
+            background: 'rgba(0,0,0,0.72)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <span className="hand" style={{ color: 'var(--paper)', fontSize: 16 }}>加载预览…</span>
+            <span className="hand" style={{ color: 'var(--ink)', fontSize: 16 }}>加载预览…</span>
           </div>
         ) : preview ? (
           <SwitchSkillDialog

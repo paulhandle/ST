@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveToken, getToken } from '@/lib/auth'
+import BrandLogo from '@/components/BrandLogo'
 
 type Step = 'phone' | 'otp'
 
@@ -34,8 +35,8 @@ export default function LoginPage() {
         body: JSON.stringify({ phone }),
       })
       if (!res.ok) {
-        const msg = await res.text().catch(() => '发送失败')
-        setError(`发送失败：${msg}`)
+        const msg = await res.text().catch(() => 'Unable to send code')
+        setError(`Unable to send code: ${msg}`)
         return
       }
       setStep('otp')
@@ -54,7 +55,7 @@ export default function LoginPage() {
         body: JSON.stringify({ phone, code: otp }),
       })
       if (!res.ok) {
-        setError('验证码错误或已过期')
+        setError('The verification code is invalid or expired.')
         return
       }
       const data = await res.json()
@@ -76,19 +77,20 @@ export default function LoginPage() {
       padding: '0 24px',
       background: 'var(--paper)',
     }}>
-      {/* Logo */}
-      <div className="hand" style={{ fontSize: 48, fontWeight: 700, marginBottom: 8 }}>ST</div>
-      <div className="annot text-faint" style={{ fontSize: 14, marginBottom: 48 }}>智能马拉松训练</div>
+      {/* Brand */}
+      <BrandLogo href="/" />
+      <div className="annot text-faint" style={{ fontSize: 14, marginBottom: 48 }}>Endurance performance system</div>
 
       <div style={{ width: '100%', maxWidth: 360 }}>
         {/* Phone input */}
         <div style={{ marginBottom: 16 }}>
-          <label className="hand" style={{ fontSize: 13, color: 'var(--ink-faint)', display: 'block', marginBottom: 6 }}>
-            手机号
+          <label htmlFor="phone" className="hand" style={{ fontSize: 13, color: 'var(--ink-faint)', display: 'block', marginBottom: 6 }}>
+            Phone number
           </label>
           <input
+            id="phone"
             type="tel"
-            placeholder="手机号"
+            placeholder="+86 138 0013 8000"
             value={phone}
             onChange={e => setPhone(e.target.value)}
             disabled={step === 'otp'}
@@ -96,8 +98,8 @@ export default function LoginPage() {
             style={{
               width: '100%',
               padding: '12px 14px',
-              border: '1.5px solid var(--rule)',
-              borderRadius: 8,
+              border: '1px solid var(--rule)',
+              borderRadius: 'var(--radius)',
               fontSize: 16,
               background: 'var(--paper)',
               color: 'var(--ink)',
@@ -111,13 +113,14 @@ export default function LoginPage() {
         {/* OTP input — shown after send */}
         {step === 'otp' && (
           <div style={{ marginBottom: 16 }}>
-            <label className="hand" style={{ fontSize: 13, color: 'var(--ink-faint)', display: 'block', marginBottom: 6 }}>
-              验证码
+            <label htmlFor="otp" className="hand" style={{ fontSize: 13, color: 'var(--ink-faint)', display: 'block', marginBottom: 6 }}>
+              Verification code
             </label>
             <input
+              id="otp"
               type="text"
               inputMode="numeric"
-              placeholder="验证码"
+              placeholder="123456"
               value={otp}
               onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
               maxLength={6}
@@ -126,8 +129,8 @@ export default function LoginPage() {
               style={{
                 width: '100%',
                 padding: '12px 14px',
-                border: '1.5px solid var(--ink)',
-                borderRadius: 8,
+                border: '1px solid var(--accent)',
+                borderRadius: 'var(--radius)',
                 fontSize: 20,
                 letterSpacing: 6,
                 background: 'var(--paper)',
@@ -154,17 +157,17 @@ export default function LoginPage() {
             style={{
               width: '100%',
               padding: '14px',
-              background: phone.length >= 11 ? 'var(--ink)' : 'var(--rule)',
-              color: 'var(--paper)',
+              background: phone.length >= 11 ? 'var(--accent)' : 'var(--rule)',
+              color: '#050505',
               border: 'none',
-              borderRadius: 8,
+              borderRadius: 'var(--radius)',
               fontFamily: 'var(--font-hand)',
               fontSize: 16,
               cursor: phone.length >= 11 ? 'pointer' : 'default',
               transition: 'background 0.15s',
             }}
           >
-            {loading ? '发送中…' : '获取验证码'}
+            {loading ? 'Sending...' : 'Send code'}
           </button>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -174,16 +177,16 @@ export default function LoginPage() {
               style={{
                 width: '100%',
                 padding: '14px',
-                background: otp.length === 6 ? 'var(--ink)' : 'var(--rule)',
-                color: 'var(--paper)',
+                background: otp.length === 6 ? 'var(--accent)' : 'var(--rule)',
+                color: '#050505',
                 border: 'none',
-                borderRadius: 8,
+                borderRadius: 'var(--radius)',
                 fontFamily: 'var(--font-hand)',
                 fontSize: 16,
                 cursor: otp.length === 6 ? 'pointer' : 'default',
               }}
             >
-              {loading ? '验证中…' : '登录'}
+              {loading ? 'Verifying...' : 'Sign in'}
             </button>
             <button
               onClick={() => { setStep('phone'); setOtp(''); setError(null) }}
@@ -193,7 +196,7 @@ export default function LoginPage() {
                 color: 'var(--ink-faint)', cursor: 'pointer',
               }}
             >
-              重新发送
+              Resend code
             </button>
           </div>
         )}

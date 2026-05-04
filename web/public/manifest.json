@@ -1,7 +1,7 @@
 {
-  "name": "ST · 跑步训练",
-  "short_name": "ST",
-  "description": "智能马拉松训练平台",
+  "name": "PerformanceProtocol",
+  "short_name": "PerformanceProtocol",
+  "description": "Endurance training plans, execution tracking, device sync, and adaptive feedback.",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#fafaf6",

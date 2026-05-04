@@ -117,7 +117,7 @@ router = APIRouter()
 
 @router.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "ST"}
+    return {"status": "ok", "service": "PerformanceProtocol"}
 
 
 @router.get("/sports")

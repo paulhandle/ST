@@ -143,7 +143,7 @@ export default function OnboardingPage() {
           {([1, 2, 3, 4] as Step[]).map(s => (
             <div key={s} style={{
               flex: 1, height: 3, borderRadius: 2,
-              background: s <= step ? 'var(--ink)' : 'var(--rule-soft)',
+              background: s <= step ? 'var(--accent)' : 'var(--rule-soft)',
               transition: 'background 0.2s',
             }} />
           ))}
@@ -174,8 +174,8 @@ export default function OnboardingPage() {
               onClick={next}
               style={{
                 width: '100%', padding: '14px',
-                background: 'var(--ink)', color: 'var(--paper)',
-                border: 'none', borderRadius: 8,
+                background: 'var(--accent)', color: '#050505',
+                border: 'none', borderRadius: 'var(--radius)',
                 fontFamily: 'var(--font-hand)', fontSize: 16, cursor: 'pointer',
               }}
             >
@@ -200,8 +200,8 @@ export default function OnboardingPage() {
             disabled={loading}
             style={{
               width: '100%', padding: '14px',
-              background: 'var(--ink)', color: 'var(--paper)',
-              border: 'none', borderRadius: 8,
+              background: 'var(--accent)', color: '#050505',
+              border: 'none', borderRadius: 'var(--radius)',
               fontFamily: 'var(--font-hand)', fontSize: 16,
               cursor: loading ? 'default' : 'pointer',
               opacity: loading ? 0.7 : 1,
@@ -296,10 +296,10 @@ function StepGoal({ state, update }: { state: OnboardingState; update: (p: Parti
               className="hand"
               style={{
                 flex: 1, padding: '10px 4px',
-                border: `1.5px solid ${state.experienceLevel === val ? 'var(--ink)' : 'var(--rule)'}`,
-                borderRadius: 8,
-                background: state.experienceLevel === val ? 'var(--ink)' : 'var(--paper)',
-                color: state.experienceLevel === val ? 'var(--paper)' : 'var(--ink)',
+                border: `1px solid ${state.experienceLevel === val ? 'var(--accent)' : 'var(--rule)'}`,
+                borderRadius: 'var(--radius)',
+                background: state.experienceLevel === val ? 'var(--accent)' : 'var(--paper)',
+                color: state.experienceLevel === val ? '#050505' : 'var(--ink)',
                 fontSize: 12, cursor: 'pointer',
               }}
             >
@@ -337,10 +337,10 @@ function StepAvailability({ state, update }: { state: OnboardingState; update: (
               className="hand"
               style={{
                 flex: 1, padding: '10px 0',
-                border: `1.5px solid ${selected ? 'var(--ink)' : 'var(--rule)'}`,
-                borderRadius: 8,
-                background: selected ? 'var(--ink)' : 'var(--paper)',
-                color: selected ? 'var(--paper)' : 'var(--ink)',
+                border: `1px solid ${selected ? 'var(--accent)' : 'var(--rule)'}`,
+                borderRadius: 'var(--radius)',
+                background: selected ? 'var(--accent)' : 'var(--paper)',
+                color: selected ? '#050505' : 'var(--ink)',
                 fontSize: 13, cursor: 'pointer',
               }}
             >
@@ -405,8 +405,8 @@ function ConfirmRow({ label, value }: { label: string; value: string }) {
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '12px 14px',
-  border: '1.5px solid var(--rule)',
-  borderRadius: 8,
+  border: '1px solid var(--rule)',
+  borderRadius: 'var(--radius)',
   fontSize: 15,
   background: 'var(--paper)',
   color: 'var(--ink)',

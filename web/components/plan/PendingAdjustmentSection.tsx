@@ -13,8 +13,8 @@ export default function PendingAdjustmentSection({ adjustment }: Props) {
           className="hand"
           style={{
             fontSize: 11, padding: '2px 8px',
-            background: 'var(--accent)', color: 'var(--paper)',
-            borderRadius: 999,
+            background: 'var(--accent)', color: '#050505',
+            borderRadius: 'var(--radius)',
           }}
         >
           1 待处理
@@ -24,8 +24,8 @@ export default function PendingAdjustmentSection({ adjustment }: Props) {
       <Link href={`/adjustments/${adjustment.id}`} style={{ textDecoration: 'none', display: 'block' }}>
         <div style={{
           padding: '12px 14px',
-          border: '1.5px solid var(--accent)',
-          borderRadius: 8,
+          border: '1px solid var(--accent)',
+          borderRadius: 'var(--radius)',
           background: 'var(--accent-light)',
           display: 'flex',
           alignItems: 'center',

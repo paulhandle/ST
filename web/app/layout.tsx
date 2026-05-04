@@ -1,24 +1,24 @@
 import type { Metadata, Viewport } from 'next'
-import { Barlow_Condensed, Barlow } from 'next/font/google'
+import { Inter, Space_Grotesk } from 'next/font/google'
 import './globals.css'
 
-const barlowCondensed = Barlow_Condensed({
-  weight: ['400', '600', '700'],
+const inter = Inter({
+  weight: ['400', '500', '600', '700', '800', '900'],
   subsets: ['latin'],
-  variable: '--font-hand',
+  variable: '--font-sans',
   display: 'swap',
 })
 
-const barlow = Barlow({
-  weight: ['400', '500', '600'],
+const spaceGrotesk = Space_Grotesk({
+  weight: ['500', '600', '700'],
   subsets: ['latin'],
-  variable: '--font-annot',
+  variable: '--font-data',
   display: 'swap',
 })
 
 export const metadata: Metadata = {
-  title: 'PerformanceProtocol · 表现提升协议',
-  description: '严肃耐力运动员的训练表现提升平台 — 路跑 / 越野 / 铁三',
+  title: 'PerformanceProtocol',
+  description: 'Endurance training plans, execution tracking, device sync, and adaptive feedback for serious athletes.',
   manifest: '/manifest.json',
 }
 
@@ -27,12 +27,12 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#fafaf6',
+  themeColor: '#0a0a0a',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" className={`${barlowCondensed.variable} ${barlow.variable}`}>
+    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <body>{children}</body>
     </html>
   )

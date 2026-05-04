@@ -14,9 +14,9 @@ export default function SkillList({ skills, onSwitch }: Props) {
           key={s.slug}
           style={{
             padding: '14px 16px',
-            border: s.is_active ? '1.5px solid var(--ink)' : '1px solid var(--rule)',
-            borderRadius: 10,
-            background: 'var(--paper)',
+            border: s.is_active ? '1px solid var(--accent)' : '1px solid var(--rule)',
+            borderRadius: 'var(--radius)',
+            background: s.is_active ? 'var(--accent-light)' : 'var(--surface-low)',
           }}
         >
           <div className="between" style={{ marginBottom: 4 }}>
@@ -29,9 +29,10 @@ export default function SkillList({ skills, onSwitch }: Props) {
                   className="hand"
                   style={{
                     padding: '4px 12px',
-                    border: '1.5px solid var(--ink)',
-                    borderRadius: 999,
+                    border: '1px solid var(--accent)',
+                    borderRadius: 'var(--radius)',
                     background: 'none',
+                    color: 'var(--accent)',
                     fontSize: 12,
                     cursor: 'pointer',
                   }}

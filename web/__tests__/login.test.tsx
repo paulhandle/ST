@@ -29,17 +29,17 @@ beforeEach(() => {
 describe('LoginPage', () => {
   it('renders phone input', () => {
     render(<LoginPage />)
-    expect(screen.getByPlaceholderText(/手机号/)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/\+86/)).toBeInTheDocument()
   })
 
   it('renders send OTP button', () => {
     render(<LoginPage />)
-    expect(screen.getByText(/获取验证码/)).toBeInTheDocument()
+    expect(screen.getByText(/Send code/)).toBeInTheDocument()
   })
 
   it('OTP input is hidden initially', () => {
     render(<LoginPage />)
-    expect(screen.queryByPlaceholderText(/验证码/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Verification code/)).not.toBeInTheDocument()
   })
 
   it('shows OTP input after send-otp success', async () => {
@@ -49,12 +49,12 @@ describe('LoginPage', () => {
     })
 
     render(<LoginPage />)
-    const phoneInput = screen.getByPlaceholderText(/手机号/)
+    const phoneInput = screen.getByPlaceholderText(/\+86/)
     fireEvent.change(phoneInput, { target: { value: '13800138000' } })
-    fireEvent.click(screen.getByText(/获取验证码/))
+    fireEvent.click(screen.getByText(/Send code/))
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText(/验证码/)).toBeInTheDocument()
+      expect(screen.getByLabelText(/Verification code/)).toBeInTheDocument()
     })
   })
 
@@ -66,13 +66,13 @@ describe('LoginPage', () => {
 
     render(<LoginPage />)
     // Use 11-digit phone so the button is enabled
-    fireEvent.change(screen.getByPlaceholderText(/手机号/), {
+    fireEvent.change(screen.getByPlaceholderText(/\+86/), {
       target: { value: '13800138999' },
     })
-    fireEvent.click(screen.getByText(/获取验证码/))
+    fireEvent.click(screen.getByText(/Send code/))
 
     await waitFor(() => {
-      expect(screen.getByText(/发送失败/i)).toBeInTheDocument()
+      expect(screen.getByText(/Unable to send code/i)).toBeInTheDocument()
     })
   })
 })

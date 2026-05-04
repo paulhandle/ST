@@ -1,4 +1,4 @@
-# ST Default Marathon Plan
+# PerformanceProtocol Marathon Plan
 
 The bundled fallback marathon skill. Used when the user has not selected
 another methodology.

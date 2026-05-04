@@ -1,4 +1,4 @@
-"""ST default marathon skill.
+"""PerformanceProtocol default marathon skill.
 
 Tries the LLM-personalized generator first; falls back to the deterministic
 rule generator on any error. Both produce the same PlanDraft shape.
@@ -24,7 +24,7 @@ class MarathonStDefaultSkill:
     def manifest(self) -> SkillManifest:
         return SkillManifest(
             slug="marathon_st_default",
-            name="ST Default Marathon Plan",
+            name="PerformanceProtocol Marathon Plan",
             version="0.1.0",
             sport=SportType.MARATHON,
             supported_goals=["finish", "target_time"],
@@ -33,7 +33,7 @@ class MarathonStDefaultSkill:
                 "deterministic rule-based volume curves with optional LLM "
                 "personalization."
             ),
-            author="ST team",
+            author="PerformanceProtocol",
             tags=["marathon", "hybrid", "base-build-peak"],
             requires_llm=False,
         )

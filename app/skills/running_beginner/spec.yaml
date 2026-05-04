@@ -1,15 +1,16 @@
 slug: running_beginner
-name: 入门跑者计划
+name: Beginner Runner Plan
 version: "1.0"
 sport: marathon
-author: ST Platform
+author: PerformanceProtocol
 tags:
   - beginner
   - run-walk
   - rpe
   - no-history
 description: >
-  面向零基础或低里程跑者的入门训练方法。以RPE为强度指标，
-  每周1-3次轻松跑，逐步建立有氧基础。适合平均周跑量低于40km的用户。
+  Entry-level running progression for athletes with no history or low mileage.
+  Uses RPE-only intensity, 1-3 easy sessions per week, and gradual aerobic
+  development. Suitable for users averaging below 40 km per week.
 applicable_when:
   max_avg_weekly_km: 40

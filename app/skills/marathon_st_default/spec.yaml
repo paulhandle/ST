@@ -1,5 +1,5 @@
 slug: marathon_st_default
-name: ST Default Marathon Plan
+name: PerformanceProtocol Marathon Plan
 version: 0.1.0
 sport: marathon
 supported_goals:
@@ -9,7 +9,7 @@ description: >
   Periodized base/build/peak/taper full-marathon plan. Combines a deterministic
   rule-based volume curve with optional LLM-personalized weekly structure.
   Falls back cleanly to rules when LLM is unavailable.
-author: ST team
+author: PerformanceProtocol
 tags:
   - marathon
   - hybrid

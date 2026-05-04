@@ -1,37 +1,37 @@
-# 入门跑者计划 — 方法论说明
+# Beginner Runner Plan
 
-## 适用场景
+## Use Case
 
-- 从未跑步或很久没运动的用户
-- 近8周平均周跑量低于40km
-- 目标：完成马拉松或建立运动习惯
+- Athletes who have never run consistently or are returning after a long break.
+- Athletes averaging below 40 km per week over the last 8 weeks.
+- Goals focused on completing a race or building a durable running habit.
 
-## 核心理念
+## Principle
 
-**先建立习惯，再追求速度。**
+Build consistency before chasing pace.
 
-入门阶段最大的敌人是受伤和放弃。因此：
+Beginner training is constrained by injury risk and adherence. The plan uses:
 
-1. **全程RPE为主**：不要求配速，只要求感受。轻松跑保持在RPE 4-5（能说完整句子）
-2. **每周不超过3次**：留足恢复时间
-3. **每次不超过60分钟**：避免过度疲劳
-4. **10%递增原则**：每周总里程增加不超过10%
+1. **RPE-only intensity.** No pace targets. Easy running stays around RPE 4-5.
+2. **No more than three runs per week.** Recovery time is part of the plan.
+3. **Short sessions first.** Early sessions are deliberately easy to complete.
+4. **Gradual progression.** Volume increases slowly, with recovery weeks.
 
-## 课程结构
+## Workout Types
 
-- **轻松跑**（Easy Run）：RPE 4-5，占计划80%
-- **长距离跑**（Long Run）：每周一次，RPE 4，时间稍长
-- **休息日**：至少4天，可以散步或完全休息
+- **Easy Run:** RPE 4-5, conversational effort.
+- **Long Run:** easy endurance extension, once weekly when appropriate.
+- **Rest Days:** at least four days per week in the earliest phase.
 
-## 阶段划分
+## Phases
 
-| 阶段 | 周次 | 特点 |
-|------|------|------|
-| 适应期 | 1-4 | 建立习惯，每周2次，时间短 |
-| 建基期 | 5-10 | 加入第3次跑，距离缓慢增长 |
-| 巩固期 | 11-16 | 长跑逐渐延长，接近目标距离 |
+| Phase | Weeks | Focus |
+|---|---|---|
+| Adaptation | 1-4 | Build routine with short two-run weeks. |
+| Base | 5-10 | Add a third run and extend long-run duration. |
+| Consolidation | 11-16 | Extend endurance while keeping intensity easy. |
 
-## 适用目标
+## Suitable Goals
 
-- 完赛马拉松（16-20周计划）
-- 保持运动（开放式，每周循环）
+- Finish-oriented race preparation.
+- Habit-building training cycles.

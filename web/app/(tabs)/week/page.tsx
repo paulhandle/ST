@@ -70,11 +70,11 @@ export default function WeekPage() {
               {week.completed_quality}/{week.planned_quality} 质量课
             </span>
           </div>
-          <div style={{ height: 6, borderRadius: 3, background: 'var(--rule-soft)', overflow: 'hidden' }}>
+          <div style={{ height: 6, borderRadius: 'var(--radius)', background: 'var(--rule-soft)', overflow: 'hidden' }}>
             <div style={{
               height: '100%',
-              borderRadius: 3,
-              background: 'var(--ink)',
+              borderRadius: 'var(--radius)',
+              background: 'var(--accent)',
               width: `${Math.min(100, week.planned_km > 0 ? (week.completed_km / week.planned_km) * 100 : 0)}%`,
               transition: 'width 0.3s',
             }} />
@@ -116,7 +116,7 @@ function DayRow({ day }: { day: WeekDay }) {
         alignItems: 'center',
         padding: '12px 16px',
         borderBottom: '1px solid var(--rule-soft)',
-        background: isToday ? 'rgba(214, 59, 47, 0.04)' : undefined,
+        background: isToday ? 'var(--accent-light)' : undefined,
       }}>
         {/* weekday + date */}
         <div style={{ width: 36, flexShrink: 0, textAlign: 'center' }}>

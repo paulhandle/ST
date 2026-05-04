@@ -1,0 +1,271 @@
+<!DOCTYPE html><html class="dark" lang="zh"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>PerformanceProtocol | Precision Instrumentation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#004f58",
+                        "surface-container-low": "#1c1b1b",
+                        "tertiary": "#a5c8ff",
+                        "secondary-fixed": "#9cf0ff",
+                        "primary-container": "#ff571a",
+                        "background": "#131313",
+                        "inverse-primary": "#ae3200",
+                        "outline": "#ad897e",
+                        "outline-variant": "#5c4037",
+                        "on-background": "#e5e2e1",
+                        "on-error": "#690005",
+                        "on-secondary-fixed": "#001f24",
+                        "on-primary": "#5e1700",
+                        "surface-bright": "#3a3939",
+                        "surface": "#131313",
+                        "on-tertiary": "#00315e",
+                        "on-surface-variant": "#e6beb2",
+                        "inverse-on-surface": "#313030",
+                        "surface-tint": "#ffb59e",
+                        "secondary": "#bdf4ff",
+                        "on-tertiary-fixed-variant": "#004785",
+                        "tertiary-fixed": "#d4e3ff",
+                        "tertiary-fixed-dim": "#a5c8ff",
+                        "tertiary-container": "#2492ff",
+                        "surface-variant": "#353534",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary-container": "#00616d",
+                        "on-primary-fixed-variant": "#852400",
+                        "on-secondary": "#00363d",
+                        "surface-container-lowest": "#0e0e0e",
+                        "inverse-surface": "#e5e2e1",
+                        "secondary-fixed-dim": "#00daf3",
+                        "primary-fixed-dim": "#ffb59e",
+                        "on-tertiary-fixed": "#001c3a",
+                        "surface-dim": "#131313",
+                        "on-surface": "#e5e2e1",
+                        "secondary-container": "#00e3fd",
+                        "surface-container-high": "#2a2a2a",
+                        "primary-fixed": "#ffdbd0",
+                        "on-primary-container": "#521300",
+                        "primary": "#ffb59e",
+                        "surface-container": "#201f1f",
+                        "error-container": "#93000a",
+                        "surface-container-highest": "#353534",
+                        "on-tertiary-container": "#002a53",
+                        "on-primary-fixed": "#3a0b00",
+                        "error": "#ffb4ab"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-lg": "32px",
+                        "stack-md": "16px",
+                        "stack-sm": "8px",
+                        "panel-padding": "20px",
+                        "margin": "24px",
+                        "gutter": "16px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Inter"],
+                        "metric-value": ["Space Grotesk"],
+                        "body-base": ["Inter"],
+                        "data-label": ["Space Grotesk"],
+                        "display-xl": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.03em", "fontWeight": "700" }],
+                        "metric-value": ["20px", { "lineHeight": "1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-base": ["16px", { "lineHeight": "1.5", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+                        "data-label": ["12px", { "lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "display-xl": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "800" }],
+                        "body-sm": ["14px", { "lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col font-body-base">
+<!-- TopNavBar -->
+<header class="bg-zinc-950/90 backdrop-blur-md sticky top-0 z-50 border-b border-zinc-800 w-full">
+<div class="flex justify-between items-center w-full px-6 py-4 max-w-screen-2xl mx-auto">
+<div class="text-xl font-black tracking-tighter text-white uppercase italic">PERFORMANCE PROTOCOL</div>
+<div class="flex items-center gap-6">
+<!-- Navigation intent is landing page, no active nav tab conceptually for one-pager, hide structural nav or keep generic -->
+</div>
+<button class="bg-primary-container text-black font-data-label uppercase tracking-widest px-4 py-2 rounded-sm hover:opacity-80 transition-all duration-150">
+                Login
+            </button>
+</div>
+</header>
+<main class="flex-1 w-full max-w-screen-2xl mx-auto px-6 py-stack-lg flex flex-col gap-32">
+<!-- Hero Section -->
+<section class="flex flex-col lg:flex-row items-center gap-16 pt-16">
+<div class="flex-1 flex flex-col gap-stack-lg z-10">
+<div class="flex flex-col gap-stack-sm">
+<h1 class="font-display-xl text-display-xl text-white">
+                        Performance Protocol
+                    </h1>
+<p class="font-headline-lg text-headline-lg text-on-surface-variant max-w-2xl">
+                        把训练计划、运动数据和恢复反馈整合成一个可执行的耐力表现系统。
+                    </p>
+</div>
+<div class="flex gap-4">
+<button class="bg-primary-container text-black px-6 py-3 font-data-label text-data-label uppercase tracking-widest flex items-center gap-2 hover:bg-opacity-90 transition-colors rounded-sm">
+                        开始训练
+                        <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+<button class="border border-white text-white px-6 py-3 font-data-label text-data-label uppercase tracking-widest flex items-center gap-2 hover:bg-white hover:text-black transition-colors rounded-sm">
+                        查看方法论
+                    </button>
+</div>
+</div>
+<!-- Product UI Preview Panel -->
+<div class="flex-1 w-full bg-surface-container-low border border-surface-variant rounded-DEFAULT p-panel-padding flex flex-col gap-stack-md shadow-[0_4px_40px_rgba(0,0,0,0.5)]">
+<!-- Header -->
+<div class="flex justify-between items-center pb-2 border-b border-surface-variant">
+<div class="font-data-label text-data-label uppercase text-on-surface-variant tracking-widest">Dashboard Overview</div>
+<div class="flex items-center gap-2 bg-zinc-900 px-2 py-1 rounded-sm border border-zinc-800">
+<span class="w-2 h-2 rounded-full bg-secondary-fixed"></span>
+<span class="font-data-label text-[10px] uppercase tracking-widest text-secondary-fixed">COROS Sync Active</span>
+</div>
+</div>
+<!-- Metrics Row -->
+<div class="grid grid-cols-2 gap-gutter">
+<div class="bg-surface border border-surface-variant p-4 rounded-sm flex flex-col gap-2">
+<span class="font-data-label text-[10px] uppercase text-zinc-500">Readiness Score</span>
+<div class="flex items-baseline gap-2">
+<span class="font-metric-value text-display-xl text-white">84</span>
+<span class="font-data-label text-[10px] text-secondary-fixed uppercase">Optimal</span>
+</div>
+</div>
+<div class="bg-surface border border-surface-variant p-4 rounded-sm flex flex-col gap-2">
+<span class="font-data-label text-[10px] uppercase text-zinc-500">Training Volume (7d)</span>
+<div class="flex items-baseline gap-2">
+<span class="font-metric-value text-display-xl text-white">12.4</span>
+<span class="font-data-label text-[10px] text-zinc-400 uppercase">hrs</span>
+</div>
+</div>
+</div>
+<!-- Calendar View -->
+<div class="bg-surface border border-surface-variant p-4 rounded-sm flex flex-col gap-4">
+<span class="font-data-label text-[10px] uppercase text-zinc-500 border-b border-surface-variant pb-2">Weekly Schedule</span>
+<div class="grid grid-cols-7 gap-2">
+<!-- Days -->
+<div class="text-center font-data-label text-[10px] text-zinc-600">M</div>
+<div class="text-center font-data-label text-[10px] text-zinc-600">T</div>
+<div class="text-center font-data-label text-[10px] text-zinc-600">W</div>
+<div class="text-center font-data-label text-[10px] text-white">T</div>
+<div class="text-center font-data-label text-[10px] text-zinc-600">F</div>
+<div class="text-center font-data-label text-[10px] text-zinc-600">S</div>
+<div class="text-center font-data-label text-[10px] text-zinc-600">S</div>
+<!-- Blocks -->
+<div class="h-12 bg-surface-variant rounded-sm border-b-2 border-primary-container"></div>
+<div class="h-12 bg-surface-variant opacity-50 rounded-sm"></div>
+<div class="h-12 bg-surface-variant rounded-sm border-b-2 border-primary-container"></div>
+<div class="h-12 bg-surface-bright rounded-sm border border-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-primary-container">directions_run</span>
+</div>
+<div class="h-12 bg-surface-variant opacity-50 rounded-sm"></div>
+<div class="h-12 bg-surface-variant rounded-sm border-b-2 border-primary-container"></div>
+<div class="h-12 bg-surface-variant rounded-sm border-b-2 border-primary-container"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Proof Sections (Bento Grid) -->
+<section class="flex flex-col gap-stack-lg">
+<div class="flex flex-col gap-2 border-b border-surface-variant pb-4">
+<h2 class="font-headline-lg text-headline-lg text-white">Data-Driven Execution</h2>
+<p class="font-body-base text-body-base text-zinc-400">Zero-redundancy planning. Total performance accountability.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter">
+<!-- Panel 1 -->
+<div class="bg-surface-container-low border border-surface-variant p-panel-padding flex flex-col gap-stack-md rounded-sm">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container">history</span>
+<h3 class="font-data-label text-data-label uppercase tracking-widest text-white">从历史数据开始</h3>
+</div>
+<div class="flex-1 flex flex-col justify-end">
+<div class="h-24 w-full flex items-end gap-1 opacity-80">
+<div class="w-full bg-surface-variant h-[30%]"></div>
+<div class="w-full bg-surface-variant h-[50%]"></div>
+<div class="w-full bg-surface-variant h-[40%]"></div>
+<div class="w-full bg-surface-variant h-[70%]"></div>
+<div class="w-full bg-primary-container h-[85%]"></div>
+</div>
+</div>
+</div>
+<!-- Panel 2 -->
+<div class="bg-surface-container-low border border-surface-variant p-panel-padding flex flex-col gap-stack-md rounded-sm lg:col-span-2">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container">account_tree</span>
+<h3 class="font-data-label text-data-label uppercase tracking-widest text-white">生成可执行训练周期</h3>
+</div>
+<div class="flex-1 flex flex-col gap-2">
+<div class="flex items-center gap-4 bg-surface p-3 border border-surface-variant rounded-sm">
+<div class="font-metric-value text-metric-value text-white">PHASE 1</div>
+<div class="h-px bg-surface-variant flex-1"></div>
+<div class="font-data-label text-[10px] text-zinc-500 uppercase">Base Building</div>
+</div>
+<div class="flex items-center gap-4 bg-surface p-3 border border-primary-container rounded-sm">
+<div class="font-metric-value text-metric-value text-primary-container">PHASE 2</div>
+<div class="h-px bg-surface-variant flex-1"></div>
+<div class="font-data-label text-[10px] text-zinc-500 uppercase">Specific Prep</div>
+</div>
+</div>
+</div>
+<!-- Panel 3 -->
+<div class="bg-surface-container-low border border-surface-variant p-panel-padding flex flex-col gap-stack-md rounded-sm">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container">tune</span>
+<h3 class="font-data-label text-data-label uppercase tracking-widest text-white">每周根据完成度调整</h3>
+</div>
+<div class="flex-1 flex items-center justify-center">
+<div class="relative w-20 h-20 rounded-full border-4 border-surface-variant flex items-center justify-center">
+<div class="absolute inset-0 rounded-full border-4 border-primary-container" style="clip-path: polygon(0 0, 100% 0, 100% 100%, 0 50%);"></div>
+<span class="font-metric-value text-metric-value text-white">92%</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Final CTA -->
+<section class="border-t border-surface-variant pt-32 pb-16 flex flex-col items-center text-center gap-stack-lg">
+<h2 class="font-display-xl text-display-xl text-white tracking-tighter">建立你的下一个训练周期</h2>
+<button class="bg-primary-container text-black px-8 py-4 font-data-label text-data-label uppercase tracking-widest hover:bg-opacity-90 transition-colors rounded-sm">
+                Get Started
+            </button>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-zinc-950 border-t border-zinc-900 mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center w-full px-6 py-12 max-w-screen-2xl mx-auto gap-8">
+<div class="text-sm font-black text-white uppercase tracking-tighter italic">PERFORMANCE PROTOCOL</div>
+<div class="flex gap-6">
+<a class="font-inter text-[10px] tracking-widest uppercase text-zinc-600 hover:text-orange-500 transition-colors" href="#">Methodology</a>
+<a class="font-inter text-[10px] tracking-widest uppercase text-zinc-600 hover:text-orange-500 transition-colors" href="#">Safety</a>
+<a class="font-inter text-[10px] tracking-widest uppercase text-zinc-600 hover:text-orange-500 transition-colors" href="#">Privacy</a>
+<a class="font-inter text-[10px] tracking-widest uppercase text-zinc-600 hover:text-orange-500 transition-colors" href="#">Terms</a>
+</div>
+<div class="font-inter text-[10px] tracking-widest uppercase text-zinc-600">
+                © 2024 PERFORMANCEPROTOCOL. PRECISION INSTRUMENTATION FOR HUMAN PERFORMANCE.
+            </div>
+</div>
+</footer>
+
+
+</body></html>

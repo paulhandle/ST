@@ -6,7 +6,7 @@
 
 ## Origin
 
-This skill was extracted by ST's skill-creator from real coach-prescribed
+This skill was extracted by PerformanceProtocol from real coach-prescribed
 workouts in the athlete's COROS Training Hub history:
 
 - **Summer 2025**: 101 coach workouts (赵可 89×, 刘征 12×)

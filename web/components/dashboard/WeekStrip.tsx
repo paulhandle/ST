@@ -31,7 +31,7 @@ export default function WeekStrip({ week }: Props) {
                 alignItems: 'center',
                 gap: 4,
                 padding: '6px 2px',
-                borderRadius: 6,
+                borderRadius: 'var(--radius)',
                 background: isToday ? 'var(--accent-light)' : undefined,
               }}
             >

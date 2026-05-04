@@ -56,9 +56,9 @@ export default function SkillDetailPage({ params }: { params: Promise<{ slug: st
             <pre style={{
               margin: '0 16px 24px',
               padding: '16px',
-              background: 'var(--paper-warm)',
+              background: 'var(--surface-low)',
               border: '1px solid var(--rule-soft)',
-              borderRadius: 8,
+              borderRadius: 'var(--radius)',
               fontFamily: 'var(--font-hand)',
               fontSize: 13,
               lineHeight: 1.7,

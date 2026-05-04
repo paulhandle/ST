@@ -8,7 +8,7 @@ interface Props {
 
 export default function YesterdayCompare({ workout, activity }: Props) {
   return (
-    <div style={{ margin: '0 16px 16px', padding: '12px 14px', background: 'var(--paper-warm)', borderRadius: 8, border: '1px solid var(--rule-soft)' }}>
+    <div style={{ margin: '0 16px 16px', padding: '12px 14px', background: 'var(--surface-low)', borderRadius: 'var(--radius)', border: '1px solid var(--rule-soft)' }}>
       <div className="hand text-faint" style={{ fontSize: 12, marginBottom: 8 }}>昨天</div>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>

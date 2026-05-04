@@ -53,7 +53,7 @@ export default function CoachSheet({ open, onClose }: Props) {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '14px 16px',
-        borderBottom: '1.5px solid var(--rule)',
+        borderBottom: '1px solid var(--rule)',
       }}>
         <span className="hand" style={{ fontSize: 18, fontWeight: 700 }}>教练</span>
         <button
@@ -81,10 +81,10 @@ export default function CoachSheet({ open, onClose }: Props) {
               className="hand"
               style={{
                 padding: '8px 12px',
-                borderRadius: m.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
-                background: m.role === 'user' ? 'var(--ink)' : 'var(--paper)',
-                color: m.role === 'user' ? 'var(--paper)' : 'var(--ink)',
-                border: m.role === 'coach' ? '1.5px solid var(--rule)' : 'none',
+                borderRadius: 'var(--radius)',
+                background: m.role === 'user' ? 'var(--accent)' : 'var(--surface-low)',
+                color: m.role === 'user' ? '#050505' : 'var(--ink)',
+                border: m.role === 'coach' ? '1px solid var(--rule)' : 'none',
                 fontSize: 14,
                 lineHeight: 1.5,
               }}
@@ -123,8 +123,8 @@ export default function CoachSheet({ open, onClose }: Props) {
           style={{
             flex: 1,
             resize: 'none',
-            border: '1.5px solid var(--rule)',
-            borderRadius: 8,
+            border: '1px solid var(--rule)',
+            borderRadius: 'var(--radius)',
             padding: '8px 12px',
             fontSize: 14,
             background: 'var(--paper)',
@@ -138,10 +138,10 @@ export default function CoachSheet({ open, onClose }: Props) {
           disabled={!text.trim() || sending}
           style={{
             padding: '8px 16px',
-            background: text.trim() ? 'var(--ink)' : 'var(--rule)',
-            color: 'var(--paper)',
+            background: text.trim() ? 'var(--accent)' : 'var(--rule)',
+            color: '#050505',
             border: 'none',
-            borderRadius: 8,
+            borderRadius: 'var(--radius)',
             fontFamily: 'var(--font-hand)',
             fontSize: 14,
             cursor: text.trim() ? 'pointer' : 'default',

@@ -1,100 +1,136 @@
-# Fly.io Deployment + Brand/Scope Update
+# Homepage + Global Theme
 
-**Branch:** `feat/fly-deploy` (基于 `feat/block-d-nav-and-auth`，含 Block D/E + activities calendar 的最新工作)
+**Branch:** `brand-cleanup`
 
-**Fly org:** `performance-protocol`
-**Domain:** `performanceprotocol.io` (web) + `api.performanceprotocol.io` (api), GoDaddy 管理
+## Objective
 
----
+Implement the Stitch-designed public homepage from `docs/homepage-design/`, make `/` public, and propagate the homepage's italic technical logo plus black/orange visual system across the web app.
 
-## 当前状态（2026-05-04 截止）
+## Prior Context
 
-### ✅ 已完成
+Brand cleanup is already complete on this branch:
 
-| 事项 | 状态 |
-|---|---|
-| 品牌文案重写（README / layout / pyproject） | 完成 |
-| Postgres 依赖 + Alembic 迁移初始化 | 完成 |
-| Dockerfile.api + web/Dockerfile | 完成 |
-| fly/api.toml + fly/web.toml | 完成 |
-| .github/workflows/ci.yml + deploy.yml | 完成 |
-| Fly 基础设施创建（pp-db, st-api, pp-web） | 完成 |
-| Postgres attach → st-api (DATABASE_URL auto-set) | 完成 |
-| st-api secrets 配置（OPENAI / ST_SECRET_KEY / COROS） | 完成 |
-| TLS certs 申请（3 个域名）| 完成 |
-| IP 分配（st-api + pp-web 各 v4+v6）| 完成 |
-| **st-api 首次部署：✅ HEALTHY** | 完成 |
-| /api/healthz 路由修复（绕过 auth middleware） | 完成 |
-| pp-web 新镜像重部署 | 完成并验收 |
-| GoDaddy DNS 配置 | 完成并验收 |
-| TLS certs 验收（3 个域名） | 完成 |
-| Fly health checks 验收 | 完成 |
-| 线上 HTTP 验收 | 完成 |
-| 本地回归测试 | 完成 |
-| PR 创建 | 完成：[#3](https://github.com/paulhandle/ST/pull/3) |
-| PR CI | 完成：Backend + Frontend checks success |
+- Product-facing brand is `PerformanceProtocol`.
+- Old `ST` product copy and Chinese product names were removed.
+- README is English and documents `ST_*` only as legacy/internal compatibility.
+- Verification already passed: backend 83/83, frontend 62/62, type-check.
 
-### ❌ 下一步要做的
+## Source Design
 
-#### 1. PR 合并后检查 Actions
+Read:
 
-合并到 main 后，`.github/workflows/deploy.yml` 会部署 `st-api` 和 `pp-web`。需要确认 workflow 能读到 `FLY_API_TOKEN` 并完成。
+- `docs/homepage-design/stitch_performanceprotocol_endurance_platform/DESIGN.md`
+- `docs/homepage-design/stitch_performanceprotocol_endurance_platform/code.html`
+- `docs/homepage-design/stitch_performanceprotocol_endurance_platform/screen.png`
 
----
+Design requirements extracted:
 
-## Review/Summary（2026-05-04）
+- Deep charcoal app background.
+- Safety orange primary action color.
+- Electric blue only for secondary data/sync states.
+- Inter for functional UI; Space Grotesk for data labels and metrics.
+- Logo: uppercase, bold, italic, tight technical wordmark.
+- Sharp/engineered panels with crisp borders and tonal layering.
+- Avoid gradients and soft decorative effects.
 
-用户完成 pp-web 新镜像部署和 GoDaddy DNS 配置后，已完成以下验收：
+## Files Likely To Change
 
-- `flyctl certs check api.performanceprotocol.io --app st-api`：Issued，verified and active
-- `flyctl certs check performanceprotocol.io --app pp-web`：Issued，verified and active
-- `flyctl certs check www.performanceprotocol.io --app pp-web`：Issued，verified and active
-- `flyctl status --app st-api`：2 machines started，1/1 checks passing
-- `flyctl status --app pp-web`：1 machine started，version 2，1/1 checks passing
-- `curl -i https://api.performanceprotocol.io/`：HTTP 200，`{"service":"ST","status":"running"}`
-- `curl -i https://performanceprotocol.io/`：HTTP 307，`location: /login`
-- `curl -i https://www.performanceprotocol.io/`：HTTP 307，`location: /login`
-- `curl -i https://performanceprotocol.io/api/healthz`：HTTP 200，`{"ok":true}`
+- `web/app/page.tsx`
+- `web/middleware.ts`
+- `web/app/globals.css`
+- `web/app/layout.tsx`
+- `web/app/login/page.tsx`
+- `web/app/(tabs)/layout.tsx`
+- shared components under `web/components/`
+- frontend tests under `web/__tests__/`
+- `tasks/devlog.md`
 
-本地回归：
+## Implementation Approach
 
-- `uv run python -m unittest discover -s tests -v`：83/83 pass
-- `cd web && pnpm test`：62/62 pass
-- `cd web && pnpm type-check`：pass
-- PR: https://github.com/paulhandle/ST/pull/3
-- PR state: OPEN / MERGEABLE
-- PR CI: Backend tests + Frontend tests/type-check all SUCCESS
+- Add a reusable `BrandLogo` component so the italic wordmark is shared by homepage, login, and authenticated app chrome.
+- Replace the root redirect with a real public homepage based on Stitch's structure: nav, hero, product preview, data panels, workflow/value sections, final CTA, footer.
+- Update middleware so `/` is public while authenticated app routes stay protected.
+- Move the black/orange theme into CSS tokens so existing pages inherit the new system without broad one-off rewrites.
+- Keep functional page layouts intact; theme unification should be token-driven first, targeted component edits only where needed.
+- Preserve existing Chinese product workflow copy inside app where it is not brand naming; this task is visual/theme and homepage, not full i18n.
 
----
+## Progress Checklist
 
-## Fly 基础设施清单
+- [x] Read homepage design source under `docs/homepage-design/`.
+- [x] Replace `/` redirect with public homepage implementation.
+- [x] Add shared italic `BrandLogo` wordmark.
+- [x] Apply shared logo to homepage, login, and authenticated app chrome.
+- [x] Update global tokens to black/orange technical palette.
+- [x] Keep `/` public while preserving auth protection for app routes.
+- [x] Run frontend unit tests.
+- [x] Run frontend type-check.
+- [x] Run production build.
+- [x] Run backend regression tests.
+- [x] Manually verify homepage/login/app routing and visual consistency.
+- [x] Update devlog with implementation and verification results.
+- [x] Add final review summary.
 
-| 资源 | 名称 | 状态 |
-|---|---|---|
-| Postgres cluster | `pp-db` | ✅ running (sin) |
-| API app | `st-api` | ✅ healthy (2 machines, sin) |
-| Web app | `pp-web` | ✅ healthy (version 2, /api/healthz passing) |
-| API IPv4 | `149.248.210.173` | allocated |
-| API IPv6 | `2a09:8280:1::110:e693:0` | allocated |
-| Web IPv4 | `168.220.89.49` | allocated |
-| Web IPv6 | `2a09:8280:1::110:e696:0` | allocated |
-| TLS cert | `api.performanceprotocol.io` | ✅ issued / active |
-| TLS cert | `performanceprotocol.io` | ✅ issued / active |
-| TLS cert | `www.performanceprotocol.io` | ✅ issued / active |
+## Verification Commands
 
-## API secrets（st-api）
+```bash
+cd web && pnpm test
+cd web && pnpm type-check
+cd web && pnpm build
+uv run python -m unittest discover -s tests -v
+```
 
-已配置（值不可见）：`DATABASE_URL` `OPENAI_API_KEY` `OPENAI_BASE_URL` `OPENAI_MODEL` `ST_SECRET_KEY` `COROS_AUTOMATION_MODE`
+Manual/visual verification:
 
-## 关键文件
+- Run `cd web && pnpm dev`.
+- Verify `/` renders homepage without auth.
+- Verify `/login` still renders.
+- Verify `/dashboard` still redirects to `/login` without auth.
+- Check homepage, login, and at least one authenticated page share the same black/orange theme and italic logo.
 
-| 文件 | 用途 |
-|---|---|
-| `fly/api.toml` | st-api fly 配置（sin, 256mb, release_command=alembic） |
-| `fly/web.toml` | pp-web fly 配置（sin, 256mb, /api/healthz check） |
-| `Dockerfile.api` | API 镜像（Python 3.11-slim, uv） |
-| `web/Dockerfile` | Web 镜像（Next.js standalone, node:20-alpine） |
-| `alembic/` | DB 迁移（首个 migration: 1ac50e58dbdb） |
-| `.github/workflows/ci.yml` | PR CI（backend + frontend tests） |
-| `.github/workflows/deploy.yml` | main push 自动部署 |
-| `scripts/fly_setup.sh` | 一次性 setup 参考脚本 |
+## Acceptance Criteria
+
+- `/` is a public homepage matching the Stitch direction closely enough to be recognizable.
+- Homepage primary CTA links to `/login`; methodology CTA links to `/skills` or an appropriate public/placeholder target without breaking.
+- Middleware allows `/` publicly but keeps app routes protected.
+- Login and authenticated app chrome use the same italic uppercase logo treatment.
+- Global visual tokens are black/orange-first across pages.
+- Frontend tests/type-check/build pass.
+- Backend tests still pass because middleware/API behavior changes should not affect backend.
+
+## Out Of Scope
+
+- SMS provider integration.
+- Full authenticated app redesign.
+- New marketing CMS/content system.
+- Removing all Chinese operational copy from the app.
+- Modifying Fly infrastructure or production DNS.
+
+## Review/Summary
+
+Homepage and global theme work is complete on branch `brand-cleanup`.
+
+Changed:
+
+- Replaced the root `/` redirect with a public PerformanceProtocol homepage based on the Stitch design.
+- Added shared `BrandLogo` and applied the italic uppercase wordmark to homepage, login, authenticated app topbar, and footer.
+- Updated middleware so `/` and `/login` are public while app routes such as `/dashboard` remain protected.
+- Swapped the frontend font setup to Inter + Space Grotesk and moved the app to black/charcoal, safety orange, and electric-blue data accents.
+- Rethemed primary buttons, selected states, panels, tab/app chrome, coach sheet, skill dialogs, plan controls, workout controls, and related shared components to match the homepage system.
+- Fixed responsive homepage typography after screenshot verification caught mobile horizontal overflow and desktop title overlap risk.
+
+Verification:
+
+- `cd web && pnpm test`: 62/62 pass.
+- `cd web && pnpm type-check`: pass.
+- `cd web && pnpm build`: pass; 15 app routes generated and middleware compiled.
+- `uv run python -m unittest discover -s tests -v`: 83/83 pass.
+- `curl -i http://127.0.0.1:3000/`: HTTP 200.
+- `curl -i http://127.0.0.1:3000/login`: HTTP 200.
+- `curl -i http://127.0.0.1:3000/dashboard`: HTTP 307 redirect to `/login` without auth.
+- Playwright visual checks passed for desktop and mobile homepage plus mobile login. Assertions covered visible logo, hero title, CTA, product preview, dark background token, orange accent token, and no mobile horizontal overflow. Screenshots are in `/private/tmp/pp-homepage-check/`.
+
+Notes:
+
+- `pnpm build` initially failed in the sandbox because Next.js needed to fetch Google Fonts; reran with approved network permission and the final build passed.
+- No README change was needed because this did not alter startup commands, environment configuration, dependencies, or API contracts.
+- Untracked `.DS_Store` files and `docs/homepage-design/` remain untouched.

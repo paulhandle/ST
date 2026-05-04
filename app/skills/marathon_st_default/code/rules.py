@@ -70,10 +70,10 @@ def steps_for_workout(workout: WorkoutDraft, target_pace: float) -> list[StepDra
 
 def plan_title(target_time_sec: int | None) -> str:
     if target_time_sec is None:
-        return "ST Full Marathon Finish Plan"
+        return "PerformanceProtocol Full Marathon Finish Plan"
     hours = target_time_sec // 3600
     minutes = (target_time_sec % 3600) // 60
-    return f"ST Full Marathon {hours}:{minutes:02d} Plan"
+    return f"PerformanceProtocol Full Marathon {hours}:{minutes:02d} Plan"
 
 
 def _target_marathon_pace(target_time_sec: int | None, assessment) -> float:
@@ -153,7 +153,7 @@ def _week_workouts(
                 weekday=weekday,
                 discipline="run",
                 workout_type=workout_type,
-                title=f"ST W{week_index:02d} {_title_for(workout_type)}",
+                title=f"W{week_index:02d} {_title_for(workout_type)}",
                 purpose=purpose,
                 duration_min=duration_min,
                 distance_m=round(distance_km * 1000, 1),
