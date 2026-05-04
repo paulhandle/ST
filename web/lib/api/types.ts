@@ -323,3 +323,31 @@ export function formatKm(m: number | null): string {
   if (!m) return '--'
   return (m / 1000).toFixed(1)
 }
+
+/* ── Running assessment ──────────────────────────────────── */
+
+export interface RunningAssessmentOut {
+  athlete_id: number
+  overall_score: number
+  readiness_level: string
+  safe_weekly_distance_range_km: number[]
+  safe_training_days_range: number[]
+  long_run_capacity_km: number
+  estimated_marathon_time_range_sec: number[]
+  goal_status: string
+  limiting_factors: string[]
+  warnings: string[]
+  confidence: string
+  summary: string
+}
+
+/* ── COROS import result ─────────────────────────────────── */
+
+export interface HistoryImportOut {
+  athlete_id: number
+  provider: string
+  imported_count: number
+  updated_count: number
+  metric_count: number
+  message: string
+}
