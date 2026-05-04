@@ -132,4 +132,26 @@ GoDaddy DNS 配置（手动）：
 5. **alembic autogenerate** 偶尔漏掉 enum 类型变更，第一版迁移要人肉 review。
 
 ## Review/Summary
-（执行完后填写）
+
+**Status:** Code complete on `feat/fly-deploy` branch (4 commits). User-side setup pending.
+
+**What's done:**
+- Phase 0 — Brand text rebranded to PerformanceProtocol (README, layout.tsx, pyproject.toml). Internal codename `st` preserved.
+- Phase 1 — Postgres-ready: `psycopg[binary]` + `alembic`, env-driven `DATABASE_URL` (auto-translates `postgres://` → `postgresql+psycopg://`), initial migration `1ac50e58dbdb` captured full current schema.
+- Phase 2 — `Dockerfile.api` (Python 3.11 + uv), `web/Dockerfile` (Next.js standalone, node:20-alpine), `fly/api.toml` + `fly/web.toml` (sin region, shared-cpu-1x@256mb), `next.config.js` updated for standalone output + BACKEND_URL-driven rewrite.
+- Phase 3 — `.github/workflows/ci.yml` (PR + non-main pushes) and `deploy.yml` (push to main, gated by tests, parallel deploy of api+web).
+- Phase 4 — `scripts/fly_setup.sh` annotated checklist; README deploy section with architecture, secrets, rollback, migration workflow.
+
+**Tests:** 83 backend + 62 frontend all green; type-check clean.
+
+**What user needs to do before merging to main:**
+1. Add `FLY_API_TOKEN` to GitHub repo secrets (Settings → Secrets and variables → Actions)
+2. Run `scripts/fly_setup.sh` step-by-step locally to create st-api / st-web / st-db apps and attach Postgres
+3. Set `OPENAI_API_KEY` + `ST_SECRET_KEY` + `COROS_AUTOMATION_MODE=real` via `flyctl secrets set --app st-api`
+4. Add DNS records at GoDaddy per `flyctl certs show` output
+5. Once certs go GREEN: open PR → merge to main → first auto-deploy fires
+
+**Known limitations:**
+- Single Postgres node (no HA) — fine for MVP, scale up later via `flyctl postgres update`
+- No staging env — main deploys directly to prod
+- `app/main.py` still calls `Base.metadata.create_all` at startup; harmless because it's idempotent and runs after `alembic upgrade head` (release_command). Long term, remove it.

@@ -1,5 +1,22 @@
 # Dev Log
 
+## 2026-05-04 - Rebrand to PerformanceProtocol + fly.io deploy infrastructure
+
+Why: Product is rebranding to **PerformanceProtocol** (domain `performanceprotocol.io` purchased on GoDaddy) and broadening from "marathon-only" to "serious endurance training" (current: road running; planned: trail, triathlon, cycling). Need production deployment on fly.io with proper CI/CD.
+
+How:
+- **Brand**: README/layout.tsx/pyproject description updated to "PerformanceProtocol · 表现提升协议". Internal codename `st` preserved (Python pkg, npm pkg, env var prefixes) — full code-level rename out of scope.
+- **DB**: Added `alembic` + `psycopg[binary]` deps. `app/core/config.py` now reads `DATABASE_URL > ST_DATABASE_URL > sqlite default`; auto-translates `postgres://` → `postgresql+psycopg://` (Fly Postgres convention). `app/db.py` uses `connect_args={check_same_thread: False}` only for SQLite, `pool_pre_ping=True` for Postgres. Initial alembic migration `1ac50e58dbdb` captures full schema (15 tables, all enums).
+- **Containers**: `Dockerfile.api` is multi-stage (uv builder + slim runtime). `web/Dockerfile` is multi-stage Next.js 14 standalone (node:20-alpine, non-root user). `next.config.js` adds `output: 'standalone'` and reads `BACKEND_URL` env for `/api/*` rewrite (defaults localhost for dev, prod baked at build via `--build-arg`).
+- **Fly config**: `fly/api.toml` + `fly/web.toml` — both shared-cpu-1x@256mb in `sin` region. API has `release_command = "alembic upgrade head"` so migrations run pre-deploy.
+- **CI/CD**: `.github/workflows/ci.yml` (PR + non-main push) runs backend unittest + frontend pnpm test + type-check. `.github/workflows/deploy.yml` (push to main only) gates on tests then parallel deploys st-api + st-web via `superfly/flyctl-actions/setup-flyctl@master`. Uses `FLY_API_TOKEN` secret.
+- **Setup script**: `scripts/fly_setup.sh` is an annotated, step-by-step checklist (NOT meant to run unattended) — creates Postgres cluster, attaches to api app, sets secrets, issues TLS certs.
+- **Docs**: README adds full "部署 (fly.io)" section with architecture, secrets table, rollback, migration workflow.
+
+Result: 83 backend tests + 62 frontend tests all green on `feat/fly-deploy`. Type-check clean. Branch ready to PR after user runs `fly_setup.sh` and adds `FLY_API_TOKEN` to GitHub secrets.
+
+---
+
 ## 2026-05-04 - Activities Tab Redesign: MonthStrip calendar + timeline list + filters
 
 Why: The activities tab was a flat history list — no way to see upcoming planned workouts or navigate by date. Redesign adds a horizontal scrollable month strip (with colour-coded dots per status), a mixed timeline list combining past activities and future plan workouts, and sport-type filter chips.
