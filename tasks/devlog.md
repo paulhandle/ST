@@ -24,6 +24,8 @@ Result:
 - `uv run python -m unittest discover -s tests -v`: 83/83 pass.
 - `cd web && pnpm test`: 62/62 pass.
 - `cd web && pnpm type-check`: pass.
+- Created PR: https://github.com/paulhandle/ST/pull/3 (`feat/fly-deploy` -> `main`).
+- `gh pr view 3 --json ...`: PR is OPEN and MERGEABLE; Backend tests and Frontend tests/type-check CI checks are SUCCESS.
 
 ## 2026-05-04 - fly.io 首次部署执行记录（问题 + 修复）
 

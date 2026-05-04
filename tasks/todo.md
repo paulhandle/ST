@@ -31,18 +31,12 @@
 | Fly health checks 验收 | 完成 |
 | 线上 HTTP 验收 | 完成 |
 | 本地回归测试 | 完成 |
+| PR 创建 | 完成：[#3](https://github.com/paulhandle/ST/pull/3) |
+| PR CI | 完成：Backend + Frontend checks success |
 
 ### ❌ 下一步要做的
 
-#### 1. 创建 PR
-
-部署和 DNS/TLS/服务验收均已通过。下一步创建 PR：
-
-```bash
-gh pr create --base main --head feat/fly-deploy
-```
-
-#### 2. PR 合并后检查 Actions
+#### 1. PR 合并后检查 Actions
 
 合并到 main 后，`.github/workflows/deploy.yml` 会部署 `st-api` 和 `pp-web`。需要确认 workflow 能读到 `FLY_API_TOKEN` 并完成。
 
@@ -67,6 +61,9 @@ gh pr create --base main --head feat/fly-deploy
 - `uv run python -m unittest discover -s tests -v`：83/83 pass
 - `cd web && pnpm test`：62/62 pass
 - `cd web && pnpm type-check`：pass
+- PR: https://github.com/paulhandle/ST/pull/3
+- PR state: OPEN / MERGEABLE
+- PR CI: Backend tests + Frontend tests/type-check all SUCCESS
 
 ---
 
