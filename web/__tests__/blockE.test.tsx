@@ -61,3 +61,22 @@ describe('WorkoutDetailPage', () => {
     expect(screen.getByText(/休息/)).toBeInTheDocument()
   })
 })
+
+vi.mock('@/lib/auth', () => ({
+  getToken: () => 'mock-token',
+}))
+
+describe('PlanGeneratePage', () => {
+  it('shows loading state on mount while importing data', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ imported_count: 5, updated_count: 2, message: 'ok', metric_count: 1,
+                           athlete_id: 1, provider: 'coros' }),
+    })
+    vi.stubGlobal('fetch', mockFetch)
+
+    const { default: PlanGeneratePage } = await import('@/app/plan/generate/page')
+    render(<PlanGeneratePage />)
+    expect(screen.getByText(/分析/)).toBeInTheDocument()
+  })
+})
