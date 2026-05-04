@@ -17,8 +17,8 @@ const barlow = Barlow({
 })
 
 export const metadata: Metadata = {
-  title: 'ST · 跑步训练',
-  description: '智能马拉松训练平台',
+  title: 'PerformanceProtocol · 表现提升协议',
+  description: '严肃耐力运动员的训练表现提升平台 — 路跑 / 越野 / 铁三',
   manifest: '/manifest.json',
 }
 

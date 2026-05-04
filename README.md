@@ -1,10 +1,15 @@
-# ST - Athlete Training Planner
+# PerformanceProtocol · 表现提升协议
 
-`ST` 是一个面向耐力运动员的训练任务规划后端 MVP，当前重点是 COROS-first 的全马训练闭环：
+> 站点：[performanceprotocol.io](https://performanceprotocol.io)
+> 内部代号：`ST`（代码层包名仍沿用）
 
-1. COROS 历史运动数据导入与能力评估（支持真实 COROS 直连 API）
-2. 全马目标可行性判断，例如 sub-4:00
-3. 结构化全马训练计划生成（LLM + 规则回退）
+PerformanceProtocol 是一个面向严肃耐力运动员的训练表现提升平台。当前已上线**路跑（全马 / 半马）**完整闭环，规划中：**越野跑、铁人三项、长距离骑行**。
+
+核心闭环（当前 COROS-first，多设备扩展中）：
+
+1. 历史运动数据导入与能力评估（支持真实 COROS 直连 API）
+2. 目标可行性判断（如全马 sub-4:00、半马 sub-1:45）
+3. 结构化训练计划生成（LLM + 规则回退）
 4. 用户确认后同步到 COROS 日历（`COROS_AUTOMATION_MODE=real` 启用真实 API 写入）
 5. 训练执行后的周度调整建议
 
