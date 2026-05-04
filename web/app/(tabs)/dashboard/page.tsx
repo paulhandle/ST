@@ -10,6 +10,7 @@ import WeekStrip from '@/components/dashboard/WeekStrip'
 import RecentActivities from '@/components/dashboard/RecentActivities'
 import ReadinessPanel from '@/components/dashboard/ReadinessPanel'
 import EmptyPlanState from '@/components/EmptyPlanState'
+import Link from 'next/link'
 
 export default function DashboardPage() {
   const { dashboard, isLoading, error } = useDashboard()
@@ -61,9 +62,17 @@ export default function DashboardPage() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-          {athlete.current_skill && (
-            <SkillChip skill={athlete.current_skill} />
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {athlete.current_skill && (
+              <SkillChip skill={athlete.current_skill} />
+            )}
+            <Link href="/settings" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', padding: 4 }}>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="3" stroke="var(--ink-faint)" strokeWidth="1.5"/>
+                <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42" stroke="var(--ink-faint)" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </Link>
+          </div>
           {meta.last_sync_at && (
             <span className="annot text-faint" style={{ fontSize: 11 }}>
               同步 {new Date(meta.last_sync_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}

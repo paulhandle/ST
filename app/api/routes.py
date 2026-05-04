@@ -13,6 +13,8 @@ from app.kb.running_assessment import assess_running_ability
 from app.tools.coros.automation import coros_automation_client
 from app.tools.coros.credentials import encrypt_secret
 from app.tools.coros.sync import sync_confirmed_plan_to_coros
+from app.core.auth import get_current_user
+from app.models import User  # noqa: F401 – used in TYPE_CHECKING context via string annotation
 from app.db import get_db
 from app.tools.devices.service import sync_plan_to_device
 from app.ingestion.service import import_provider_history
@@ -127,7 +129,7 @@ def sports() -> list[dict[str, str]]:
 
 
 @router.post("/athletes", response_model=AthleteOut)
-def create_athlete(request: AthleteCreate, db: Session = Depends(get_db)):
+def create_athlete(request: AthleteCreate, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     athlete = AthleteProfile(**request.model_dump())
     db.add(athlete)
     db.commit()
@@ -200,12 +202,12 @@ def list_plans(
 
 
 @router.get("/plans/{plan_id}", response_model=TrainingPlanOut)
-def get_plan(plan_id: int, db: Session = Depends(get_db)):
+def get_plan(plan_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     return _training_plan_or_404(db, plan_id)
 
 
 @router.patch("/plans/{plan_id}/status", response_model=TrainingPlanOut)
-def update_plan_status(plan_id: int, request: PlanStatusUpdate, db: Session = Depends(get_db)):
+def update_plan_status(plan_id: int, request: PlanStatusUpdate, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     plan = db.get(TrainingPlan, plan_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="Plan not found")
@@ -217,7 +219,7 @@ def update_plan_status(plan_id: int, request: PlanStatusUpdate, db: Session = De
 
 
 @router.post("/devices/connect", response_model=DeviceAccountOut)
-def connect_device(request: DeviceConnectRequest, db: Session = Depends(get_db)):
+def connect_device(request: DeviceConnectRequest, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     _athlete_or_404(db, request.athlete_id)
     account = _device_account(db, request.athlete_id, request.device_type)
     if account:
@@ -235,7 +237,7 @@ def connect_device(request: DeviceConnectRequest, db: Session = Depends(get_db))
 
 
 @router.post("/plans/{plan_id}/sync", response_model=SyncTaskOut)
-def sync_plan(plan_id: int, request: SyncPlanRequest, db: Session = Depends(get_db)):
+def sync_plan(plan_id: int, request: SyncPlanRequest, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     plan = db.execute(
         select(TrainingPlan)
         .where(TrainingPlan.id == plan_id)
@@ -263,7 +265,7 @@ def list_sync_tasks(
 
 
 @router.post("/coros/connect", response_model=DeviceAccountOut)
-def connect_coros(request: CorosConnectRequest, db: Session = Depends(get_db)):
+def connect_coros(request: CorosConnectRequest, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     _athlete_or_404(db, request.athlete_id)
     client = coros_automation_client()
     login = client.login(request.username, request.password)
@@ -288,7 +290,7 @@ def connect_coros(request: CorosConnectRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/coros/status", response_model=CorosStatusOut)
-def coros_status(athlete_id: int, db: Session = Depends(get_db)):
+def coros_status(athlete_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     account = _device_account(db, athlete_id, DeviceType.COROS)
     if account is None:
         return CorosStatusOut(athlete_id=athlete_id, connected=False, auth_status="disconnected")
@@ -305,17 +307,17 @@ def coros_status(athlete_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/coros/import", response_model=HistoryImportOut)
-def import_coros_history(request: HistoryImportRequest, athlete_id: int, db: Session = Depends(get_db)):
+def import_coros_history(request: HistoryImportRequest, athlete_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     return _import_history(db=db, athlete_id=athlete_id, device_type=DeviceType.COROS)
 
 
 @router.post("/athletes/{athlete_id}/history/import", response_model=HistoryImportOut)
-def import_history(athlete_id: int, request: HistoryImportRequest, db: Session = Depends(get_db)):
+def import_history(athlete_id: int, request: HistoryImportRequest, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     return _import_history(db=db, athlete_id=athlete_id, device_type=request.device_type)
 
 
 @router.get("/athletes/{athlete_id}/history", response_model=list[AthleteActivityOut])
-def get_history(athlete_id: int, db: Session = Depends(get_db)):
+def get_history(athlete_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     _athlete_or_404(db, athlete_id)
     activities = db.execute(
         select(AthleteActivity)
@@ -326,7 +328,7 @@ def get_history(athlete_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/athletes/{athlete_id}/assessment", response_model=RunningAssessmentOut)
-def get_assessment(athlete_id: int, db: Session = Depends(get_db)):
+def get_assessment(athlete_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     _athlete_or_404(db, athlete_id)
     return assess_running_ability(db=db, athlete_id=athlete_id)
 
@@ -350,7 +352,7 @@ def run_assessment(
 
 
 @router.post("/marathon/goals", response_model=RaceGoalOut)
-def create_goal(request: MarathonGoalCreate, db: Session = Depends(get_db)):
+def create_goal(request: MarathonGoalCreate, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     athlete = _athlete_or_404(db, request.athlete_id)
     return _orchestrator_create_race_goal(
         db=db, athlete=athlete, request=request, sport=SportType.MARATHON
@@ -358,7 +360,7 @@ def create_goal(request: MarathonGoalCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/marathon/plans/generate", response_model=MarathonPlanOut)
-def create_marathon_plan(request: MarathonPlanGenerateRequest, db: Session = Depends(get_db)):
+def create_marathon_plan(request: MarathonPlanGenerateRequest, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     athlete = _athlete_or_404(db, request.athlete_id)
     race_goal = db.get(RaceGoal, request.race_goal_id) if request.race_goal_id else None
     if request.race_goal_id and race_goal is None:
@@ -379,12 +381,12 @@ def create_marathon_plan(request: MarathonPlanGenerateRequest, db: Session = Dep
 
 
 @router.get("/marathon/plans/{plan_id}", response_model=MarathonPlanOut)
-def get_marathon_plan(plan_id: int, db: Session = Depends(get_db)):
+def get_marathon_plan(plan_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     return _marathon_plan_or_404(db, plan_id)
 
 
 @router.post("/plans/{plan_id}/confirm", response_model=PlanConfirmOut)
-def confirm_plan(plan_id: int, db: Session = Depends(get_db)):
+def confirm_plan(plan_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     plan = db.execute(
         select(TrainingPlan)
         .where(TrainingPlan.id == plan_id)
@@ -404,7 +406,7 @@ def confirm_plan(plan_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/plans/{plan_id}/sync/coros", response_model=PlanSyncOut)
-def sync_plan_to_coros(plan_id: int, db: Session = Depends(get_db)):
+def sync_plan_to_coros(plan_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     plan = _marathon_plan_or_404(db, plan_id)
     if not plan.is_confirmed:
         raise HTTPException(status_code=400, detail="Plan must be confirmed before sync")
@@ -423,7 +425,7 @@ def sync_plan_to_coros(plan_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/plans/{plan_id}/adjustments/evaluate", response_model=PlanAdjustmentOut)
-def evaluate_adjustment(plan_id: int, db: Session = Depends(get_db)):
+def evaluate_adjustment(plan_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     plan = db.get(TrainingPlan, plan_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="Plan not found")
@@ -431,7 +433,7 @@ def evaluate_adjustment(plan_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/plan-adjustments/{adjustment_id}/confirm", response_model=PlanAdjustmentOut)
-def confirm_plan_adjustment(adjustment_id: int, db: Session = Depends(get_db)):
+def confirm_plan_adjustment(adjustment_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     adjustment = db.get(PlanAdjustment, adjustment_id)
     if adjustment is None:
         raise HTTPException(status_code=404, detail="Adjustment not found")
@@ -580,7 +582,7 @@ def _active_or_draft_plan_for_athlete(db: Session, athlete_id: int) -> TrainingP
 
 
 @router.get("/athletes/{athlete_id}/today", response_model=TodayOut)
-def get_today(athlete_id: int, db: Session = Depends(get_db)) -> TodayOut:
+def get_today(athlete_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)) -> TodayOut:
     _athlete_or_404(db, athlete_id)
     plan = _active_or_draft_plan_for_athlete(db, athlete_id)
     if plan is None:
@@ -1154,7 +1156,7 @@ def _week_strip_status(
 
 
 @router.get("/athletes/{athlete_id}/dashboard", response_model=DashboardOut)
-def get_athlete_dashboard(athlete_id: int, db: Session = Depends(get_db)) -> DashboardOut:
+def get_athlete_dashboard(athlete_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)) -> DashboardOut:
     athlete = _athlete_or_404(db, athlete_id)
     plan = _active_or_draft_plan_for_athlete(db, athlete_id)
 
@@ -1493,7 +1495,7 @@ def _build_readiness(db: Session, athlete_id: int) -> DashboardReadiness:
 
 
 @router.get("/plans/{plan_id}/volume-curve", response_model=PlanVolumeCurveOut)
-def get_plan_volume_curve(plan_id: int, db: Session = Depends(get_db)) -> PlanVolumeCurveOut:
+def get_plan_volume_curve(plan_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)) -> PlanVolumeCurveOut:
     plan = db.execute(
         select(TrainingPlan)
         .where(TrainingPlan.id == plan_id)
@@ -1785,7 +1787,9 @@ _AI_UNAVAILABLE_REPLY = "AI 教练当前不可用，请稍后再试"
 
 @router.post("/coach/message", response_model=CoachMessageResponse)
 def post_coach_message(
-    payload: CoachMessageRequest, db: Session = Depends(get_db)
+    payload: CoachMessageRequest,
+    db: Session = Depends(get_db),
+    _user: "User" = Depends(get_current_user),
 ) -> CoachMessageResponse:
     athlete = _athlete_or_404(db, payload.athlete_id)
 

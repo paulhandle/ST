@@ -606,3 +606,41 @@ pnpm build
 - Real markdown rendering (use `<pre>` for skill.md — full MDX overkill for now)
 - Pagination for activities (show last 50, single page)
 - Push notifications for new adjustments
+
+---
+
+# Block D — Navigation + Backend Route Protection (2026-05-03)
+
+## Objective
+
+1. **导航**：让 `/skills`、`/activities` 从应用内可达；升级 settings 页面
+2. **后端认证保护**：对 athlete/plan 核心路由加 `get_current_user` 依赖，防止未认证访问
+
+## Files to change
+
+### Frontend
+- `web/app/(tabs)/layout.tsx` — 将 Settings 加入底部 tab 或 header 入口
+- `web/app/settings/page.tsx` — 替换为完整 settings 页（skills 入口、activities 入口、COROS 状态）
+- `web/app/(tabs)/dashboard/page.tsx` — header 加 settings 图标入口
+
+### Backend
+- `app/api/routes.py` — 对 athlete/plan/adjustment/coach 相关路由加 `Depends(get_current_user)`
+- `tests/test_auth.py` — 补充受保护路由的 401 测试（TDD）
+
+### Docs
+- `tasks/devlog.md`
+- `README.md` — 更新 API 表格标注哪些路由需要认证
+
+## Acceptance criteria
+
+- [ ] Settings 页面可从 dashboard header 进入
+- [ ] Settings 页面有 "Skill 方法论" 入口（→ /skills）和 "历史活动" 入口（→ /activities）
+- [ ] `GET /athletes/{id}` 等核心路由未携带 token 返回 401
+- [ ] 现有 71 个后端测试仍全部通过（测试文件需传入有效 token）
+- [ ] 50 个前端测试仍全部通过
+- [ ] `pnpm build` 通过
+
+## Out of scope
+
+- 细粒度权限（用户只能访问自己的数据）—— 留待用户规模增长后再做
+- Token 刷新 / 登出接口

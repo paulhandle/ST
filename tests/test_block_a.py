@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 
 os.environ.setdefault("ST_DATABASE_URL", "sqlite:///st_test.db")
 os.environ["COROS_AUTOMATION_MODE"] = "fake"
-os.environ.pop("OPENAI_API_KEY", None)  # force rule-based skill path; deterministic + fast
+os.environ["OPENAI_API_KEY"] = ""  # empty string: setdefault in load_local_env won't overwrite  # force rule-based skill path; deterministic + fast
 
 from fastapi.testclient import TestClient
 
@@ -18,9 +18,10 @@ from app.models import (
     TrainingPlan,
 )
 from app.seed import seed_training_methods
+from tests.helpers import get_test_token, auth
 
 
-def _create_athlete(client: TestClient) -> int:
+def _create_athlete(client: TestClient, token: str) -> int:
     r = client.post(
         "/athletes",
         json={
@@ -29,6 +30,7 @@ def _create_athlete(client: TestClient) -> int:
             "level": "intermediate",
             "weekly_training_days": 5,
         },
+        headers=auth(token),
     )
     assert r.status_code == 200, r.text
     return r.json()["id"]
@@ -37,6 +39,7 @@ def _create_athlete(client: TestClient) -> int:
 def _generate_marathon_plan(
     client: TestClient,
     athlete_id: int,
+    token: str,
     skill_slug: str = "marathon_st_default",
 ) -> dict:
     body = {
@@ -53,21 +56,23 @@ def _generate_marathon_plan(
         },
         "skill_slug": skill_slug,
     }
-    r = client.post("/marathon/plans/generate", json=body)
+    r = client.post("/marathon/plans/generate", json=body, headers=auth(token))
     assert r.status_code == 200, r.text
     return r.json()
 
 
-def _bootstrap_history(client: TestClient, athlete_id: int) -> None:
+def _bootstrap_history(client: TestClient, athlete_id: int, token: str) -> None:
     """Run the COROS connect+import flow so the assessment has data."""
     r = client.post(
         "/coros/connect",
         json={"athlete_id": athlete_id, "username": "p@x.com", "password": "x"},
+        headers=auth(token),
     )
     assert r.status_code == 200, r.text
     r = client.post(
         f"/coros/import?athlete_id={athlete_id}",
         json={"device_type": "coros"},
+        headers=auth(token),
     )
     assert r.status_code == 200, r.text
 
@@ -82,6 +87,7 @@ class BlockASkillCatalogTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def test_list_skills_returns_both_built_in_and_user_extracted(self) -> None:
         r = self.client.get("/skills")
@@ -122,18 +128,19 @@ class BlockAGenerateWithSkillSlugTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def test_generate_with_default_skill(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id, "marathon_st_default")
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token, "marathon_st_default")
         self.assertEqual(16, plan["weeks"])
         self.assertGreater(len(plan["structured_workouts"]), 0)
 
     def test_generate_with_coach_zhao_skill(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id, "coach_zhao_unified")
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token, "coach_zhao_unified")
         self.assertGreater(len(plan["structured_workouts"]), 0)
         # The plan should be persisted with the skill slug.
         with SessionLocal() as db:
@@ -151,16 +158,17 @@ class BlockATodayTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def test_today_no_plan_returns_404(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        r = self.client.get(f"/athletes/{athlete_id}/today")
+        athlete_id = _create_athlete(self.client, self.token)
+        r = self.client.get(f"/athletes/{athlete_id}/today", headers=auth(self.token))
         self.assertEqual(404, r.status_code)
 
     def test_today_rest_day_returns_null_workout(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         plan_id = plan["id"]
         # Move all workouts away from today so we get the rest-day case.
         with SessionLocal() as db:
@@ -176,16 +184,16 @@ class BlockATodayTestCase(unittest.TestCase):
                     w.scheduled_date = tomorrow
             db.commit()
 
-        r = self.client.get(f"/athletes/{athlete_id}/today")
+        r = self.client.get(f"/athletes/{athlete_id}/today", headers=auth(self.token))
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
         self.assertEqual(plan_id, body["plan_id"])
         self.assertIsNone(body["workout"])
 
     def test_today_with_workout_today(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         plan_id = plan["id"]
         # Force one workout to be scheduled today so the route can return it.
         with SessionLocal() as db:
@@ -199,7 +207,7 @@ class BlockATodayTestCase(unittest.TestCase):
             workout.scheduled_date = date.today()
             db.commit()
 
-        r = self.client.get(f"/athletes/{athlete_id}/today")
+        r = self.client.get(f"/athletes/{athlete_id}/today", headers=auth(self.token))
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
         self.assertEqual(plan_id, body["plan_id"])
@@ -217,13 +225,14 @@ class BlockAWeekViewTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def test_week_view_returns_expected_shape(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         plan_id = plan["id"]
-        r = self.client.get(f"/plans/{plan_id}/week", params={"week_index": 1})
+        r = self.client.get(f"/plans/{plan_id}/week", params={"week_index": 1}, headers=auth(self.token))
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
         self.assertEqual(plan_id, body["plan_id"])
@@ -251,18 +260,17 @@ class BlockAFeedbackTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def _fresh_workout_id(self) -> int:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         return plan["structured_workouts"][0]["id"]
 
     def test_feedback_completed_updates_workout_status(self) -> None:
         wid = self._fresh_workout_id()
-        r = self.client.post(
-            f"/workouts/{wid}/feedback",
-            json={"status": "completed", "rpe": 6, "note": "felt great"},
+        r = self.client.post(f"/workouts/{wid}/feedback", headers=auth(self.token), json={"status": "completed", "rpe": 6, "note": "felt great"},
         )
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
@@ -274,9 +282,7 @@ class BlockAFeedbackTestCase(unittest.TestCase):
 
     def test_feedback_skipped_marks_missed(self) -> None:
         wid = self._fresh_workout_id()
-        r = self.client.post(
-            f"/workouts/{wid}/feedback",
-            json={"status": "skipped", "rpe": None, "note": None},
+        r = self.client.post(f"/workouts/{wid}/feedback", headers=auth(self.token), json={"status": "skipped", "rpe": None, "note": None},
         )
         self.assertEqual(200, r.status_code, r.text)
         with SessionLocal() as db:
@@ -285,25 +291,19 @@ class BlockAFeedbackTestCase(unittest.TestCase):
 
     def test_feedback_invalid_status_rejected(self) -> None:
         wid = self._fresh_workout_id()
-        r = self.client.post(
-            f"/workouts/{wid}/feedback",
-            json={"status": "bogus", "rpe": 5, "note": None},
+        r = self.client.post(f"/workouts/{wid}/feedback", headers=auth(self.token), json={"status": "bogus", "rpe": 5, "note": None},
         )
         self.assertEqual(422, r.status_code)
 
     def test_feedback_invalid_rpe_rejected(self) -> None:
         wid = self._fresh_workout_id()
-        r = self.client.post(
-            f"/workouts/{wid}/feedback",
-            json={"status": "completed", "rpe": 99, "note": None},
+        r = self.client.post(f"/workouts/{wid}/feedback", headers=auth(self.token), json={"status": "completed", "rpe": 99, "note": None},
         )
         self.assertEqual(422, r.status_code)
 
     def test_feedback_long_note_rejected(self) -> None:
         wid = self._fresh_workout_id()
-        r = self.client.post(
-            f"/workouts/{wid}/feedback",
-            json={"status": "completed", "rpe": 5, "note": "x" * 600},
+        r = self.client.post(f"/workouts/{wid}/feedback", headers=auth(self.token), json={"status": "completed", "rpe": 5, "note": "x" * 600},
         )
         self.assertEqual(422, r.status_code)
 
@@ -318,15 +318,16 @@ class BlockAMatchActivityTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def test_imported_activity_is_matched_to_planned_workout(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         plan_id = plan["id"]
 
         # Confirm the plan so it's ACTIVE — that's what match_activity_to_workout looks for.
-        confirm = self.client.post(f"/plans/{plan_id}/confirm")
+        confirm = self.client.post(f"/plans/{plan_id}/confirm", headers=auth(self.token))
         self.assertEqual(200, confirm.status_code, confirm.text)
 
         # Pick a workout and force its date to today.
@@ -382,11 +383,11 @@ class BlockAMatchActivityTestCase(unittest.TestCase):
         self.assertIsNotNone(body["diff"])
 
     def test_today_includes_matched_activity_id_when_present(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         plan_id = plan["id"]
-        confirm = self.client.post(f"/plans/{plan_id}/confirm")
+        confirm = self.client.post(f"/plans/{plan_id}/confirm", headers=auth(self.token))
         self.assertEqual(200, confirm.status_code, confirm.text)
 
         with SessionLocal() as db:
@@ -424,7 +425,7 @@ class BlockAMatchActivityTestCase(unittest.TestCase):
                 ],
             )
 
-        r = self.client.get(f"/athletes/{athlete_id}/today")
+        r = self.client.get(f"/athletes/{athlete_id}/today", headers=auth(self.token))
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
         self.assertIsNotNone(body["matched_activity_id"])

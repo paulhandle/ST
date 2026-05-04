@@ -123,3 +123,40 @@ class MeEndpointTestCase(AuthSetup):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProtectedRoutesTestCase(AuthSetup):
+    """Verify that key routes return 401 without a valid token."""
+
+    def _get_token(self, phone="19900001234"):
+        code = self.client.post("/auth/send-otp", json={"phone": phone}).json()["otp_code"]
+        return self.client.post("/auth/verify-otp", json={"phone": phone, "code": str(code)}).json()["access_token"]
+
+    def test_create_athlete_requires_auth(self):
+        res = self.client.post("/athletes", json={"name": "T", "sport": "marathon"})
+        self.assertEqual(res.status_code, 401)
+
+    def test_create_athlete_accepts_valid_token(self):
+        token = self._get_token()
+        res = self.client.post(
+            "/athletes",
+            json={"name": "테스트", "sport": "marathon"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertIn(res.status_code, (200, 201, 422))
+
+    def test_today_endpoint_requires_auth(self):
+        res = self.client.get("/athletes/1/today")
+        self.assertEqual(res.status_code, 401)
+
+    def test_dashboard_endpoint_requires_auth(self):
+        res = self.client.get("/athletes/1/dashboard")
+        self.assertEqual(res.status_code, 401)
+
+    def test_history_endpoint_requires_auth(self):
+        res = self.client.get("/athletes/1/history")
+        self.assertEqual(res.status_code, 401)
+
+    def test_coach_message_requires_auth(self):
+        res = self.client.post("/coach/message", json={"athlete_id": 1, "message": "hello"})
+        self.assertEqual(res.status_code, 401)

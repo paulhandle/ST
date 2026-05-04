@@ -30,9 +30,10 @@ from app.models import (
     WorkoutStatus,
 )
 from app.seed import seed_training_methods
+from tests.helpers import get_test_token, auth
 
 
-def _create_athlete(client: TestClient) -> int:
+def _create_athlete(client: TestClient, token: str = "") -> int:
     r = client.post(
         "/athletes",
         json={
@@ -41,6 +42,7 @@ def _create_athlete(client: TestClient) -> int:
             "level": "intermediate",
             "weekly_training_days": 5,
         },
+        headers=auth(token) if token else {},
     )
     assert r.status_code == 200, r.text
     return r.json()["id"]
@@ -49,6 +51,7 @@ def _create_athlete(client: TestClient) -> int:
 def _generate_marathon_plan(
     client: TestClient,
     athlete_id: int,
+    token: str = "",
     skill_slug: str = "marathon_st_default",
 ) -> dict:
     body = {
@@ -65,20 +68,22 @@ def _generate_marathon_plan(
         },
         "skill_slug": skill_slug,
     }
-    r = client.post("/marathon/plans/generate", json=body)
+    r = client.post("/marathon/plans/generate", json=body, headers=auth(token) if token else {})
     assert r.status_code == 200, r.text
     return r.json()
 
 
-def _bootstrap_history(client: TestClient, athlete_id: int) -> None:
+def _bootstrap_history(client: TestClient, athlete_id: int, token: str = "") -> None:
     r = client.post(
         "/coros/connect",
         json={"athlete_id": athlete_id, "username": "p@x.com", "password": "x"},
+        headers=auth(token) if token else {},
     )
     assert r.status_code == 200, r.text
     r = client.post(
         f"/coros/import?athlete_id={athlete_id}",
         json={"device_type": "coros"},
+        headers=auth(token) if token else {},
     )
     assert r.status_code == 200, r.text
 
@@ -108,10 +113,11 @@ class BlockA1DashboardNoPlanTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def test_dashboard_no_plan_returns_valid_payload(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        r = self.client.get(f"/athletes/{athlete_id}/dashboard")
+        athlete_id = _create_athlete(self.client, self.token)
+        r = self.client.get(f"/athletes/{athlete_id}/dashboard", headers=auth(self.token))
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
         self.assertEqual(athlete_id, body["athlete"]["id"])
@@ -137,15 +143,16 @@ class BlockA1DashboardWithPlanTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def test_dashboard_with_plan_no_activities_today(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         plan_id = plan["id"]
         _force_workout_today(plan_id)
 
-        r = self.client.get(f"/athletes/{athlete_id}/dashboard")
+        r = self.client.get(f"/athletes/{athlete_id}/dashboard", headers=auth(self.token))
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
         self.assertEqual(plan_id, body["today"]["plan_id"])
@@ -160,9 +167,9 @@ class BlockA1DashboardWithPlanTestCase(unittest.TestCase):
         self.assertEqual(1, len(currents))
 
     def test_dashboard_with_imports_volume_history_has_executed_and_predictions(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         plan_id = plan["id"]
         _force_workout_today(plan_id)
 
@@ -210,7 +217,7 @@ class BlockA1DashboardWithPlanTestCase(unittest.TestCase):
             ))
             db.commit()
 
-        r = self.client.get(f"/athletes/{athlete_id}/dashboard")
+        r = self.client.get(f"/athletes/{athlete_id}/dashboard", headers=auth(self.token))
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
         # At least one volume_history week has executed_km > 0
@@ -232,13 +239,14 @@ class BlockA1VolumeCurveTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def test_volume_curve_returns_all_weeks(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         plan_id = plan["id"]
-        r = self.client.get(f"/plans/{plan_id}/volume-curve")
+        r = self.client.get(f"/plans/{plan_id}/volume-curve", headers=auth(self.token))
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
         # Expect roughly 16 weeks (the plan was generated for plan_weeks=16).
@@ -263,15 +271,17 @@ class BlockA1RegeneratePreviewTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def test_regenerate_preview_applicable(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id, "marathon_st_default")
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token, "marathon_st_default")
         plan_id = plan["id"]
         r = self.client.get(
             f"/plans/{plan_id}/regenerate-preview",
             params={"skill_slug": "coach_zhao_unified"},
+            headers=auth(self.token),
         )
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
@@ -280,9 +290,9 @@ class BlockA1RegeneratePreviewTestCase(unittest.TestCase):
         self.assertEqual("coach_zhao_unified", body["new_skill_slug"])
 
     def test_regenerate_preview_not_applicable_due_to_short_plan(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id, "marathon_st_default")
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token, "marathon_st_default")
         plan_id = plan["id"]
         # Force most workouts before today so derived plan_weeks is too small for coach_zhao_unified (requires 12-24).
         with SessionLocal() as db:
@@ -299,6 +309,7 @@ class BlockA1RegeneratePreviewTestCase(unittest.TestCase):
         r = self.client.get(
             f"/plans/{plan_id}/regenerate-preview",
             params={"skill_slug": "coach_zhao_unified"},
+            headers=auth(self.token),
         )
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
@@ -316,11 +327,12 @@ class BlockA1AdjustmentApplyTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def _make_plan_and_workout(self) -> tuple[int, int, int]:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         plan_id = plan["id"]
         wid = plan["structured_workouts"][0]["id"]
         return athlete_id, plan_id, wid
@@ -358,7 +370,8 @@ class BlockA1AdjustmentApplyTestCase(unittest.TestCase):
         adj_id = self._make_adjustment_with_diff(athlete_id, plan_id, affected)
 
         r = self.client.post(
-            f"/plan-adjustments/{adj_id}/apply", json={"selected_workout_ids": None}
+            f"/plan-adjustments/{adj_id}/apply", json={"selected_workout_ids": None},
+            headers=auth(self.token),
         )
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
@@ -384,7 +397,8 @@ class BlockA1AdjustmentApplyTestCase(unittest.TestCase):
         adj_id = self._make_adjustment_with_diff(athlete_id, plan_id, affected)
 
         r = self.client.post(
-            f"/plan-adjustments/{adj_id}/apply", json={"selected_workout_ids": None}
+            f"/plan-adjustments/{adj_id}/apply", json={"selected_workout_ids": None},
+            headers=auth(self.token),
         )
         self.assertEqual(200, r.status_code, r.text)
         with SessionLocal() as db:
@@ -408,7 +422,8 @@ class BlockA1AdjustmentApplyTestCase(unittest.TestCase):
         adj_id = self._make_adjustment_with_diff(athlete_id, plan_id, affected)
 
         r = self.client.post(
-            f"/plan-adjustments/{adj_id}/apply", json={"selected_workout_ids": None}
+            f"/plan-adjustments/{adj_id}/apply", json={"selected_workout_ids": None},
+            headers=auth(self.token),
         )
         self.assertEqual(422, r.status_code)
 
@@ -424,12 +439,14 @@ class BlockA1CoachTestCase(unittest.TestCase):
         with SessionLocal() as db:
             seed_training_methods(db)
         os.environ["OPENAI_API_KEY"] = ""
+        self.token = get_test_token(self.client)
 
     def test_coach_message_persists_user_and_stub_coach_reply(self) -> None:
-        athlete_id = _create_athlete(self.client)
+        athlete_id = _create_athlete(self.client, self.token)
         r = self.client.post(
             "/coach/message",
             json={"athlete_id": athlete_id, "message": "我今天腿很酸"},
+            headers=auth(self.token),
         )
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
@@ -443,15 +460,16 @@ class BlockA1CoachTestCase(unittest.TestCase):
             self.assertEqual(2, len(rows))
 
     def test_coach_conversations_returns_recent_first_with_limit(self) -> None:
-        athlete_id = _create_athlete(self.client)
+        athlete_id = _create_athlete(self.client, self.token)
         for msg in ["第一", "第二", "第三"]:
             r = self.client.post(
                 "/coach/message",
                 json={"athlete_id": athlete_id, "message": msg},
+                headers=auth(self.token),
             )
             self.assertEqual(200, r.status_code, r.text)
 
-        r = self.client.get(f"/coach/conversations/{athlete_id}", params={"limit": 4})
+        r = self.client.get(f"/coach/conversations/{athlete_id}", params={"limit": 4}, headers=auth(self.token))
         self.assertEqual(200, r.status_code, r.text)
         rows = r.json()
         # Should have 6 messages (3 user + 3 coach), capped to 4.
@@ -471,13 +489,14 @@ class BlockA1HistoryEnrichmentTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def test_history_includes_match_status_and_delta_summary(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         plan_id = plan["id"]
-        confirm = self.client.post(f"/plans/{plan_id}/confirm")
+        confirm = self.client.post(f"/plans/{plan_id}/confirm", headers=auth(self.token))
         self.assertEqual(200, confirm.status_code, confirm.text)
 
         # Match an activity to a workout today so we get an enriched row.
@@ -503,7 +522,7 @@ class BlockA1HistoryEnrichmentTestCase(unittest.TestCase):
                 ],
             )
 
-        r = self.client.get(f"/athletes/{athlete_id}/history")
+        r = self.client.get(f"/athletes/{athlete_id}/history", headers=auth(self.token))
         self.assertEqual(200, r.status_code, r.text)
         rows = r.json()
         self.assertGreater(len(rows), 0)
@@ -532,11 +551,12 @@ class BlockA1TodayEnrichmentTestCase(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_training_methods(db)
+        self.token = get_test_token(self.client)
 
     def test_today_recovery_recommendation_when_many_missed(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         plan_id = plan["id"]
         _force_workout_today(plan_id)
 
@@ -576,18 +596,18 @@ class BlockA1TodayEnrichmentTestCase(unittest.TestCase):
                 count += 1
             db.commit()
 
-        r = self.client.get(f"/athletes/{athlete_id}/today")
+        r = self.client.get(f"/athletes/{athlete_id}/today", headers=auth(self.token))
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
         self.assertIsNotNone(body["recovery_recommendation"])
         self.assertEqual("缺训不补", body["recovery_recommendation"]["ethos_quote"])
 
     def test_today_yesterday_workout_and_activity_surfaced(self) -> None:
-        athlete_id = _create_athlete(self.client)
-        _bootstrap_history(self.client, athlete_id)
-        plan = _generate_marathon_plan(self.client, athlete_id)
+        athlete_id = _create_athlete(self.client, self.token)
+        _bootstrap_history(self.client, athlete_id, self.token)
+        plan = _generate_marathon_plan(self.client, athlete_id, self.token)
         plan_id = plan["id"]
-        confirm = self.client.post(f"/plans/{plan_id}/confirm")
+        confirm = self.client.post(f"/plans/{plan_id}/confirm", headers=auth(self.token))
         self.assertEqual(200, confirm.status_code, confirm.text)
         # Force one workout to today (so the route returns 200) and another to yesterday.
         with SessionLocal() as db:
@@ -629,7 +649,7 @@ class BlockA1TodayEnrichmentTestCase(unittest.TestCase):
                 ],
             )
 
-        r = self.client.get(f"/athletes/{athlete_id}/today")
+        r = self.client.get(f"/athletes/{athlete_id}/today", headers=auth(self.token))
         self.assertEqual(200, r.status_code, r.text)
         body = r.json()
         self.assertIsNotNone(body["yesterday_workout"])
