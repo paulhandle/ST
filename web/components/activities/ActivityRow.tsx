@@ -25,7 +25,7 @@ export default function ActivityRow({ activity }: Props) {
           {activity.title}
         </div>
         <div className="annot text-faint" style={{ fontSize: 12 }}>
-          {activity.distance_km.toFixed(1)} km · {activity.duration_min} 分钟
+          {activity.distance_km != null ? `${activity.distance_km.toFixed(1)} km · ` : ''}{activity.duration_min} 分钟
           {activity.avg_pace_sec_per_km
             ? ` · ${formatPace(activity.avg_pace_sec_per_km)}/km`
             : ''}
