@@ -1,0 +1,32 @@
+.git
+.github
+.venv
+node_modules
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# DB / runtime
+*.db
+*.sqlite
+var/
+st.egg-info/
+
+# Frontend (built separately)
+web/
+
+# Tests, docs, dev artifacts (not needed in API image)
+tests/
+docs/
+tasks/
+scripts/
+rules.md
+
+# Secrets / local config
+.env
+.env.example
+.st_profile.toml

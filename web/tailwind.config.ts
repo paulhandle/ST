@@ -21,8 +21,8 @@ const config: Config = {
         'rule-soft': 'var(--rule-soft)',
       },
       fontFamily: {
-        hand: ['var(--font-hand)', 'Kalam', 'cursive'],
-        annot: ['var(--font-annot)', 'Caveat', 'cursive'],
+        hand: ['var(--font-hand)', 'Barlow Condensed', 'sans-serif'],
+        annot: ['var(--font-annot)', 'Barlow', 'sans-serif'],
         mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
       },

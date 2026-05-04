@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation'
 import CoachButton from '@/components/CoachButton'
 
 const TABS = [
-  { href: '/dashboard', label: '概览', icon: TabIconDashboard },
-  { href: '/today',     label: '今天', icon: TabIconToday },
-  { href: '/week',      label: '本周', icon: TabIconWeek },
-  { href: '/plan',      label: '计划', icon: TabIconPlan },
+  { href: '/dashboard',  label: '概览', icon: TabIconDashboard },
+  { href: '/activities', label: '运动', icon: TabIconActivities },
+  { href: '/week',       label: '本周', icon: TabIconWeek },
+  { href: '/plan',       label: '计划', icon: TabIconPlan },
 ]
 
 export default function TabsLayout({ children }: { children: React.ReactNode }) {
@@ -52,15 +52,13 @@ function TabIconDashboard({ active }: { active: boolean }) {
   )
 }
 
-function TabIconToday({ active }: { active: boolean }) {
+function TabIconActivities({ active }: { active: boolean }) {
   const c = active ? 'var(--accent)' : 'var(--ink-faint)'
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-      <rect x="3" y="4" width="16" height="15" rx="2" stroke={c} strokeWidth="1.5" />
-      <line x1="3" y1="8" x2="19" y2="8" stroke={c} strokeWidth="1.5" />
-      <line x1="7" y1="2" x2="7" y2="6" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="15" y1="2" x2="15" y2="6" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx="11" cy="14" r="2" fill={c} />
+      <circle cx="11" cy="6" r="2.5" stroke={c} strokeWidth="1.5" />
+      <path d="M7 11l2 2 4-4" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 19l2-4h8l2 4" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

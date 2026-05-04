@@ -1,0 +1,13 @@
+.git
+.next
+node_modules
+__tests__
+.eslintrc*
+.gitignore
+.env
+.env.local
+*.log
+README.md
+coverage
+.vscode
+.idea

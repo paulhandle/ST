@@ -2,7 +2,22 @@ from pathlib import Path
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DATABASE_URL = os.environ.get("ST_DATABASE_URL") or f"sqlite:///{BASE_DIR / 'st.db'}"
+
+
+def _resolve_database_url() -> str:
+    raw = (
+        os.environ.get("DATABASE_URL")
+        or os.environ.get("ST_DATABASE_URL")
+        or f"sqlite:///{BASE_DIR / 'st.db'}"
+    )
+    if raw.startswith("postgres://"):
+        return "postgresql+psycopg://" + raw[len("postgres://"):]
+    if raw.startswith("postgresql://"):
+        return "postgresql+psycopg://" + raw[len("postgresql://"):]
+    return raw
+
+
+DATABASE_URL = _resolve_database_url()
 
 
 def load_local_env(path: Path | None = None) -> None:

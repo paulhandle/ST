@@ -160,6 +160,18 @@ class HistoryImportOut(BaseModel):
     message: str
 
 
+class CalendarDayOut(BaseModel):
+    date: str                      # YYYY-MM-DD
+    status: str                    # completed | partial | miss | unmatched | planned
+    title: str | None = None
+    sport: str | None = None       # discipline: run | cycle | strength
+    workout_type: str | None = None
+    activity_id: int | None = None
+    workout_id: int | None = None
+    distance_km: float | None = None
+    duration_min: int | None = None
+
+
 class AthleteActivityOut(BaseModel):
     id: int
     athlete_id: int
@@ -640,6 +652,7 @@ class VerifyOTPResponse(BaseModel):
     access_token: str
     token_type: str
     user_id: int
+    is_new_user: bool
 
 
 class UserOut(BaseModel):

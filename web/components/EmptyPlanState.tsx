@@ -16,7 +16,7 @@ export default function EmptyPlanState() {
       </div>
 
       <Link
-        href="/onboarding"
+        href="/plan/generate"
         style={{
           display: 'inline-block',
           padding: '14px 32px',
@@ -28,7 +28,7 @@ export default function EmptyPlanState() {
           textDecoration: 'none',
         }}
       >
-        设定目标 →
+        生成训练计划 →
       </Link>
     </div>
   )

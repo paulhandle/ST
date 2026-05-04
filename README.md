@@ -1,10 +1,15 @@
-# ST - Athlete Training Planner
+# PerformanceProtocol · 表现提升协议
 
-`ST` 是一个面向耐力运动员的训练任务规划后端 MVP，当前重点是 COROS-first 的全马训练闭环：
+> 站点：[performanceprotocol.io](https://performanceprotocol.io)
+> 内部代号：`ST`（代码层包名仍沿用）
 
-1. COROS 历史运动数据导入与能力评估（支持真实 COROS 直连 API）
-2. 全马目标可行性判断，例如 sub-4:00
-3. 结构化全马训练计划生成（LLM + 规则回退）
+PerformanceProtocol 是一个面向严肃耐力运动员的训练表现提升平台。当前已上线**路跑（全马 / 半马）**完整闭环，规划中：**越野跑、铁人三项、长距离骑行**。
+
+核心闭环（当前 COROS-first，多设备扩展中）：
+
+1. 历史运动数据导入与能力评估（支持真实 COROS 直连 API）
+2. 目标可行性判断（如全马 sub-4:00、半马 sub-1:45）
+3. 结构化训练计划生成（LLM + 规则回退）
 4. 用户确认后同步到 COROS 日历（`COROS_AUTOMATION_MODE=real` 启用真实 API 写入）
 5. 训练执行后的周度调整建议
 
@@ -273,3 +278,57 @@ uv run python -c "from app.skills import list_skills; print([m.slug for m in lis
 ```
 
 测试自动将 `ST_DATABASE_URL` 设为 `sqlite:///st_test.db`，与生产 `st.db` 隔离。
+
+## 部署 (fly.io)
+
+生产环境托管在 fly.io（Singapore region），数据库为 Fly Managed Postgres。
+
+**架构：**
+- `performanceprotocol.io` → fly app `st-web`（Next.js standalone）
+- `api.performanceprotocol.io` → fly app `st-api`（FastAPI + uvicorn）
+- Postgres 集群 `st-db`（attached 到 `st-api`，自动设置 `DATABASE_URL` secret）
+
+**首次 setup（一次性，本地手动执行）：**
+
+```bash
+flyctl auth login
+bash scripts/fly_setup.sh   # ← 不要直接跑！逐条手动执行，里面有需要替换的密钥
+```
+
+setup 完成后，DNS 记录按 `flyctl certs show` 的输出在 GoDaddy 配好，证书自动签发。
+
+**日常部署：**
+
+push 到 `main` 分支自动触发 `.github/workflows/deploy.yml`：
+1. 跑后端 unittest + 前端 pnpm test + type-check
+2. 全部通过后并行部署 `st-api` 和 `st-web`
+3. `st-api` 部署时通过 `release_command` 自动跑 `alembic upgrade head`
+
+非 main 分支只跑 `.github/workflows/ci.yml`（不部署）。
+
+**所需 GitHub Secrets：**
+- `FLY_API_TOKEN`：fly.io 后台生成的 PAT，scope 至少包含 deploy 权限
+
+**所需 fly secrets（运行时密钥，由 `flyctl secrets set` 配置，不入库）：**
+| Secret | App | 来源 |
+|---|---|---|
+| `DATABASE_URL` | st-api | `flyctl postgres attach` 自动写入 |
+| `OPENAI_API_KEY` | st-api | OpenAI 控制台 |
+| `ST_SECRET_KEY` | st-api | `openssl rand -hex 32` |
+| `COROS_AUTOMATION_MODE` | st-api | `real` |
+
+**回滚：**
+
+```bash
+flyctl releases --app st-api          # 看历史版本
+flyctl releases rollback v123 --app st-api
+```
+
+**数据库迁移本地开发：**
+
+```bash
+# 改了 app/models.py 后生成 migration
+DATABASE_URL=sqlite:///alembic_dev.db uv run alembic revision --autogenerate -m "your change"
+rm alembic_dev.db   # 清理本地基准 DB
+# Review 生成的 migration 文件，确认无误后提交
+```

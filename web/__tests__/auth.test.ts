@@ -10,8 +10,15 @@ vi.stubGlobal('localStorage', {
 
 import { getToken, saveToken, clearToken, isAuthenticated } from '@/lib/auth'
 
+function getCookieValue(name: string): string | null {
+  const match = document.cookie.split('; ').find(p => p.startsWith(`${name}=`))
+  return match ? match.split('=')[1] : null
+}
+
 beforeEach(() => {
   Object.keys(store).forEach(k => delete store[k])
+  // Clear the st_token cookie
+  document.cookie = 'st_token=; max-age=0; path=/'
 })
 
 describe('getToken', () => {
@@ -30,6 +37,11 @@ describe('saveToken', () => {
     saveToken('tok.en.here')
     expect(store['st_token']).toBe('tok.en.here')
   })
+
+  it('sets st_token cookie so Next.js middleware can authenticate SSR requests', () => {
+    saveToken('tok.en.here')
+    expect(getCookieValue('st_token')).toBe('tok.en.here')
+  })
 })
 
 describe('clearToken', () => {
@@ -37,6 +49,12 @@ describe('clearToken', () => {
     store['st_token'] = 'some-token'
     clearToken()
     expect(store['st_token']).toBeUndefined()
+  })
+
+  it('clears st_token cookie', () => {
+    saveToken('some-token')
+    clearToken()
+    expect(getCookieValue('st_token')).toBeNull()
   })
 })
 

@@ -11,7 +11,7 @@ export default function TodayCard({ today }: Props) {
   const isRest = !workout
 
   return (
-    <Link href="/today" style={{ textDecoration: 'none', display: 'block' }}>
+    <Link href={`/workouts/${new Date().toISOString().slice(0, 10)}`} style={{ textDecoration: 'none', display: 'block' }}>
       <div style={{ margin: '12px 16px', padding: '12px 14px' }} className="sk-card">
         <div className="between" style={{ marginBottom: 8 }}>
           <span className="hand" style={{ fontSize: 13, color: 'var(--ink-faint)' }}>今天</span>
