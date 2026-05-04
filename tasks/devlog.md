@@ -1,5 +1,31 @@
 # Dev Log
 
+## 2026-05-04 - fly.io 首次部署执行记录（问题 + 修复）
+
+**接上文（基础设施代码）**，实际执行部署过程中遇到的问题及处理：
+
+**问题 1：fly.io 账号高风险锁定**
+- 症状：`flyctl postgres create` 报 "Your account has been marked as high risk"
+- 处理：用户去 https://fly.io/high-risk-unlock 解锁（绑卡验证）
+
+**问题 2：全局 app 名称冲突**
+- `st-db` 和 `st-web` 被其他账号占用（fly.io app 名全局唯一）
+- 处理：改名为 `pp-db`（Postgres）和 `pp-web`（web app），`st-api` 可用
+
+**问题 3：web health check 失败（根因已定位）**
+- 症状：pp-web machine started 但 health check critical，`flyctl deploy` 超时退出
+- 根因：fly.io 健康检查只接受 **2xx 响应**。Next.js middleware 对 `/` 做了 302 redirect 到 `/login`，fly 认为失败
+- 修复：新增 `web/app/api/healthz/route.ts`（无 auth，始终返回 `{"ok":true}`），fly/web.toml health check path 改为 `/api/healthz`，grace_period 30s
+- 状态：**修复已提交**，但 pp-web 尚未用新镜像重部署（旧机器仍在跑旧代码）
+
+**当前生产状态：**
+- `st-api`：✅ 2 machines healthy，Singapore，已跑过 alembic 迁移
+- `pp-web`：⚠️ running 但 health check critical（旧镜像），需重部署
+- DNS：尚未配置（IP 已分配，GoDaddy 记录待添加）
+- 证书：已申请，等 DNS 传播
+
+---
+
 ## 2026-05-04 - Rebrand to PerformanceProtocol + fly.io deploy infrastructure
 
 Why: Product is rebranding to **PerformanceProtocol** (domain `performanceprotocol.io` purchased on GoDaddy) and broadening from "marathon-only" to "serious endurance training" (current: road running; planned: trail, triathlon, cycling). Need production deployment on fly.io with proper CI/CD.
