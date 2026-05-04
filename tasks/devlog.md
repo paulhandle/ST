@@ -1,5 +1,20 @@
 # Dev Log
 
+## 2026-05-04 - Activities Tab Redesign: MonthStrip calendar + timeline list + filters
+
+Why: The activities tab was a flat history list — no way to see upcoming planned workouts or navigate by date. Redesign adds a horizontal scrollable month strip (with colour-coded dots per status), a mixed timeline list combining past activities and future plan workouts, and sport-type filter chips.
+
+How:
+- Backend: added `CalendarDayOut` Pydantic schema + `GET /athletes/{id}/calendar?from_date&to_date` endpoint in `app/api/routes.py`. Merges `AthleteActivity` rows (with match-status logic) and `StructuredWorkout` rows (future=planned, past-no-activity=miss) into `CalendarDay[]` sorted by date. Activity title generated as `"{discipline_label} {km}"` (e.g. "跑步 8.5km") since model has no title field.
+- Frontend types: added `CalendarStatus` union + `CalendarDay` interface to `web/lib/api/types.ts`
+- `useCalendar(fromDate, toDate)` SWR hook (`web/lib/hooks/useCalendar.ts`)
+- `MonthStrip` component (`web/components/activities/MonthStrip.tsx`): builds 5-month date range at module level, scrolls to today on mount via `useEffect`, per-day cell = month label (first of month only) + day number circle (outlined=today, filled=selected) + 5px status dot
+- Activities page (`web/app/(tabs)/activities/page.tsx`): full rewrite — MonthStrip at top, filter chips (全部/跑步/骑车/力量), grouped timeline list newest-month-first; tapping a calendar day scrolls to that date's row in the list; each row links to `/workouts/[date]`
+
+Result: 62/62 frontend tests pass; 83+ backend tests pass; `pnpm type-check` exit 0.
+
+---
+
 ## 2026-05-04 - Block E: Tab restructure + workout detail pages + plan generation wizard
 
 Why: Three UX gaps: (1) COROS history had no nav entry; (2) no plan generation flow after goal-setting; (3) 今天 tab was redundant — history activities more useful as second tab.
