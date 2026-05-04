@@ -1,5 +1,30 @@
 # Dev Log
 
+## 2026-05-04 - Fly.io DNS/TLS/Web deployment verification
+
+Why: User completed the remaining production actions outside the repo: pp-web was redeployed with the `/api/healthz` image, and GoDaddy DNS records were updated for `performanceprotocol.io`, `www.performanceprotocol.io`, and `api.performanceprotocol.io`. Before opening the deployment PR, the production state needed fresh evidence.
+
+How:
+- Checked Fly certificate status for all three hostnames.
+- Checked Fly machine health for `st-api` and `pp-web`.
+- Exercised production HTTPS endpoints for API root, web root, www root, and web health check.
+- Re-ran backend and frontend regression checks locally before PR creation.
+- Updated `tasks/todo.md` to mark deployment/DNS/TLS/service verification complete and leave PR creation as the remaining action.
+
+Result:
+- `flyctl certs check api.performanceprotocol.io --app st-api`: Issued, verified and active.
+- `flyctl certs check performanceprotocol.io --app pp-web`: Issued, verified and active.
+- `flyctl certs check www.performanceprotocol.io --app pp-web`: Issued, verified and active.
+- `flyctl status --app st-api`: 2 machines started, each with 1/1 checks passing.
+- `flyctl status --app pp-web`: version 2 machine started with 1/1 checks passing.
+- `curl -i https://api.performanceprotocol.io/`: HTTP 200, `{"service":"ST","status":"running"}`.
+- `curl -i https://performanceprotocol.io/`: HTTP 307 redirect to `/login`.
+- `curl -i https://www.performanceprotocol.io/`: HTTP 307 redirect to `/login`.
+- `curl -i https://performanceprotocol.io/api/healthz`: HTTP 200, `{"ok":true}`.
+- `uv run python -m unittest discover -s tests -v`: 83/83 pass.
+- `cd web && pnpm test`: 62/62 pass.
+- `cd web && pnpm type-check`: pass.
+
 ## 2026-05-04 - fly.io 首次部署执行记录（问题 + 修复）
 
 **接上文（基础设施代码）**，实际执行部署过程中遇到的问题及处理：

@@ -24,62 +24,49 @@
 | TLS certs 申请（3 个域名）| 完成 |
 | IP 分配（st-api + pp-web 各 v4+v6）| 完成 |
 | **st-api 首次部署：✅ HEALTHY** | 完成 |
-| /api/healthz 路由修复（绕过 auth middleware） | 完成（待重部署生效） |
+| /api/healthz 路由修复（绕过 auth middleware） | 完成 |
+| pp-web 新镜像重部署 | 完成并验收 |
+| GoDaddy DNS 配置 | 完成并验收 |
+| TLS certs 验收（3 个域名） | 完成 |
+| Fly health checks 验收 | 完成 |
+| 线上 HTTP 验收 | 完成 |
+| 本地回归测试 | 完成 |
 
 ### ❌ 下一步要做的
 
-#### 1. 重新部署 pp-web（最优先）
+#### 1. 创建 PR
 
-当前 pp-web 运行的是旧镜像（无 /api/healthz），health check critical。
-修复已提交到 `feat/fly-deploy`，需要跑：
-
-```bash
-cd /Users/paul/Work/ST/web
-flyctl deploy --config ../fly/web.toml --dockerfile Dockerfile \
-  --build-arg BACKEND_URL=https://api.performanceprotocol.io --remote-only
-```
-
-#### 2. GoDaddy DNS 配置
-
-需要在 GoDaddy DNS Management 添加以下记录：
-
-| 类型 | 主机名 | 值 |
-|---|---|---|
-| A | `@` | `168.220.89.49` |
-| AAAA | `@` | `2a09:8280:1::110:e696:0` |
-| A | `api` | `149.248.210.173` |
-| AAAA | `api` | `2a09:8280:1::110:e693:0` |
-| CNAME | `www` | `pp-web.fly.dev` |
-
-DNS 生效后证书自动签发（可用 `flyctl certs check performanceprotocol.io --app pp-web` 检查）
-
-#### 3. 验收检查
-
-DNS 传播 + 证书签发后（通常 5-30 分钟）：
+部署和 DNS/TLS/服务验收均已通过。下一步创建 PR：
 
 ```bash
-# API
-curl https://api.performanceprotocol.io/
-# → {"service":"ST","status":"running"}
-
-curl https://api.performanceprotocol.io/docs
-# → Swagger UI
-
-# Web
-curl -I https://performanceprotocol.io/
-# → HTTP/2 302 (redirect to /login)
-
-# Health checks（应该 passing）
-flyctl status --app st-api
-flyctl status --app pp-web
+gh pr create --base main --head feat/fly-deploy
 ```
 
-#### 4. 合并到 main / PR
+#### 2. PR 合并后检查 Actions
 
-部署验收通过后：
-- 确认 GitHub Secrets 里有 `FLY_API_TOKEN`
-- 创建 PR: `feat/fly-deploy` → `main`
-- PR merge 后，后续所有 push to main 自动通过 GitHub Actions 部署
+合并到 main 后，`.github/workflows/deploy.yml` 会部署 `st-api` 和 `pp-web`。需要确认 workflow 能读到 `FLY_API_TOKEN` 并完成。
+
+---
+
+## Review/Summary（2026-05-04）
+
+用户完成 pp-web 新镜像部署和 GoDaddy DNS 配置后，已完成以下验收：
+
+- `flyctl certs check api.performanceprotocol.io --app st-api`：Issued，verified and active
+- `flyctl certs check performanceprotocol.io --app pp-web`：Issued，verified and active
+- `flyctl certs check www.performanceprotocol.io --app pp-web`：Issued，verified and active
+- `flyctl status --app st-api`：2 machines started，1/1 checks passing
+- `flyctl status --app pp-web`：1 machine started，version 2，1/1 checks passing
+- `curl -i https://api.performanceprotocol.io/`：HTTP 200，`{"service":"ST","status":"running"}`
+- `curl -i https://performanceprotocol.io/`：HTTP 307，`location: /login`
+- `curl -i https://www.performanceprotocol.io/`：HTTP 307，`location: /login`
+- `curl -i https://performanceprotocol.io/api/healthz`：HTTP 200，`{"ok":true}`
+
+本地回归：
+
+- `uv run python -m unittest discover -s tests -v`：83/83 pass
+- `cd web && pnpm test`：62/62 pass
+- `cd web && pnpm type-check`：pass
 
 ---
 
@@ -89,14 +76,14 @@ flyctl status --app pp-web
 |---|---|---|
 | Postgres cluster | `pp-db` | ✅ running (sin) |
 | API app | `st-api` | ✅ healthy (2 machines, sin) |
-| Web app | `pp-web` | ⚠️ critical health check (旧镜像，需重部署) |
+| Web app | `pp-web` | ✅ healthy (version 2, /api/healthz passing) |
 | API IPv4 | `149.248.210.173` | allocated |
 | API IPv6 | `2a09:8280:1::110:e693:0` | allocated |
 | Web IPv4 | `168.220.89.49` | allocated |
 | Web IPv6 | `2a09:8280:1::110:e696:0` | allocated |
-| TLS cert | `api.performanceprotocol.io` | pending DNS |
-| TLS cert | `performanceprotocol.io` | pending DNS |
-| TLS cert | `www.performanceprotocol.io` | pending DNS |
+| TLS cert | `api.performanceprotocol.io` | ✅ issued / active |
+| TLS cert | `performanceprotocol.io` | ✅ issued / active |
+| TLS cert | `www.performanceprotocol.io` | ✅ issued / active |
 
 ## API secrets（st-api）
 
