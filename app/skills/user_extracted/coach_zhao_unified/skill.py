@@ -39,7 +39,7 @@ class CoachZhaoUnifiedSkill:
                 "for Northern-China climate. Working-professional friendly: short "
                 "sessions, capped long runs, tempo + strides instead of intervals."
             ),
-            author="赵可 (extracted by ST skill-creator)",
+            author="赵可 (extracted by PerformanceProtocol)",
             tags=[
                 "marathon",
                 "seasonal",

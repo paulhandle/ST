@@ -1,5 +1,30 @@
 # Dev Log
 
+## 2026-05-04 - PerformanceProtocol brand cleanup
+
+Why: User asked to remove internal `ST` branding from product-facing surfaces, avoid Chinese product names, and stop using marathon-only positioning such as "智能马拉松训练". Internal compatibility identifiers should remain stable, but UI/docs should consistently use the real product name.
+
+How:
+- Created separate branch `brand-cleanup` so the work does not mix into deployment PR #3.
+- Replaced login page brand copy with `PerformanceProtocol` and `Endurance performance system`; added `htmlFor`/`id` label bindings while updating copy.
+- Updated `web/app/layout.tsx`, `web/public/manifest.json`, and `web/package.json` display metadata to use `PerformanceProtocol`.
+- Updated FastAPI display metadata and health/root service strings in `app/main.py` and `app/api/routes.py`.
+- Renamed bundled skill display metadata and methodology docs: `PerformanceProtocol Marathon Plan`, `Beginner Runner Plan`, and `PerformanceProtocol` authorship for built-ins.
+- Removed `ST` prefixes from generated default marathon workout titles.
+- Rewrote `README.md` in English, explicitly documenting `ST` as a legacy/internal codename for compatibility-only identifiers such as `ST_SECRET_KEY`, `ST_DATABASE_URL`, package paths, and local DB names.
+- Refreshed current web design docs to describe PerformanceProtocol, current auth/deployment, current routes, and skill names.
+- Updated frontend tests that asserted old login, empty-plan, and skill-list copy.
+
+Result:
+- `rg` brand scan for old product-facing terms (`智能马拉松训练`, `表现提升协议`, `ST Default`, `ST team`, `ST Platform`, `ST ·`, `ST's`, `ST 默认`, `service": "ST"`, `ST Athlete`, `入门跑者计划`) returns no matches in current app/docs excluding historical task/superpowers files and lockfiles.
+- Broader `\bST\b` scan now shows only explicit legacy/internal codename notes in README/design docs and the local `/Users/paul/Work/ST` path.
+- `uv run python -m py_compile app/main.py app/api/routes.py app/core/profile.py app/skills/marathon_st_default/skill.py app/skills/marathon_st_default/code/rules.py app/skills/running_beginner/skill.py app/skills/running_beginner/code/rules.py app/skills/user_extracted/coach_zhao_unified/skill.py`: pass.
+- `uv run python -m unittest discover -s tests -v`: 83/83 pass.
+- `cd web && pnpm test`: 62/62 pass.
+- `cd web && pnpm type-check`: pass.
+- Attempted `cd web && pnpm install --lockfile-only` after renaming `web/package.json` package name, but sandbox proxy blocked npm registry metadata (`ERR_PNPM_META_FETCH_FAIL`). Checked lockfile for `st-web`; no stale package-name entry existed and no lockfile edit was required.
+- Untracked `.DS_Store` files and `docs/homepage-design/` were present and left untouched.
+
 ## 2026-05-04 - Fly.io DNS/TLS/Web deployment verification
 
 Why: User completed the remaining production actions outside the repo: pp-web was redeployed with the `/api/healthz` image, and GoDaddy DNS records were updated for `performanceprotocol.io`, `www.performanceprotocol.io`, and `api.performanceprotocol.io`. Before opening the deployment PR, the production state needed fresh evidence.

@@ -420,9 +420,9 @@ MVP behavior:
 Workout naming convention:
 
 ```text
-ST W05D2 Marathon Pace
-ST W05D4 Easy Run
-ST W05D7 Long Run
+W05D2 Marathon Pace
+W05D4 Easy Run
+W05D7 Long Run
 ```
 
 This makes manually inspecting COROS calendar easier.

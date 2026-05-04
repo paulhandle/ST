@@ -20,13 +20,13 @@ import type { SkillManifestOut, AffectedWorkout, AthleteActivityOut } from '@/li
 
 const SKILLS: SkillManifestOut[] = [
   {
-    slug: 'marathon_st_default', name: 'ST 默认全马方法', version: '1.0',
-    sport: 'marathon', author: 'ST', tags: ['marathon'],
+    slug: 'marathon_st_default', name: 'PerformanceProtocol Marathon Plan', version: '1.0',
+    sport: 'marathon', author: 'PerformanceProtocol', tags: ['marathon'],
     description: '通用全马计划', is_active: true,
   },
   {
-    slug: 'running_beginner', name: '入门跑者计划', version: '1.0',
-    sport: 'marathon', author: 'ST', tags: ['beginner'],
+    slug: 'running_beginner', name: 'Beginner Runner Plan', version: '1.0',
+    sport: 'marathon', author: 'PerformanceProtocol', tags: ['beginner'],
     description: '零基础入门', is_active: false,
   },
 ]
@@ -34,8 +34,8 @@ const SKILLS: SkillManifestOut[] = [
 describe('SkillList', () => {
   it('renders all skills', () => {
     render(<SkillList skills={SKILLS} onSwitch={() => {}} />)
-    expect(screen.getByText('ST 默认全马方法')).toBeInTheDocument()
-    expect(screen.getByText('入门跑者计划')).toBeInTheDocument()
+    expect(screen.getByText('PerformanceProtocol Marathon Plan')).toBeInTheDocument()
+    expect(screen.getByText('Beginner Runner Plan')).toBeInTheDocument()
   })
 
   it('marks active skill', () => {
@@ -71,7 +71,7 @@ describe('SwitchSkillDialog', () => {
   it('renders preview counts', () => {
     render(
       <SwitchSkillDialog
-        skillName="入门跑者计划"
+        skillName="Beginner Runner Plan"
         preview={preview}
         onConfirm={() => {}}
         onCancel={() => {}}
@@ -84,7 +84,7 @@ describe('SwitchSkillDialog', () => {
   it('shows confirm button when applicable', () => {
     render(
       <SwitchSkillDialog
-        skillName="入门跑者计划"
+        skillName="Beginner Runner Plan"
         preview={preview}
         onConfirm={() => {}}
         onCancel={() => {}}
@@ -96,7 +96,7 @@ describe('SwitchSkillDialog', () => {
   it('shows reason and disables confirm when not applicable', () => {
     render(
       <SwitchSkillDialog
-        skillName="入门跑者计划"
+        skillName="Beginner Runner Plan"
         preview={{ ...preview, applicable: false, applicability_reason: '周跑量过高' }}
         onConfirm={() => {}}
         onCancel={() => {}}
@@ -110,7 +110,7 @@ describe('SwitchSkillDialog', () => {
     const onConfirm = vi.fn()
     render(
       <SwitchSkillDialog
-        skillName="入门跑者计划"
+        skillName="Beginner Runner Plan"
         preview={preview}
         onConfirm={onConfirm}
         onCancel={() => {}}

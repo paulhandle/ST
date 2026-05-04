@@ -1,100 +1,104 @@
-# Fly.io Deployment + Brand/Scope Update
+# Brand Cleanup: PerformanceProtocol
 
-**Branch:** `feat/fly-deploy` (基于 `feat/block-d-nav-and-auth`，含 Block D/E + activities calendar 的最新工作)
+**Branch:** `brand-cleanup`
 
-**Fly org:** `performance-protocol`
-**Domain:** `performanceprotocol.io` (web) + `api.performanceprotocol.io` (api), GoDaddy 管理
+## Objective
 
----
+Remove product-facing `ST`, Chinese product names, and marathon-only positioning from the web app, public metadata, API display metadata, skill names, and README. Use **PerformanceProtocol** as the only product brand.
 
-## 当前状态（2026-05-04 截止）
+## Context
 
-### ✅ 已完成
+Deployment PR #3 (`feat/fly-deploy` -> `main`) is open, mergeable, and CI passed. Production deployment, DNS, TLS, and health checks were already verified. This branch is intentionally separate from the Fly.io deployment PR.
 
-| 事项 | 状态 |
-|---|---|
-| 品牌文案重写（README / layout / pyproject） | 完成 |
-| Postgres 依赖 + Alembic 迁移初始化 | 完成 |
-| Dockerfile.api + web/Dockerfile | 完成 |
-| fly/api.toml + fly/web.toml | 完成 |
-| .github/workflows/ci.yml + deploy.yml | 完成 |
-| Fly 基础设施创建（pp-db, st-api, pp-web） | 完成 |
-| Postgres attach → st-api (DATABASE_URL auto-set) | 完成 |
-| st-api secrets 配置（OPENAI / ST_SECRET_KEY / COROS） | 完成 |
-| TLS certs 申请（3 个域名）| 完成 |
-| IP 分配（st-api + pp-web 各 v4+v6）| 完成 |
-| **st-api 首次部署：✅ HEALTHY** | 完成 |
-| /api/healthz 路由修复（绕过 auth middleware） | 完成 |
-| pp-web 新镜像重部署 | 完成并验收 |
-| GoDaddy DNS 配置 | 完成并验收 |
-| TLS certs 验收（3 个域名） | 完成 |
-| Fly health checks 验收 | 完成 |
-| 线上 HTTP 验收 | 完成 |
-| 本地回归测试 | 完成 |
-| PR 创建 | 完成：[#3](https://github.com/paulhandle/ST/pull/3) |
-| PR CI | 完成：Backend + Frontend checks success |
+## Files Likely To Change
 
-### ❌ 下一步要做的
+- `README.md`
+- `pyproject.toml`
+- `app/main.py`
+- `app/api/routes.py`
+- `app/core/profile.py`
+- `app/skills/marathon_st_default/`
+- `app/skills/running_beginner/spec.yaml`
+- `app/skills/user_extracted/coach_zhao_unified/`
+- `web/app/login/page.tsx`
+- `web/app/layout.tsx`
+- `web/public/manifest.json`
+- `web/components/EmptyPlanState.tsx`
+- affected frontend tests under `web/__tests__/`
+- relevant design docs under `docs/`
 
-#### 1. PR 合并后检查 Actions
+## Implementation Approach
 
-合并到 main 后，`.github/workflows/deploy.yml` 会部署 `st-api` 和 `pp-web`。需要确认 workflow 能读到 `FLY_API_TOKEN` 并完成。
+- Keep internal compatibility identifiers unchanged where renaming would create migration risk: package name `st`, env vars such as `ST_SECRET_KEY` / `ST_DATABASE_URL`, `st_token`, Fly app names, database filenames, and historical route names.
+- Replace user-visible brand with `PerformanceProtocol`.
+- Remove `PerformanceProtocol · 表现提升协议` and similar Chinese product naming; README and metadata should present the product in English.
+- Replace “smart marathon training” / marathon-only labels with endurance-training positioning where the UI is not specifically about a marathon race plan.
+- Rename bundled skill display text from `ST Default Marathon Plan` to `PerformanceProtocol Marathon Plan`.
+- Update tests that assert old brand text.
 
----
+## Verification Commands
 
-## Review/Summary（2026-05-04）
+```bash
+rg -n "ST|智能马拉松训练|表现提升协议|ST Default|ST team|ST Platform|ST ·" README.md pyproject.toml app web docs -g '!web/node_modules' -g '!web/.next' -g '!web/pnpm-lock.yaml'
+uv run python -m unittest discover -s tests -v
+cd web && pnpm test
+cd web && pnpm type-check
+```
 
-用户完成 pp-web 新镜像部署和 GoDaddy DNS 配置后，已完成以下验收：
+Expected `rg` leftovers are only internal compatibility identifiers or historical task/dev logs, not current product-facing UI/docs.
 
-- `flyctl certs check api.performanceprotocol.io --app st-api`：Issued，verified and active
-- `flyctl certs check performanceprotocol.io --app pp-web`：Issued，verified and active
-- `flyctl certs check www.performanceprotocol.io --app pp-web`：Issued，verified and active
-- `flyctl status --app st-api`：2 machines started，1/1 checks passing
-- `flyctl status --app pp-web`：1 machine started，version 2，1/1 checks passing
-- `curl -i https://api.performanceprotocol.io/`：HTTP 200，`{"service":"ST","status":"running"}`
-- `curl -i https://performanceprotocol.io/`：HTTP 307，`location: /login`
-- `curl -i https://www.performanceprotocol.io/`：HTTP 307，`location: /login`
-- `curl -i https://performanceprotocol.io/api/healthz`：HTTP 200，`{"ok":true}`
+## Progress
 
-本地回归：
+- [x] Confirm branch and existing brand residue.
+- [x] Write scoped plan and acceptance criteria.
+- [x] Replace login page brand copy with `PerformanceProtocol`.
+- [x] Replace web metadata and PWA manifest brand copy.
+- [x] Replace API title/root/health service display.
+- [x] Rename bundled skill display names/authors and generated titles.
+- [x] Rewrite README in English with explicit legacy/internal `ST_*` compatibility note.
+- [x] Refresh design docs that still described the product as `ST`.
+- [x] Update frontend tests for new copy.
+- [x] Run verification.
 
-- `uv run python -m unittest discover -s tests -v`：83/83 pass
-- `cd web && pnpm test`：62/62 pass
-- `cd web && pnpm type-check`：pass
-- PR: https://github.com/paulhandle/ST/pull/3
-- PR state: OPEN / MERGEABLE
-- PR CI: Backend tests + Frontend tests/type-check all SUCCESS
+## Acceptance Criteria
 
----
+- Login page uses `PerformanceProtocol` and no Chinese product subtitle.
+- Web app metadata/manifest uses `PerformanceProtocol`.
+- README clearly states the product brand is `PerformanceProtocol`; `ST` is only documented as a legacy internal codename for environment variables/package paths.
+- OpenAPI title and health responses use `PerformanceProtocol`.
+- Bundled skill display names and generated workout titles do not start with `ST`.
+- Frontend/backend tests and type-check pass.
 
-## Fly 基础设施清单
+## Out Of Scope
 
-| 资源 | 名称 | 状态 |
-|---|---|---|
-| Postgres cluster | `pp-db` | ✅ running (sin) |
-| API app | `st-api` | ✅ healthy (2 machines, sin) |
-| Web app | `pp-web` | ✅ healthy (version 2, /api/healthz passing) |
-| API IPv4 | `149.248.210.173` | allocated |
-| API IPv6 | `2a09:8280:1::110:e693:0` | allocated |
-| Web IPv4 | `168.220.89.49` | allocated |
-| Web IPv6 | `2a09:8280:1::110:e696:0` | allocated |
-| TLS cert | `api.performanceprotocol.io` | ✅ issued / active |
-| TLS cert | `performanceprotocol.io` | ✅ issued / active |
-| TLS cert | `www.performanceprotocol.io` | ✅ issued / active |
+- Renaming Python package/module paths, database files, env vars, cookie keys, Fly app names, or GitHub repository name.
+- Implementing the homepage design.
+- Implementing SMS provider integration.
+- Merging PR #3 or changing production DNS/Fly infrastructure.
 
-## API secrets（st-api）
+## Review/Summary
 
-已配置（值不可见）：`DATABASE_URL` `OPENAI_API_KEY` `OPENAI_BASE_URL` `OPENAI_MODEL` `ST_SECRET_KEY` `COROS_AUTOMATION_MODE`
+Brand cleanup is complete on branch `brand-cleanup`.
 
-## 关键文件
+Changed:
 
-| 文件 | 用途 |
-|---|---|
-| `fly/api.toml` | st-api fly 配置（sin, 256mb, release_command=alembic） |
-| `fly/web.toml` | pp-web fly 配置（sin, 256mb, /api/healthz check） |
-| `Dockerfile.api` | API 镜像（Python 3.11-slim, uv） |
-| `web/Dockerfile` | Web 镜像（Next.js standalone, node:20-alpine） |
-| `alembic/` | DB 迁移（首个 migration: 1ac50e58dbdb） |
-| `.github/workflows/ci.yml` | PR CI（backend + frontend tests） |
-| `.github/workflows/deploy.yml` | main push 自动部署 |
-| `scripts/fly_setup.sh` | 一次性 setup 参考脚本 |
+- Login page now displays `PerformanceProtocol` and `Endurance performance system`.
+- App metadata and PWA manifest now use `PerformanceProtocol`.
+- FastAPI title plus root/health service names now use `PerformanceProtocol`.
+- Built-in skill display names changed to `PerformanceProtocol Marathon Plan` and `Beginner Runner Plan`.
+- Generated default marathon workout titles no longer start with `ST`.
+- README was rewritten in English and clarifies that `ST` remains only for legacy/internal compatibility identifiers.
+- Outdated web design docs were refreshed to describe PerformanceProtocol, current auth, deployment, and route reality.
+
+Verification:
+
+- `uv run python -m py_compile app/main.py app/api/routes.py app/core/profile.py app/skills/marathon_st_default/skill.py app/skills/marathon_st_default/code/rules.py app/skills/running_beginner/skill.py app/skills/running_beginner/code/rules.py app/skills/user_extracted/coach_zhao_unified/skill.py`: pass
+- `uv run python -m unittest discover -s tests -v`: 83/83 pass
+- `cd web && pnpm test`: 62/62 pass
+- `cd web && pnpm type-check`: pass
+- Brand residue scan shows `ST` only in explicit legacy/internal codename notes and the local `/Users/paul/Work/ST` path.
+
+Notes:
+
+- `pnpm install --lockfile-only` could not complete because the sandbox proxy blocked npm registry metadata (`ERR_PNPM_META_FETCH_FAIL`). No lockfile change was needed for the package display-name change.
+- Untracked `.DS_Store` files and `docs/homepage-design/` were present before finalization and were not touched by this task.

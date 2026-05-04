@@ -19,7 +19,7 @@ def _build_manifest() -> SkillManifest:
     data = yaml.safe_load(_SPEC_PATH.read_text(encoding="utf-8")) or {}
     return SkillManifest(
         slug=data.get("slug", "running_beginner"),
-        name=str(data.get("name", "入门跑者计划")),
+        name=str(data.get("name", "Beginner Runner Plan")),
         version=str(data.get("version", "1.0")),
         sport=SportType(data.get("sport", "marathon")),
         supported_goals=list(data.get("supported_goals", ["finish"])),
@@ -43,8 +43,8 @@ class RunningBeginnerSkill:
         avg = sum(weekly_kms) / len(weekly_kms) if weekly_kms else 0.0
         if avg > _MAX_AVG_WEEKLY_KM:
             return False, (
-                f"平均周跑量 {avg:.0f} km 超过入门计划上限 {_MAX_AVG_WEEKLY_KM:.0f} km，"
-                "建议使用进阶方法论"
+                f"Average weekly mileage {avg:.0f} km exceeds the beginner plan limit "
+                f"of {_MAX_AVG_WEEKLY_KM:.0f} km. Choose a more advanced methodology."
             )
         return True, ""
 

@@ -27,24 +27,24 @@ class PhaseWeek:
 
 _PHASE_TEMPLATE: list[PhaseWeek] = [
     # Adaptation (weeks 1-4): 2 runs/week, short sessions
-    PhaseWeek("适应期", 2, 20, 0),
-    PhaseWeek("适应期", 2, 25, 0),
-    PhaseWeek("适应期", 2, 25, 30),
-    PhaseWeek("适应期", 2, 30, 35),
+    PhaseWeek("adaptation", 2, 20, 0),
+    PhaseWeek("adaptation", 2, 25, 0),
+    PhaseWeek("adaptation", 2, 25, 30),
+    PhaseWeek("adaptation", 2, 30, 35),
     # Base (weeks 5-10): add 3rd run, slowly grow long run
-    PhaseWeek("建基期", 3, 25, 35),
-    PhaseWeek("建基期", 3, 25, 40),
-    PhaseWeek("建基期", 2, 20, 0),    # recovery week
-    PhaseWeek("建基期", 3, 30, 45),
-    PhaseWeek("建基期", 3, 30, 50),
-    PhaseWeek("建基期", 3, 30, 55),
+    PhaseWeek("base", 3, 25, 35),
+    PhaseWeek("base", 3, 25, 40),
+    PhaseWeek("base", 2, 20, 0),    # recovery week
+    PhaseWeek("base", 3, 30, 45),
+    PhaseWeek("base", 3, 30, 50),
+    PhaseWeek("base", 3, 30, 55),
     # Consolidation (weeks 11-16): longer long runs, light taper at end
-    PhaseWeek("巩固期", 3, 30, 60),
-    PhaseWeek("巩固期", 3, 35, 70),
-    PhaseWeek("巩固期", 2, 25, 0),    # recovery
-    PhaseWeek("巩固期", 3, 35, 80),
-    PhaseWeek("巩固期", 3, 35, 90),
-    PhaseWeek("巩固期", 3, 30, 60),   # taper
+    PhaseWeek("consolidation", 3, 30, 60),
+    PhaseWeek("consolidation", 3, 35, 70),
+    PhaseWeek("consolidation", 2, 25, 0),    # recovery
+    PhaseWeek("consolidation", 3, 35, 80),
+    PhaseWeek("consolidation", 3, 35, 90),
+    PhaseWeek("consolidation", 3, 30, 60),   # taper
 ]
 
 
@@ -55,7 +55,7 @@ def _steps(warmup_min: int, main_min: int, cooldown_min: int, desc: str) -> list
             duration_sec=warmup_min * 60,
             target_type="rpe",
             target_min=3, target_max=4,
-            notes="步行或慢跑热身",
+            notes="Walk or jog easily.",
         ),
         StepDraft(
             step_type="work",
@@ -69,7 +69,7 @@ def _steps(warmup_min: int, main_min: int, cooldown_min: int, desc: str) -> list
             duration_sec=cooldown_min * 60,
             target_type="rpe",
             target_min=3, target_max=4,
-            notes="步行放松",
+            notes="Walk and relax.",
         ),
     ]
 
@@ -81,13 +81,13 @@ def _easy_run(week_index: int, weekday: int, duration_min: int) -> WorkoutDraft:
         weekday=weekday,
         discipline="run",
         workout_type="easy_run",
-        title=f"轻松跑 {duration_min} 分钟",
-        purpose="有氧基础，培养跑步习惯",
+        title=f"Easy Run {duration_min} min",
+        purpose="Build aerobic routine and running consistency.",
         duration_min=duration_min,
         distance_m=None,
         target_intensity_type="rpe",
         rpe_min=4, rpe_max=5,
-        steps=_steps(5, main, 5, "保持能说完整句子的配速"),
+        steps=_steps(5, main, 5, "Keep the effort conversational."),
     )
 
 
@@ -98,13 +98,13 @@ def _long_run(week_index: int, weekday: int, duration_min: int) -> WorkoutDraft:
         weekday=weekday,
         discipline="run",
         workout_type="long_run",
-        title=f"长距离跑 {duration_min} 分钟",
-        purpose="建立耐力基础",
+        title=f"Long Run {duration_min} min",
+        purpose="Build endurance capacity.",
         duration_min=duration_min,
         distance_m=None,
         target_intensity_type="rpe",
         rpe_min=4, rpe_max=5,
-        steps=_steps(5, main, 5, "轻松配速，不要追求速度"),
+        steps=_steps(5, main, 5, "Keep the effort easy; do not chase speed."),
     )
 
 
@@ -145,8 +145,8 @@ def generate(ctx: "SkillContext") -> PlanDraft:
         weeks.append(week_workouts)
 
     return PlanDraft(
-        title="入门跑者计划",
+        title="Beginner Runner Plan",
         mode=TrainingMode.BASE_BUILD_PEAK,
         weeks=weeks,
-        notes="以轻松跑为主，感受优先于速度。",
+        notes="Easy effort first; consistency matters more than pace.",
     )

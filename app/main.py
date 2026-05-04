@@ -9,7 +9,7 @@ from app.db import Base, SessionLocal, engine
 from app.seed import seed_training_methods
 
 app = FastAPI(
-    title="ST Athlete Training Planner",
+    title="PerformanceProtocol API",
     description="Training planning backend for marathon, trail running and triathlon athletes.",
     version="0.1.0",
 )
@@ -36,4 +36,4 @@ def startup() -> None:
 
 @app.get("/")
 def root() -> dict[str, str]:
-    return {"service": "ST", "status": "running"}
+    return {"service": "PerformanceProtocol", "status": "running"}

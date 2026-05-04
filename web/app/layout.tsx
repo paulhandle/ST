@@ -17,8 +17,8 @@ const barlow = Barlow({
 })
 
 export const metadata: Metadata = {
-  title: 'PerformanceProtocol · 表现提升协议',
-  description: '严肃耐力运动员的训练表现提升平台 — 路跑 / 越野 / 铁三',
+  title: 'PerformanceProtocol',
+  description: 'Endurance training plans, execution tracking, device sync, and adaptive feedback for serious athletes.',
   manifest: '/manifest.json',
 }
 
@@ -32,7 +32,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" className={`${barlowCondensed.variable} ${barlow.variable}`}>
+    <html lang="en" className={`${barlowCondensed.variable} ${barlow.variable}`}>
       <body>{children}</body>
     </html>
   )
