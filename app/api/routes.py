@@ -630,6 +630,65 @@ def get_today(athlete_id: int, db: Session = Depends(get_db), _user: "User" = De
     )
 
 
+@router.get("/athletes/{athlete_id}/workout/{workout_date}", response_model=TodayOut)
+def get_workout_by_date(
+    athlete_id: int,
+    workout_date: str,
+    db: Session = Depends(get_db),
+    _user: "User" = Depends(get_current_user),
+) -> TodayOut:
+    _athlete_or_404(db, athlete_id)
+    try:
+        target = date.fromisoformat(workout_date)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid date format, expected YYYY-MM-DD")
+
+    plan = _active_or_draft_plan_for_athlete(db, athlete_id)
+    if plan is None:
+        return TodayOut(
+            plan_id=None, plan_title=None, skill_slug=None,
+            week_index=None, workout=None, matched_activity_id=None,
+            yesterday_workout=None, yesterday_activity=None,
+            recovery_recommendation=None,
+        )
+
+    yesterday = target - timedelta(days=1)
+    workout: StructuredWorkout | None = next(
+        (w for w in plan.structured_workouts if w.scheduled_date == target), None
+    )
+    yesterday_workout: StructuredWorkout | None = next(
+        (w for w in plan.structured_workouts if w.scheduled_date == yesterday), None
+    )
+
+    matched_activity_id: int | None = None
+    workout_out: StructuredWorkoutOut | None = None
+    if workout is not None:
+        workout_out = StructuredWorkoutOut.model_validate(workout)
+        activity = match_workout_to_activity(db, workout)
+        if activity is not None:
+            matched_activity_id = activity.id
+
+    yesterday_workout_out: StructuredWorkoutOut | None = None
+    yesterday_activity_out: AthleteActivityOut | None = None
+    if yesterday_workout is not None:
+        yesterday_workout_out = StructuredWorkoutOut.model_validate(yesterday_workout)
+        y_activity = match_workout_to_activity(db, yesterday_workout)
+        if y_activity is not None:
+            yesterday_activity_out = _activity_with_match(db, y_activity)
+
+    return TodayOut(
+        plan_id=plan.id,
+        plan_title=plan.title,
+        skill_slug=plan.active_skill_slug,
+        week_index=workout.week_index if workout else None,
+        workout=workout_out,
+        matched_activity_id=matched_activity_id,
+        yesterday_workout=yesterday_workout_out,
+        yesterday_activity=yesterday_activity_out,
+        recovery_recommendation=None,
+    )
+
+
 @router.get("/plans/{plan_id}/week", response_model=WeekOut)
 def get_plan_week(
     plan_id: int,
