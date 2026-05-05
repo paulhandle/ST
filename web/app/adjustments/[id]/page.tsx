@@ -6,12 +6,14 @@ import useSWR from 'swr'
 import { fetcher, postJson } from '@/lib/api/client'
 import type { PlanAdjustmentOut } from '@/lib/api/types'
 import AffectedWorkoutRow from '@/components/adjustments/AffectedWorkoutRow'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 export default function AdjustmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
   const [acting, setActing] = useState(false)
   const [done, setDone] = useState<'accepted' | 'rejected' | null>(null)
+  const { t } = useI18n()
 
   const { data: adj, isLoading, error } = useSWR<PlanAdjustmentOut>(
     `/api/plan-adjustments/${id}`,
@@ -49,12 +51,12 @@ export default function AdjustmentPage({ params }: { params: Promise<{ id: strin
           className="hand text-faint"
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}
         >
-          ‹ 返回
+          ‹ {t.common.back}
         </button>
       </div>
 
       {isLoading && (
-        <div className="hand text-faint" style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14 }}>加载中…</div>
+        <div className="hand text-faint" style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14 }}>{t.common.loading}</div>
       )}
       {error && (
         <div className="hand text-faint" style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14 }}>{error.message}</div>
@@ -64,7 +66,7 @@ export default function AdjustmentPage({ params }: { params: Promise<{ id: strin
         <div style={{ padding: '32px 16px', textAlign: 'center' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>{done === 'accepted' ? '✓' : '✗'}</div>
           <div className="hand" style={{ fontSize: 18 }}>
-            {done === 'accepted' ? '已接受调整' : '已拒绝调整'}
+            {done === 'accepted' ? t.adjustment.accepted : t.adjustment.rejected}
           </div>
         </div>
       )}
@@ -87,9 +89,9 @@ export default function AdjustmentPage({ params }: { params: Promise<{ id: strin
           {adj.affected_workouts.length > 0 && (
             <div>
               <div className="section-header">
-                <span className="section-title">受影响的训练</span>
+                <span className="section-title">{t.adjustment.affectedWorkouts}</span>
                 <span className="annot text-faint" style={{ fontSize: 12 }}>
-                  {adj.affected_workouts.length} 课
+                  {adj.affected_workouts.length} {t.adjustment.sessions}
                 </span>
               </div>
               {adj.affected_workouts.map((w) => (
@@ -113,7 +115,7 @@ export default function AdjustmentPage({ params }: { params: Promise<{ id: strin
                   fontSize: 15, cursor: acting ? 'default' : 'pointer',
                 }}
               >
-                拒绝
+                {t.adjustment.reject}
               </button>
               <button
                 onClick={accept}
@@ -127,14 +129,14 @@ export default function AdjustmentPage({ params }: { params: Promise<{ id: strin
                   opacity: acting ? 0.7 : 1,
                 }}
               >
-                {acting ? '处理中…' : '接受调整'}
+                {acting ? t.adjustment.acting : t.adjustment.accept}
               </button>
             </div>
           )}
 
           {adj.status !== 'pending' && (
             <div className="hand text-faint" style={{ padding: '20px 16px', textAlign: 'center', fontSize: 13 }}>
-              此调整已{adj.status === 'confirmed' ? '接受' : '拒绝'}
+              {adj.status === 'confirmed' ? t.adjustment.alreadyAccepted : t.adjustment.alreadyRejected}
             </div>
           )}
         </>

@@ -22,6 +22,8 @@ from app.models import (
     AthleteMetricSnapshot,
     AthleteProfile,
     CoachMessage,
+    DeviceAccount,
+    DeviceType,
     PlanAdjustment,
     PlanStatus,
     StructuredWorkout,
@@ -131,6 +133,38 @@ class BlockA1DashboardNoPlanTestCase(unittest.TestCase):
         self.assertEqual([], body["goal"]["prediction_history"])
         self.assertIsNone(body["pending_adjustment"])
         self.assertEqual("never", body["meta"]["last_sync_status"])
+
+    def test_dashboard_tolerates_duplicate_coros_accounts(self) -> None:
+        athlete_id = _create_athlete(self.client, self.token)
+        with SessionLocal() as db:
+            db.add_all([
+                DeviceAccount(
+                    athlete_id=athlete_id,
+                    device_type=DeviceType.COROS,
+                    external_user_id="old-coros",
+                    username="old-coros",
+                    auth_status="failed",
+                    last_error="old failure",
+                ),
+                DeviceAccount(
+                    athlete_id=athlete_id,
+                    device_type=DeviceType.COROS,
+                    external_user_id="new-coros",
+                    username="new-coros",
+                    auth_status="connected",
+                    last_error=None,
+                ),
+            ])
+            db.commit()
+
+        dashboard = self.client.get(f"/athletes/{athlete_id}/dashboard", headers=auth(self.token))
+        self.assertEqual(200, dashboard.status_code, dashboard.text)
+        self.assertEqual("never", dashboard.json()["meta"]["last_sync_status"])
+
+        status = self.client.get(f"/coros/status?athlete_id={athlete_id}", headers=auth(self.token))
+        self.assertEqual(200, status.status_code, status.text)
+        self.assertTrue(status.json()["connected"])
+        self.assertEqual("new-coros", status.json()["username"])
 
 
 class BlockA1DashboardWithPlanTestCase(unittest.TestCase):

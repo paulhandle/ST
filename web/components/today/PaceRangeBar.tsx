@@ -1,4 +1,5 @@
 import { formatPace } from '@/lib/api/types'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface Props {
   targetMin: number   // sec/km (slower end)
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export default function PaceRangeBar({ targetMin, targetMax, actualPace }: Props) {
+  const { t } = useI18n()
   // targetMin > targetMax numerically (slower pace = higher sec/km)
   const [lo, hi] = targetMin > targetMax ? [targetMax, targetMin] : [targetMin, targetMax]
   const spread = hi - lo
@@ -21,7 +23,7 @@ export default function PaceRangeBar({ targetMin, targetMax, actualPace }: Props
 
   return (
     <div>
-      <div className="hand text-faint" style={{ fontSize: 12, marginBottom: 8 }}>配速区间</div>
+      <div className="hand text-faint" style={{ fontSize: 12, marginBottom: 8 }}>{t.workout.paceRange}</div>
 
       <div style={{ position: 'relative', height: 32 }}>
         {/* track */}
@@ -57,10 +59,10 @@ export default function PaceRangeBar({ targetMin, targetMax, actualPace }: Props
       {/* labels */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
         <span className="annot text-faint" style={{ fontSize: 11 }}>
-          {formatPace(lo)}/km 快
+          {formatPace(lo)}/km {t.workout.fast}
         </span>
         <span className="annot text-faint" style={{ fontSize: 11 }}>
-          慢 {formatPace(hi)}/km
+          {t.workout.slow} {formatPace(hi)}/km
         </span>
       </div>
 
@@ -69,7 +71,7 @@ export default function PaceRangeBar({ targetMin, targetMax, actualPace }: Props
           fontSize: 13, marginTop: 8, textAlign: 'center',
           color: inZone ? 'var(--ink)' : 'var(--accent)',
         }}>
-          实际 {formatPace(actualPace)}/km {inZone ? '✓ 在区间内' : '⚠ 超出区间'}
+          {t.workout.actual} {formatPace(actualPace)}/km {inZone ? `✓ ${t.workout.inZone}` : `⚠ ${t.workout.outOfZone}`}
         </div>
       )}
     </div>

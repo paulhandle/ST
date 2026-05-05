@@ -9,6 +9,7 @@ import unittest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.db import Base, engine
+from app.models import OTPCode, User
 
 
 class AuthSetup(unittest.TestCase):
@@ -23,6 +24,38 @@ class SendOTPTestCase(AuthSetup):
         res = self.client.post("/auth/send-otp", json={"phone": "13800138000"})
         self.assertEqual(res.status_code, 200)
 
+    def test_send_otp_country_fields_normalize_to_e164(self):
+        res = self.client.post(
+            "/auth/send-otp",
+            json={"country_code": "+86", "national_number": "138 0013 8000"},
+        )
+        self.assertEqual(res.status_code, 200)
+
+        from app.db import SessionLocal
+
+        db = SessionLocal()
+        try:
+            otp = db.query(OTPCode).one()
+            self.assertEqual(otp.phone, "+8613800138000")
+        finally:
+            db.close()
+
+    def test_send_otp_accepts_us_country_code(self):
+        res = self.client.post(
+            "/auth/send-otp",
+            json={"country_code": "+1", "national_number": "4155552671"},
+        )
+        self.assertEqual(res.status_code, 200)
+
+        from app.db import SessionLocal
+
+        db = SessionLocal()
+        try:
+            otp = db.query(OTPCode).one()
+            self.assertEqual(otp.phone, "+14155552671")
+        finally:
+            db.close()
+
     def test_send_otp_returns_mock_code_in_dev(self):
         res = self.client.post("/auth/send-otp", json={"phone": "13800138000"})
         data = res.json()
@@ -30,8 +63,45 @@ class SendOTPTestCase(AuthSetup):
         self.assertIn("otp_code", data)
         self.assertEqual(len(str(data["otp_code"])), 6)
 
+    def test_send_otp_can_hide_mock_code_when_configured(self):
+        os.environ["SMS_MOCK_RETURN_CODE"] = "false"
+        try:
+            res = self.client.post("/auth/send-otp", json={"phone": "13800138000"})
+        finally:
+            os.environ.pop("SMS_MOCK_RETURN_CODE", None)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn("otp_code", res.json())
+
+    def test_send_otp_dry_run_provider_does_not_return_code(self):
+        os.environ["SMS_PROVIDER"] = "dry_run"
+        try:
+            res = self.client.post(
+                "/auth/send-otp",
+                json={"country_code": "+1", "national_number": "4155552671"},
+            )
+        finally:
+            os.environ.pop("SMS_PROVIDER", None)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn("otp_code", res.json())
+
     def test_send_otp_invalid_phone_returns_422(self):
         res = self.client.post("/auth/send-otp", json={"phone": "not-a-phone"})
+        self.assertEqual(res.status_code, 422)
+
+    def test_send_otp_unsupported_country_code_returns_422(self):
+        res = self.client.post(
+            "/auth/send-otp",
+            json={"country_code": "+999", "national_number": "4155552671"},
+        )
+        self.assertEqual(res.status_code, 422)
+
+    def test_send_otp_invalid_country_number_returns_422(self):
+        res = self.client.post(
+            "/auth/send-otp",
+            json={"country_code": "+86", "national_number": "12345"},
+        )
         self.assertEqual(res.status_code, 422)
 
     def test_send_otp_missing_phone_returns_422(self):
@@ -68,6 +138,29 @@ class VerifyOTPTestCase(AuthSetup):
         self.assertIn("user_id", data)
         self.assertIsNotNone(data["user_id"])
 
+    def test_verify_otp_with_country_fields_creates_normalized_user(self):
+        send = self.client.post(
+            "/auth/send-otp",
+            json={"country_code": "+1", "national_number": "4155552671"},
+        )
+        code = send.json()["otp_code"]
+
+        res = self.client.post(
+            "/auth/verify-otp",
+            json={"country_code": "+1", "national_number": "4155552671", "code": str(code)},
+        )
+
+        self.assertEqual(res.status_code, 200)
+
+        from app.db import SessionLocal
+
+        db = SessionLocal()
+        try:
+            user = db.query(User).one()
+            self.assertEqual(user.phone, "+14155552671")
+        finally:
+            db.close()
+
     def test_verify_otp_is_single_use(self):
         phone = "13800138004"
         code = self._send(phone)
@@ -89,7 +182,7 @@ class VerifyOTPTestCase(AuthSetup):
         # Manually expire the OTP
         db = SessionLocal()
         try:
-            otp = db.query(OTPCode).filter(OTPCode.phone == phone).first()
+            otp = db.query(OTPCode).filter(OTPCode.phone == "+8613800138005").first()
             otp.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
             db.commit()
         finally:

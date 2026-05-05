@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
 
 vi.mock('next/navigation', () => ({
@@ -15,17 +15,25 @@ vi.mock('@/components/CoachButton', () => ({ default: () => null }))
 import TabsLayout from '@/app/(tabs)/layout'
 
 describe('Tab bar', () => {
-  it('shows 运动 tab and no 今天 tab', () => {
+  it('shows Activities tab and no Today tab', () => {
     render(<TabsLayout><div /></TabsLayout>)
-    expect(screen.getByText('运动')).toBeInTheDocument()
-    expect(screen.queryByText('今天')).not.toBeInTheDocument()
+    expect(screen.getByText('Activities')).toBeInTheDocument()
+    expect(screen.queryByText('Today')).not.toBeInTheDocument()
   })
 
-  it('shows 概览 本周 计划 tabs', () => {
+  it('uses compact P2 mark in the app topbar', () => {
     render(<TabsLayout><div /></TabsLayout>)
-    expect(screen.getByText('概览')).toBeInTheDocument()
-    expect(screen.getByText('本周')).toBeInTheDocument()
-    expect(screen.getByText('计划')).toBeInTheDocument()
+    const topbarMark = screen.getByLabelText('PerformanceProtocol')
+    expect(topbarMark).toHaveAttribute('href', '/dashboard')
+    expect(screen.queryByText('Performance')).not.toBeInTheDocument()
+    expect(screen.queryByText('Protocol')).not.toBeInTheDocument()
+  })
+
+  it('shows Overview, This Week, and Plan tabs', () => {
+    render(<TabsLayout><div /></TabsLayout>)
+    expect(screen.getByText('Overview')).toBeInTheDocument()
+    expect(screen.getByText('This Week')).toBeInTheDocument()
+    expect(screen.getByText('Plan')).toBeInTheDocument()
   })
 })
 
@@ -58,7 +66,7 @@ describe('WorkoutDetailPage', () => {
 
   it('shows rest day when no workout', () => {
     render(<WorkoutDetailPage params={{ date: '2026-05-05' }} />)
-    expect(screen.getByText(/休息/)).toBeInTheDocument()
+    expect(screen.getByText(/Rest day/)).toBeInTheDocument()
   })
 })
 
@@ -77,7 +85,39 @@ describe('PlanGeneratePage', () => {
 
     const { default: PlanGeneratePage } = await import('@/app/plan/generate/page')
     render(<PlanGeneratePage />)
-    expect(screen.getByText(/分析/)).toBeInTheDocument()
+    expect(screen.getByText(/Analyzing/)).toBeInTheDocument()
+  })
+
+  it('lets the user continue when assessment fails', async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({ ok: false, text: async () => 'not connected' })
+      .mockResolvedValueOnce({ ok: false, text: async () => 'no history' })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          slug: 'marathon_st_default',
+          name: 'PerformanceProtocol Marathon Plan',
+          version: '1.0.0',
+          sport: 'marathon',
+          author: null,
+          tags: [],
+          description: 'Default plan',
+          is_active: true,
+        }]),
+      })
+    vi.stubGlobal('fetch', mockFetch)
+
+    const { default: PlanGeneratePage } = await import('@/app/plan/generate/page')
+    render(<PlanGeneratePage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Assessment failed/).length).toBeGreaterThan(0)
+    })
+    expect(screen.queryByText(/Analyzing/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Based on 0 history activities/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText(/Set goal/))
+    expect(screen.getByText('Training weeks')).toBeInTheDocument()
   })
 })
 
@@ -119,10 +159,10 @@ import ActivitiesPage from '@/app/(tabs)/activities/page'
 describe('ActivitiesPage', () => {
   it('renders filter chips', () => {
     render(<ActivitiesPage />)
-    expect(screen.getByText('全部')).toBeInTheDocument()
-    expect(screen.getByText('跑步')).toBeInTheDocument()
-    expect(screen.getByText('骑车')).toBeInTheDocument()
-    expect(screen.getByText('力量')).toBeInTheDocument()
+    expect(screen.getByText('All')).toBeInTheDocument()
+    expect(screen.getByText('Run')).toBeInTheDocument()
+    expect(screen.getByText('Ride')).toBeInTheDocument()
+    expect(screen.getByText('Strength')).toBeInTheDocument()
   })
 
   it('renders list items from calendar data', () => {

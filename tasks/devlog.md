@@ -1,5 +1,28 @@
 # Dev Log
 
+## 2026-05-05 - I18n, SMS OTP prep, compact P² mark, and COROS hardening
+
+Why: User asked to prepare Chinese/English product surfaces, use a compact `P²` mark in constrained spaces, start SMS OTP vendor integration groundwork with international dialing-code selection, clean merged local branches, and harden COROS-related plan generation so missing or malformed COROS data does not block onboarding.
+
+How:
+- Added a small web i18n layer with `en`/`zh`, browser-language defaulting, and localStorage/cookie persistence. Homepage, login, onboarding, app shell, and primary authenticated fixed UI now render bilingual copy and expose language toggles where appropriate.
+- Extended `BrandLogo` with a compact mark that renders italic `P` plus a superscript `2`; app topbar and homepage constrained surfaces use that form.
+- Added login country/region dialing-code selection for mainstream regions, including `Taiwan, China` / `中国台湾`, and changed the login OTP request to send `country_code + national_number`.
+- Added backend SMS preparation under `app/tools/sms/`: supported country-code validation, E.164 normalization, provider abstraction, default `mock` provider, `dry_run` provider, and runtime SMS config. Legacy `phone` requests remain compatible.
+- Updated auth schemas/routes so OTP responses only include `otp_code` when mock return-code mode is enabled; non-mock provider mode does not expose OTP codes.
+- Hardened `/plan/generate` so COROS import, assessment, skills, or malformed payload failures fall back to a conservative assessment and allow the user to continue to goal setup.
+- Deleted merged local branches `feat/block-c-screens`, `feat/block-d-nav-and-auth`, and `feat/fly-deploy`.
+- Updated `.env.example` and `README.md` for SMS configuration, web i18n architecture, and the new auth request shape.
+
+Result:
+- `uv run python -m unittest tests.test_auth -v`: pass.
+- `uv run python -m unittest discover -s tests -v`: 90/90 pass.
+- `cd web && pnpm test -- homepage.test.tsx login.test.tsx components.test.tsx blockE.test.tsx`: pass.
+- `cd web && pnpm test`: 74/74 pass. Vitest emits a non-fatal Node `--localstorage-file` warning in jsdom, but exits 0.
+- `cd web && pnpm build`: pass; 15 app routes generated.
+- `cd web && pnpm type-check`: pass after `pnpm build` regenerated `.next/types`. A pre-build type-check failed only because stale `.next/types` referenced missing generated route type files; the final post-build type-check passed.
+- `git diff --check`: pass.
+
 ## 2026-05-04 - Stitch homepage + global black/orange theme
 
 Why: User supplied a Stitch homepage design under `docs/homepage-design/` and asked to build the homepage, sync the italic logo treatment to every page, and make the homepage's black/orange visual system consistent across the whole web app. The previous root route redirected to `/dashboard`, so production visitors had no public product homepage.
@@ -474,3 +497,27 @@ Result: `uv run python -m py_compile $(find app -name "*.py")` clean. `uv run py
 - 백엔드 77/77 테스트 통과 (18 auth + 17 block_a + 14 block_a1 + 14 beginner + 14 real_coros + 0 existing = 77)
 - 프론트엔드 50/50 테스트 통과
 - `pnpm type-check` 통과, `pnpm build` 13페이지 컴파일 통과
+
+## 2026-05-05 — SMS country scope correction and local test notes
+
+Why: The user clarified that the previously added mainstream dialing-code list is acceptable and should not be narrowed to China-only. A partial China-only edit had already touched backend phone normalization, frontend dialing regions, and auth tests, so it needed to be reverted carefully without undoing the broader i18n/SMS/COROS work.
+
+How: Restored `app/tools/sms/phone.py` to support the mainstream launch list (`+86`, `+1`, `+44`, `+65`, `+852`, `+886`, `+81`, `+61`) with per-region validation. Restored `web/lib/i18n/countryCodes.ts` to the same list, including `Taiwan, China` / `中国台湾`. Restored `tests/test_auth.py` coverage for US normalization and provider behavior. Updated `tasks/lessons.md` to record that SMS country-scope changes should be clarified before removing existing product support.
+
+Result: Focused backend auth tests passed with `uv run python -m unittest tests.test_auth -v` (25/25). Focused frontend login tests passed with `cd web && pnpm test __tests__/login.test.tsx` (10/10). One earlier frontend test command failed because it used `web/__tests__/login.test.tsx` while already inside `web/`; the corrected relative path is `__tests__/login.test.tsx`.
+
+## 2026-05-05 — COROS settings page and Plan empty-state translation
+
+Why: User found two product-facing gaps while testing the bilingual app: the Plan tab empty state still showed `Build your next training cycle` in Chinese mode, and Settings > COROS sync linked to `/settings/coros`, which did not exist and returned a 404. COROS setup needs to be directly testable from Settings.
+
+How: Updated `web/lib/i18n/copy.ts` so `zh.emptyPlan` has Chinese title/body/action copy. Added `web/app/settings/coros/page.tsx`, a real COROS settings flow backed by existing API routes: `GET /coros/status?athlete_id=1`, `POST /coros/connect`, and `POST /coros/import?athlete_id=1`. The page shows connection state, account, last login/import/sync timestamps, last error, encrypted-password note, connect form, and manual import action. Added `CorosStatusOut` and `DeviceAccountOut` frontend types. Added `web/__tests__/corosSettings.test.tsx` for Chinese empty-plan copy plus COROS status/connect/import request behavior.
+
+Result: `cd web && pnpm test __tests__/corosSettings.test.tsx __tests__/blockE.test.tsx` passed (14/14). `cd web && pnpm type-check` passed. Full `cd web && pnpm test` passed (76/76; jsdom still emits the known non-fatal `--localstorage-file` warning). `cd web && pnpm build` passed and generated `/settings/coros` as a static route. `git diff --check` passed.
+
+## 2026-05-05 — Duplicate COROS account dashboard crash
+
+Why: User hit a backend 500 while testing COROS setup. The traceback showed `sqlalchemy.exc.MultipleResultsFound` at `_device_account(...).scalar_one_or_none()` during dashboard meta construction. Local data can contain more than one `device_accounts` row for the same athlete/device, especially after repeated setup attempts or historical behavior, so dashboard/status must tolerate duplicates instead of crashing.
+
+How: Updated `_device_account()` in `app/api/routes.py` to order matching device accounts by newest `id` and return the first row. This preserves existing callers and makes connect/status/dashboard/import/sync choose a deterministic active row when duplicates already exist. Added `test_dashboard_tolerates_duplicate_coros_accounts` in `tests/test_block_a1.py`, inserting two COROS accounts for one athlete and asserting both dashboard and `/coros/status` return 200 while using the newest account.
+
+Result: `uv run python -m unittest tests.test_block_a1.BlockA1DashboardNoPlanTestCase -v` passed (2/2). `uv run python -m unittest tests.test_block_a1 -v` passed (15/15). Full `uv run python -m unittest discover -s tests -v` passed (91/91). A first attempt to run two backend unittest commands in parallel caused shared `st_test.db` interference (`no such table` / missing athlete), so `tasks/lessons.md` now records that backend unittest commands using the same SQLite file must run sequentially.

@@ -1,5 +1,6 @@
 import type { DashboardReadiness } from '@/lib/api/types'
 import { formatPace } from '@/lib/api/types'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface Props {
   readiness: DashboardReadiness
@@ -11,14 +12,15 @@ function TrendArrow({ val }: { val: number | null }) {
 }
 
 export default function ReadinessPanel({ readiness }: Props) {
+  const { t } = useI18n()
   const items = [
     {
-      label: '静息心率',
+      label: t.dashboard.restingHr,
       value: readiness.resting_hr ? `${readiness.resting_hr} bpm` : '--',
       trend: readiness.resting_hr_trend,
     },
     {
-      label: '7天训练负荷',
+      label: t.dashboard.trainingLoad7d,
       value: readiness.weekly_training_load ? `${Math.round(readiness.weekly_training_load)}` : '--',
       trend: readiness.weekly_training_load_trend,
     },
@@ -36,7 +38,7 @@ export default function ReadinessPanel({ readiness }: Props) {
 
   return (
     <div style={{ margin: '12px 16px' }} className="sk-card-soft">
-      <div className="hand" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>状态</div>
+      <div className="hand" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>{t.dashboard.readiness}</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {items.map((item) => (
           <div key={item.label}>

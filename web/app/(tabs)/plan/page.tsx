@@ -7,6 +7,7 @@ import type { VolumeCurveWeek } from '@/lib/api/types'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts'
 import PendingAdjustmentSection from '@/components/plan/PendingAdjustmentSection'
 import EmptyPlanState from '@/components/EmptyPlanState'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface PlanDetail {
   id: number
@@ -21,6 +22,7 @@ interface PlanDetail {
 export default function PlanPage() {
   const { dashboard } = useDashboard()
   const planId = dashboard?.today.plan_id
+  const { t } = useI18n()
 
   const { data: plan } = useSWR<PlanDetail>(
     planId ? `/api/marathon/plans/${planId}` : null,
@@ -42,7 +44,7 @@ export default function PlanPage() {
   if (!plan) {
     return (
       <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-        <span className="hand text-faint" style={{ fontSize: 14 }}>加载中…</span>
+        <span className="hand text-faint" style={{ fontSize: 14 }}>{t.common.loading}</span>
       </div>
     )
   }
@@ -53,11 +55,11 @@ export default function PlanPage() {
       <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--rule-soft)' }}>
         <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>{plan.title}</div>
         <div className="annot text-faint" style={{ fontSize: 13, marginTop: 4 }}>
-          {plan.start_date} → {plan.race_date} · {plan.total_weeks} 周
+          {plan.start_date} → {plan.race_date} · {plan.total_weeks} {t.common.weeks}
         </div>
         {plan.goal_description && (
           <div className="hand" style={{ fontSize: 13, color: 'var(--accent)', marginTop: 4 }}>
-            目标：{plan.goal_description}
+            {t.plan.goal}: {plan.goal_description}
           </div>
         )}
       </div>
@@ -68,7 +70,7 @@ export default function PlanPage() {
       {/* ── Volume curve chart ─────────────────────────────── */}
       {curve && curve.length > 0 && (
         <div style={{ padding: '16px' }}>
-          <div className="section-title" style={{ marginBottom: 12 }}>训练量</div>
+          <div className="section-title" style={{ marginBottom: 12 }}>{t.plan.trainingVolume}</div>
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={curve} barGap={2} barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" stroke="var(--rule-soft)" vertical={false} />
@@ -106,7 +108,7 @@ export default function PlanPage() {
       {curve && (
         <div>
           <div className="section-header">
-            <span className="section-title">周计划</span>
+            <span className="section-title">{t.plan.weeklyPlan}</span>
           </div>
           {curve.map((w) => (
             <WeekRow key={w.week_index} week={w} isCurrent={w.week_index === currentWeek} />
@@ -123,6 +125,7 @@ export default function PlanPage() {
 }
 
 function PhaseStrip({ curve, currentWeek }: { curve: VolumeCurveWeek[]; currentWeek: number }) {
+  const { t } = useI18n()
   const phases = groupPhases(curve)
   return (
     <div style={{ padding: '8px 16px', display: 'flex', gap: 3, overflowX: 'auto' }}>
@@ -140,7 +143,7 @@ function PhaseStrip({ curve, currentWeek }: { curve: VolumeCurveWeek[]; currentW
           }}
         >
           <div className="hand" style={{ fontSize: 12, fontWeight: 700 }}>{p.phase ?? '—'}</div>
-          <div className="annot text-faint" style={{ fontSize: 10 }}>{p.count}W</div>
+          <div className="annot text-faint" style={{ fontSize: 10 }}>{p.count}{t.common.weekShort}</div>
         </div>
       ))}
     </div>
@@ -158,6 +161,7 @@ function groupPhases(curve: VolumeCurveWeek[]) {
 }
 
 function WeekRow({ week, isCurrent }: { week: VolumeCurveWeek; isCurrent: boolean }) {
+  const { t } = useI18n()
   const pct = week.planned_km > 0 ? (week.executed_km / week.planned_km) * 100 : 0
   return (
     <div style={{
@@ -175,7 +179,7 @@ function WeekRow({ week, isCurrent }: { week: VolumeCurveWeek; isCurrent: boolea
           W{week.week_index}
         </div>
         {week.is_recovery && (
-          <div className="annot" style={{ fontSize: 10, color: 'var(--ink-faint)' }}>恢复</div>
+          <div className="annot" style={{ fontSize: 10, color: 'var(--ink-faint)' }}>{t.plan.recovery}</div>
         )}
       </div>
 

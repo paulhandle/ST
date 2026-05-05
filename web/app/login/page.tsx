@@ -4,19 +4,56 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveToken, getToken } from '@/lib/auth'
 import BrandLogo from '@/components/BrandLogo'
+import LanguageToggle from '@/components/LanguageToggle'
+import { DIALING_REGIONS, dialingRegionFor } from '@/lib/i18n/countryCodes'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 type Step = 'phone' | 'otp'
 
+const COPY = {
+  en: {
+    tagline: 'Endurance performance system',
+    countryCode: 'Country/region code',
+    phone: 'Phone number',
+    otp: 'Verification code',
+    send: 'Send code',
+    sending: 'Sending...',
+    signIn: 'Sign in',
+  verifying: 'Verifying...',
+    resend: 'Resend code',
+    sendError: 'Unable to send code',
+    verifyError: 'The verification code is invalid or expired.',
+  },
+  zh: {
+    tagline: '耐力表现系统',
+    countryCode: '国家/地区区号',
+    phone: '手机号',
+    otp: '验证码',
+    send: '发送验证码',
+    sending: '发送中...',
+    signIn: '登录',
+    verifying: '验证中...',
+    resend: '重新发送',
+    sendError: '无法发送验证码',
+    verifyError: '验证码无效或已过期。',
+  },
+}
+
 export default function LoginPage() {
   const router = useRouter()
+  const { language, setLanguage } = useI18n()
+  const t = COPY[language]
   const [step, setStep] = useState<Step>('phone')
+  const [countryCode, setCountryCode] = useState('+86')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const selectedRegion = dialingRegionFor(countryCode)
+  const canSend = phone.replace(/\D/g, '').length >= selectedRegion.minNationalDigits
 
   // Migrate pre-cookie sessions: if localStorage already has a valid token,
-  // saveToken re-syncs it to the cookie and we skip the login flow entirely
+  // saveToken re-syncs it to the cookie and we skip the login flow entirely.
   useEffect(() => {
     const existing = getToken()
     if (existing) {
@@ -32,11 +69,11 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ country_code: countryCode, national_number: phone }),
       })
       if (!res.ok) {
-        const msg = await res.text().catch(() => 'Unable to send code')
-        setError(`Unable to send code: ${msg}`)
+        const msg = await res.text().catch(() => t.sendError)
+        setError(`${t.sendError}: ${msg}`)
         return
       }
       setStep('otp')
@@ -52,15 +89,14 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code: otp }),
+        body: JSON.stringify({ country_code: countryCode, national_number: phone, code: otp }),
       })
       if (!res.ok) {
-        setError('The verification code is invalid or expired.')
+        setError(t.verifyError)
         return
       }
       const data = await res.json()
       saveToken(data.access_token)
-      // New user (no athlete yet) → onboarding; returning user → dashboard
       router.replace(data.is_new_user ? '/onboarding' : '/dashboard')
     } finally {
       setLoading(false)
@@ -77,44 +113,60 @@ export default function LoginPage() {
       padding: '0 24px',
       background: 'var(--paper)',
     }}>
-      {/* Brand */}
-      <BrandLogo href="/" />
-      <div className="annot text-faint" style={{ fontSize: 14, marginBottom: 48 }}>Endurance performance system</div>
+      <div style={{ position: 'absolute', top: 20, right: 20 }}>
+        <LanguageToggle language={language} onChange={setLanguage} />
+      </div>
 
-      <div style={{ width: '100%', maxWidth: 360 }}>
-        {/* Phone input */}
+      <BrandLogo href="/" />
+      <div className="annot text-faint" style={{ fontSize: 14, marginBottom: 48 }}>{t.tagline}</div>
+
+      <div style={{ width: '100%', maxWidth: 380 }}>
         <div style={{ marginBottom: 16 }}>
-          <label htmlFor="phone" className="hand" style={{ fontSize: 13, color: 'var(--ink-faint)', display: 'block', marginBottom: 6 }}>
-            Phone number
+          <label htmlFor="country-code" className="hand" style={labelStyle}>
+            {t.countryCode}
+          </label>
+          <select
+            id="country-code"
+            value={countryCode}
+            onChange={e => setCountryCode(e.target.value)}
+            disabled={step === 'otp'}
+            className="hand"
+            style={{
+              ...inputStyle,
+              opacity: step === 'otp' ? 0.6 : 1,
+            }}
+          >
+            {DIALING_REGIONS.map(region => (
+              <option key={region.code} value={region.code}>
+                {region.label[language]} ({region.code})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label htmlFor="phone" className="hand" style={labelStyle}>
+            {t.phone}
           </label>
           <input
             id="phone"
             type="tel"
-            placeholder="+86 138 0013 8000"
+            placeholder={selectedRegion.sample}
             value={phone}
             onChange={e => setPhone(e.target.value)}
             disabled={step === 'otp'}
             className="hand"
             style={{
-              width: '100%',
-              padding: '12px 14px',
-              border: '1px solid var(--rule)',
-              borderRadius: 'var(--radius)',
-              fontSize: 16,
-              background: 'var(--paper)',
-              color: 'var(--ink)',
-              fontFamily: 'var(--font-hand)',
-              outline: 'none',
+              ...inputStyle,
               opacity: step === 'otp' ? 0.6 : 1,
             }}
           />
         </div>
 
-        {/* OTP input — shown after send */}
         {step === 'otp' && (
           <div style={{ marginBottom: 16 }}>
-            <label htmlFor="otp" className="hand" style={{ fontSize: 13, color: 'var(--ink-faint)', display: 'block', marginBottom: 6 }}>
-              Verification code
+            <label htmlFor="otp" className="hand" style={labelStyle}>
+              {t.otp}
             </label>
             <input
               id="otp"
@@ -127,80 +179,88 @@ export default function LoginPage() {
               autoFocus
               className="hand"
               style={{
-                width: '100%',
-                padding: '12px 14px',
+                ...inputStyle,
                 border: '1px solid var(--accent)',
-                borderRadius: 'var(--radius)',
                 fontSize: 20,
                 letterSpacing: 6,
-                background: 'var(--paper)',
-                color: 'var(--ink)',
-                fontFamily: 'var(--font-hand)',
-                outline: 'none',
               }}
             />
           </div>
         )}
 
-        {/* Error */}
         {error && (
           <div className="hand" style={{ color: 'var(--accent)', fontSize: 13, marginBottom: 12 }}>
             {error}
           </div>
         )}
 
-        {/* CTA button */}
         {step === 'phone' ? (
           <button
             onClick={sendOtp}
-            disabled={phone.length < 11 || loading}
-            style={{
-              width: '100%',
-              padding: '14px',
-              background: phone.length >= 11 ? 'var(--accent)' : 'var(--rule)',
-              color: '#050505',
-              border: 'none',
-              borderRadius: 'var(--radius)',
-              fontFamily: 'var(--font-hand)',
-              fontSize: 16,
-              cursor: phone.length >= 11 ? 'pointer' : 'default',
-              transition: 'background 0.15s',
-            }}
+            disabled={!canSend || loading}
+            style={primaryButtonStyle(canSend)}
           >
-            {loading ? 'Sending...' : 'Send code'}
+            {loading ? t.sending : t.send}
           </button>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <button
               onClick={verifyOtp}
               disabled={otp.length < 6 || loading}
-              style={{
-                width: '100%',
-                padding: '14px',
-                background: otp.length === 6 ? 'var(--accent)' : 'var(--rule)',
-                color: '#050505',
-                border: 'none',
-                borderRadius: 'var(--radius)',
-                fontFamily: 'var(--font-hand)',
-                fontSize: 16,
-                cursor: otp.length === 6 ? 'pointer' : 'default',
-              }}
+              style={primaryButtonStyle(otp.length === 6)}
             >
-              {loading ? 'Verifying...' : 'Sign in'}
+              {loading ? t.verifying : t.signIn}
             </button>
             <button
               onClick={() => { setStep('phone'); setOtp(''); setError(null) }}
               style={{
-                background: 'none', border: 'none',
-                fontFamily: 'var(--font-hand)', fontSize: 13,
-                color: 'var(--ink-faint)', cursor: 'pointer',
+                background: 'none',
+                border: 'none',
+                fontFamily: 'var(--font-hand)',
+                fontSize: 13,
+                color: 'var(--ink-faint)',
+                cursor: 'pointer',
               }}
             >
-              Resend code
+              {t.resend}
             </button>
           </div>
         )}
       </div>
     </div>
   )
+}
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 13,
+  color: 'var(--ink-faint)',
+  display: 'block',
+  marginBottom: 6,
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '12px 14px',
+  border: '1px solid var(--rule)',
+  borderRadius: 'var(--radius)',
+  fontSize: 16,
+  background: 'var(--paper)',
+  color: 'var(--ink)',
+  fontFamily: 'var(--font-hand)',
+  outline: 'none',
+}
+
+function primaryButtonStyle(active: boolean): React.CSSProperties {
+  return {
+    width: '100%',
+    padding: '14px',
+    background: active ? 'var(--accent)' : 'var(--rule)',
+    color: '#050505',
+    border: 'none',
+    borderRadius: 'var(--radius)',
+    fontFamily: 'var(--font-hand)',
+    fontSize: 16,
+    cursor: active ? 'pointer' : 'default',
+    transition: 'background 0.15s',
+  }
 }

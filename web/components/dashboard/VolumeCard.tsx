@@ -2,15 +2,17 @@
 
 import type { DashboardVolumeWeek } from '@/lib/api/types'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface Props {
   history: DashboardVolumeWeek[]
 }
 
 export default function VolumeCard({ history }: Props) {
+  const { t } = useI18n()
   return (
     <div style={{ margin: '12px 16px' }} className="sk-card">
-      <div className="hand" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>近8周训练量</div>
+      <div className="hand" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{t.dashboard.volume8Weeks}</div>
 
       <ResponsiveContainer width="100%" height={100}>
         <BarChart data={history} barGap={2} barCategoryGap="25%">
@@ -25,7 +27,7 @@ export default function VolumeCard({ history }: Props) {
           <Tooltip
             formatter={(v: number, name: string) => [
               `${v.toFixed(0)} km`,
-              name === 'planned_km' ? '计划' : '实际',
+              name === 'planned_km' ? t.common.planned : t.common.actual,
             ]}
             contentStyle={{ fontFamily: 'var(--font-hand)', fontSize: 11, border: '1px solid var(--rule)' }}
           />

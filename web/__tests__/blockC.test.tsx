@@ -40,18 +40,18 @@ describe('SkillList', () => {
 
   it('marks active skill', () => {
     render(<SkillList skills={SKILLS} onSwitch={() => {}} />)
-    expect(screen.getByText('当前')).toBeInTheDocument()
+    expect(screen.getByText('Current')).toBeInTheDocument()
   })
 
   it('shows switch button for inactive skill', () => {
     render(<SkillList skills={SKILLS} onSwitch={() => {}} />)
-    expect(screen.getByText('切换')).toBeInTheDocument()
+    expect(screen.getByText('Switch')).toBeInTheDocument()
   })
 
   it('calls onSwitch with slug when switch clicked', () => {
     const onSwitch = vi.fn()
     render(<SkillList skills={SKILLS} onSwitch={onSwitch} />)
-    fireEvent.click(screen.getByText('切换'))
+    fireEvent.click(screen.getByText('Switch'))
     expect(onSwitch).toHaveBeenCalledWith('running_beginner')
   })
 })
@@ -90,7 +90,7 @@ describe('SwitchSkillDialog', () => {
         onCancel={() => {}}
       />
     )
-    expect(screen.getByText(/确认切换/)).toBeInTheDocument()
+    expect(screen.getByText(/Confirm switch/)).toBeInTheDocument()
   })
 
   it('shows reason and disables confirm when not applicable', () => {
@@ -103,7 +103,7 @@ describe('SwitchSkillDialog', () => {
       />
     )
     expect(screen.getByText(/周跑量过高/)).toBeInTheDocument()
-    expect(screen.getByText(/确认切换/).closest('button')).toBeDisabled()
+    expect(screen.getByText(/Confirm switch/).closest('button')).toBeDisabled()
   })
 
   it('calls onConfirm when button clicked', () => {
@@ -116,7 +116,7 @@ describe('SwitchSkillDialog', () => {
         onCancel={() => {}}
       />
     )
-    fireEvent.click(screen.getByText(/确认切换/))
+    fireEvent.click(screen.getByText(/Confirm switch/))
     expect(onConfirm).toHaveBeenCalled()
   })
 })

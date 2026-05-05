@@ -1,4 +1,5 @@
 import type { RegeneratePreviewOut } from '@/lib/api/types'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface Props {
   skillName: string
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function SwitchSkillDialog({ skillName, preview, onConfirm, onCancel, loading }: Props) {
+  const { t } = useI18n()
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 300,
@@ -23,7 +25,7 @@ export default function SwitchSkillDialog({ skillName, preview, onConfirm, onCan
         padding: '24px 20px 32px',
       }} className="fade-in">
         <div className="hand" style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
-          切换到「{skillName}」
+          {t.skills.switchTo} "{skillName}"
         </div>
 
         {!preview.applicable ? (
@@ -34,7 +36,7 @@ export default function SwitchSkillDialog({ skillName, preview, onConfirm, onCan
             borderRadius: 'var(--radius)',
           }}>
             <div className="hand" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, marginBottom: 4 }}>
-              暂不适用
+              {t.skills.notApplicable}
             </div>
             <div className="hand" style={{ fontSize: 13, color: 'var(--ink-mid)' }}>
               {preview.applicability_reason}
@@ -42,15 +44,15 @@ export default function SwitchSkillDialog({ skillName, preview, onConfirm, onCan
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-            <StatCell label="将重新生成" value={`${preview.regenerated_count} 课`} />
-            <StatCell label="影响周数" value={`${preview.weeks_affected} 周`} />
-            <StatCell label="已完成保留" value={`${preview.frozen_completed} 课`} />
-            <StatCell label="已缺训保留" value={`${preview.frozen_missed} 课`} />
+            <StatCell label={t.skills.regenerated} value={`${preview.regenerated_count} ${t.skills.sessions}`} />
+            <StatCell label={t.skills.weeksAffected} value={`${preview.weeks_affected} ${t.common.weeks}`} />
+            <StatCell label={t.skills.frozenCompleted} value={`${preview.frozen_completed} ${t.skills.sessions}`} />
+            <StatCell label={t.skills.frozenMissed} value={`${preview.frozen_missed} ${t.skills.sessions}`} />
           </div>
         )}
 
         <div className="hand text-faint" style={{ fontSize: 12, marginBottom: 20, lineHeight: 1.6 }}>
-          切换后今日起的未来课程将按新方法论重新生成，已完成训练不受影响。
+          {t.skills.switchNotice}
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -65,7 +67,7 @@ export default function SwitchSkillDialog({ skillName, preview, onConfirm, onCan
               fontSize: 15, cursor: 'pointer',
             }}
           >
-            取消
+            {t.skills.cancel}
           </button>
           <button
             onClick={onConfirm}
@@ -81,7 +83,7 @@ export default function SwitchSkillDialog({ skillName, preview, onConfirm, onCan
               opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? '切换中…' : '确认切换'}
+            {loading ? t.skills.switching : t.skills.confirmSwitch}
           </button>
         </div>
       </div>

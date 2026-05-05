@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getToken } from '@/lib/auth'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 type Step = 1 | 2 | 3 | 4
 const TOTAL = 4
@@ -34,12 +35,11 @@ const INIT: OnboardingState = {
   selectedWeekdays: [1, 3, 6],
 }
 
-const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
-
 /* ── Page ───────────────────────────────────────────────────────────── */
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const { t } = useI18n()
   const [step, setStep] = useState<Step>(1)
   const [state, setState] = useState<OnboardingState>(INIT)
   const [loading, setLoading] = useState(false)
@@ -71,13 +71,13 @@ export default function OnboardingPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          name: '我',
+          name: 'Me',
           sport: 'marathon',
           level: state.experienceLevel === 'none' ? 'beginner' : state.experienceLevel,
           weekly_training_days: state.weeklyDays,
         }),
       })
-      if (!athleteRes.ok) throw new Error('创建运动档案失败')
+      if (!athleteRes.ok) throw new Error(t.onboarding.createAthleteFailed)
 
       const athlete = await athleteRes.json()
 
@@ -110,14 +110,14 @@ export default function OnboardingPage() {
             sport: 'marathon',
             race_date: state.targetRaceDate,
             target_time: state.targetTime || null,
-            description: state.targetTime ? `sub-${state.targetTime}` : '完赛',
+            description: state.targetTime ? `sub-${state.targetTime}` : t.onboarding.finishOnly,
           }),
         })
       }
 
       router.replace('/dashboard')
     } catch (e) {
-      setError(e instanceof Error ? e.message : '出错了，请重试')
+      setError(e instanceof Error ? e.message : t.onboarding.genericError)
     } finally {
       setLoading(false)
     }
@@ -179,7 +179,7 @@ export default function OnboardingPage() {
                 fontFamily: 'var(--font-hand)', fontSize: 16, cursor: 'pointer',
               }}
             >
-              下一步
+              {t.onboarding.next}
             </button>
             {step === 1 && (
               <button
@@ -190,7 +190,7 @@ export default function OnboardingPage() {
                   color: 'var(--ink-faint)', cursor: 'pointer',
                 }}
               >
-                跳过，暂不连接 COROS
+                {t.onboarding.skipCoros}
               </button>
             )}
           </>
@@ -207,7 +207,7 @@ export default function OnboardingPage() {
               opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? '创建中…' : '开始训练 →'}
+            {loading ? t.onboarding.creating : `${t.onboarding.startTraining} →`}
           </button>
         )}
       </div>
@@ -218,17 +218,18 @@ export default function OnboardingPage() {
 /* ── Step components ────────────────────────────────────────────────── */
 
 function StepCoros({ state, update }: { state: OnboardingState; update: (p: Partial<OnboardingState>) => void }) {
+  const { t } = useI18n()
   return (
     <div>
-      <div className="hand" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>连接 COROS</div>
+      <div className="hand" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>{t.onboarding.connectCoros}</div>
       <div className="hand text-faint" style={{ fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>
-        导入你的历史训练记录，帮助我们更好地了解你的状态。
+        {t.onboarding.corosText}
       </div>
 
-      <Field label="COROS 账号（手机号或邮箱）">
+      <Field label={t.onboarding.corosAccount}>
         <input
           type="text"
-          placeholder="COROS 账号"
+          placeholder={t.onboarding.corosAccountPlaceholder}
           value={state.corosUsername}
           onChange={e => update({ corosUsername: e.target.value })}
           style={inputStyle}
@@ -236,10 +237,10 @@ function StepCoros({ state, update }: { state: OnboardingState; update: (p: Part
         />
       </Field>
 
-      <Field label="COROS 密码">
+      <Field label={t.onboarding.corosPassword}>
         <input
           type="password"
-          placeholder="密码"
+          placeholder={t.onboarding.passwordPlaceholder}
           value={state.corosPassword}
           onChange={e => update({ corosPassword: e.target.value })}
           style={inputStyle}
@@ -248,21 +249,28 @@ function StepCoros({ state, update }: { state: OnboardingState; update: (p: Part
       </Field>
 
       <div className="hand text-faint" style={{ fontSize: 11, marginTop: 8 }}>
-        密码仅用于 COROS 数据同步，加密存储，不会分享给第三方。
+        {t.onboarding.passwordNote}
       </div>
     </div>
   )
 }
 
 function StepGoal({ state, update }: { state: OnboardingState; update: (p: Partial<OnboardingState>) => void }) {
+  const { t } = useI18n()
+  const experienceOptions = [
+    ['none', t.onboarding.expNone],
+    ['beginner', t.onboarding.expBeginner],
+    ['intermediate', t.onboarding.expIntermediate],
+  ] as const
+
   return (
     <div>
-      <div className="hand" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>设定目标</div>
+      <div className="hand" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>{t.onboarding.setGoal}</div>
       <div className="hand text-faint" style={{ fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>
-        你想在什么时候完成马拉松？
+        {t.onboarding.goalText}
       </div>
 
-      <Field label="目标比赛日期">
+      <Field label={t.onboarding.raceDate}>
         <input
           type="date"
           value={state.targetRaceDate}
@@ -272,10 +280,10 @@ function StepGoal({ state, update }: { state: OnboardingState; update: (p: Parti
         />
       </Field>
 
-      <Field label="目标完赛时间（选填）">
+      <Field label={t.onboarding.targetTime}>
         <input
           type="text"
-          placeholder="例如 4:00（小时:分钟），留空表示完赛"
+          placeholder={t.onboarding.targetTimePlaceholder}
           value={state.targetTime}
           onChange={e => update({ targetTime: e.target.value })}
           style={inputStyle}
@@ -283,13 +291,9 @@ function StepGoal({ state, update }: { state: OnboardingState; update: (p: Parti
         />
       </Field>
 
-      <Field label="跑步经验">
+      <Field label={t.onboarding.experience}>
         <div style={{ display: 'flex', gap: 8 }}>
-          {([
-            ['none', '零基础'],
-            ['beginner', '跑过但不规律'],
-            ['intermediate', '有训练基础'],
-          ] as const).map(([val, label]) => (
+          {experienceOptions.map(([val, label]) => (
             <button
               key={val}
               onClick={() => update({ experienceLevel: val })}
@@ -313,6 +317,7 @@ function StepGoal({ state, update }: { state: OnboardingState; update: (p: Parti
 }
 
 function StepAvailability({ state, update }: { state: OnboardingState; update: (p: Partial<OnboardingState>) => void }) {
+  const { t } = useI18n()
   function toggleDay(d: number) {
     const cur = state.selectedWeekdays
     const next = cur.includes(d) ? cur.filter(x => x !== d) : [...cur, d].sort()
@@ -321,14 +326,14 @@ function StepAvailability({ state, update }: { state: OnboardingState; update: (
 
   return (
     <div>
-      <div className="hand" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>训练安排</div>
+      <div className="hand" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>{t.onboarding.availability}</div>
       <div className="hand text-faint" style={{ fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>
-        选择你通常可以训练的日子。
+        {t.onboarding.availabilityText}
       </div>
 
-      <div className="hand" style={{ fontSize: 13, marginBottom: 12 }}>每周训练日</div>
+      <div className="hand" style={{ fontSize: 13, marginBottom: 12 }}>{t.onboarding.weeklyTrainingDays}</div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
-        {WEEKDAY_LABELS.map((label, i) => {
+        {t.week.weekdaysShort.map((label, i) => {
           const selected = state.selectedWeekdays.includes(i)
           return (
             <button
@@ -351,32 +356,33 @@ function StepAvailability({ state, update }: { state: OnboardingState; update: (
       </div>
 
       <div className="hand text-faint" style={{ fontSize: 13 }}>
-        已选 {state.selectedWeekdays.length} 天 / 周
+        {t.onboarding.selectedDays} {state.selectedWeekdays.length} {t.common.days} / {t.common.weeks}
       </div>
     </div>
   )
 }
 
 function StepConfirm({ state }: { state: OnboardingState }) {
+  const { t } = useI18n()
+  const weekdaySummary = state.selectedWeekdays.map(d => t.week.weekdaysShort[d]).join(' ')
+  const experienceSummary =
+    state.experienceLevel === 'none' ? t.onboarding.expNone :
+    state.experienceLevel === 'beginner' ? t.onboarding.expBeginnerSummary :
+    t.onboarding.expIntermediateSummary
+
   return (
     <div>
-      <div className="hand" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>确认一下</div>
+      <div className="hand" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>{t.onboarding.confirm}</div>
       <div className="hand text-faint" style={{ fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>
-        我们根据这些信息为你生成初始训练计划。
+        {t.onboarding.confirmText}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <ConfirmRow label="COROS" value={state.corosSkipped ? '暂不连接' : (state.corosUsername || '—')} />
-        <ConfirmRow label="目标比赛" value={state.targetRaceDate || '未设定'} />
-        <ConfirmRow label="完赛目标" value={state.targetTime ? `sub-${state.targetTime}` : '完赛'} />
-        <ConfirmRow
-          label="训练日"
-          value={state.selectedWeekdays.map(d => ['一','二','三','四','五','六','日'][d]).join(' ')}
-        />
-        <ConfirmRow
-          label="经验"
-          value={state.experienceLevel === 'none' ? '零基础' : state.experienceLevel === 'beginner' ? '有跑步经验' : '有训练基础'}
-        />
+        <ConfirmRow label="COROS" value={state.corosSkipped ? t.onboarding.notConnected : (state.corosUsername || '—')} />
+        <ConfirmRow label={t.onboarding.race} value={state.targetRaceDate || t.onboarding.unset} />
+        <ConfirmRow label={t.onboarding.finishTarget} value={state.targetTime ? `sub-${state.targetTime}` : t.onboarding.finishOnly} />
+        <ConfirmRow label={t.onboarding.trainingDays} value={weekdaySummary} />
+        <ConfirmRow label={t.onboarding.experienceLabel} value={experienceSummary} />
       </div>
     </div>
   )

@@ -8,11 +8,13 @@ import { useDashboard } from '@/lib/hooks/useDashboard'
 import type { SkillManifestOut, RegeneratePreviewOut } from '@/lib/api/types'
 import SkillList from '@/components/skills/SkillList'
 import SwitchSkillDialog from '@/components/skills/SwitchSkillDialog'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 export default function SkillsPage() {
   const router = useRouter()
   const { dashboard, refresh } = useDashboard()
   const planId = dashboard?.today.plan_id
+  const { t } = useI18n()
 
   const { data: skills, isLoading } = useSWR<SkillManifestOut[]>('/api/skills', fetcher)
 
@@ -52,16 +54,16 @@ export default function SkillsPage() {
   return (
     <div>
       <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--rule-soft)' }}>
-        <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>训练方法论</div>
+        <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>{t.skills.title}</div>
         <div className="annot text-faint" style={{ fontSize: 13, marginTop: 4 }}>
-          选择适合你的训练哲学
+          {t.skills.subtitle}
         </div>
       </div>
 
       <div style={{ padding: '16px' }}>
         {isLoading && (
           <div className="hand text-faint" style={{ textAlign: 'center', padding: '32px 0', fontSize: 14 }}>
-            加载中…
+            {t.common.loading}
           </div>
         )}
         {skills && (
@@ -79,7 +81,7 @@ export default function SkillsPage() {
             background: 'rgba(0,0,0,0.72)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <span className="hand" style={{ color: 'var(--ink)', fontSize: 16 }}>加载预览…</span>
+            <span className="hand" style={{ color: 'var(--ink)', fontSize: 16 }}>{t.skills.loadingPreview}</span>
           </div>
         ) : preview ? (
           <SwitchSkillDialog
