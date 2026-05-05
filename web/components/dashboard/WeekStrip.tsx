@@ -1,6 +1,5 @@
 import type { DashboardThisWeek, WeekDay } from '@/lib/api/types'
-
-const WEEKDAY_SHORT = ['一', '二', '三', '四', '五', '六', '日']
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface Props {
   week: DashboardThisWeek
@@ -8,11 +7,12 @@ interface Props {
 
 export default function WeekStrip({ week }: Props) {
   const today = new Date().toISOString().slice(0, 10)
+  const { t } = useI18n()
 
   return (
     <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--rule-soft)' }}>
       <div className="between" style={{ marginBottom: 8 }}>
-        <span className="hand" style={{ fontSize: 13, fontWeight: 700 }}>本周</span>
+        <span className="hand" style={{ fontSize: 13, fontWeight: 700 }}>{t.dashboard.thisWeek}</span>
         <span className="hand text-faint" style={{ fontSize: 12 }}>
           {week.completed_km.toFixed(0)}/{week.planned_km.toFixed(0)} km
         </span>
@@ -43,7 +43,7 @@ export default function WeekStrip({ week }: Props) {
                   fontWeight: isToday ? 700 : 400,
                 }}
               >
-                {WEEKDAY_SHORT[day.weekday]}
+                {t.week.weekdaysShort[day.weekday]}
               </span>
               <span className={`status-dot ${day.status}`} />
             </div>

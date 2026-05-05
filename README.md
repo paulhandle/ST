@@ -27,6 +27,7 @@ app/
 ├── kb/          Sport knowledge: distance constants, assessment logic, helpers
 ├── tools/       Platform-owned external integrations
 │   ├── coros/   COROS direct API client and calendar sync
+│   ├── sms/     SMS OTP provider abstraction and phone normalization
 │   └── devices/ Legacy mock Garmin/COROS adapters
 ├── ingestion/   Unified activity and metric ingestion
 ├── api/         FastAPI routes
@@ -70,6 +71,15 @@ Frontend:
 - Vitest + React Testing Library
 - pnpm for Node dependency management
 
+## Web Internationalization
+
+The web app supports English and Simplified Chinese fixed UI copy through `web/lib/i18n/`.
+
+- `I18nProvider` wraps the app in `web/app/layout.tsx`.
+- The language preference is stored as `pp_language` in localStorage and a cookie.
+- `LanguageToggle` is available on the homepage, login page, and authenticated app shell.
+- Backend/content data such as workout titles, skill descriptions, and adjustment reasons is displayed in the source language returned by the API.
+
 ## Local Development
 
 ```bash
@@ -107,26 +117,29 @@ Important variables:
 | `COROS_USERNAME` / `COROS_PASSWORD` | Local probe credentials only. The app stores user credentials through `/coros/connect`. |
 | `COROS_TRAINING_HUB_URL` | Training Hub probe base URL. |
 | `COROS_HEADLESS` | Set `false` when running browser probes interactively. |
+| `SMS_PROVIDER` | `mock` by default. `dry_run` exercises provider wiring without returning OTP codes. |
+| `SMS_MOCK_RETURN_CODE` | `true` in local/test mock mode to include `otp_code` in responses; set `false` outside local development. |
+| `SMS_API_KEY` / `SMS_API_SECRET` / `SMS_SENDER_ID` | Reserved for the future real SMS vendor adapter. |
 | `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` | Optional LLM configuration for skill personalization and coach interpretation. |
 
 ## Auth
 
-The app currently uses phone OTP login and a 30-day bearer token. Development/test mode can return a mock OTP code.
+The app currently uses phone OTP login and a 30-day bearer token. Development/test mode can return a mock OTP code. Phone numbers are normalized to E.164. The preferred request shape is `country_code + national_number`; legacy mainland China `phone` requests are still accepted for compatibility.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/auth/send-otp \
   -H "Content-Type: application/json" \
-  -d '{"phone": "13800138000"}'
+  -d '{"country_code": "+86", "national_number": "13800138000"}'
 
 curl -X POST http://127.0.0.1:8000/auth/verify-otp \
   -H "Content-Type: application/json" \
-  -d '{"phone": "13800138000", "code": "123456"}'
+  -d '{"country_code": "+86", "national_number": "13800138000", "code": "123456"}'
 
 curl http://127.0.0.1:8000/auth/me \
   -H "Authorization: Bearer <token>"
 ```
 
-OTP codes expire after 10 minutes and can be used once.
+OTP codes expire after 10 minutes and can be used once. The initial country/region list in the web login selector covers China mainland, United States, United Kingdom, Singapore, Hong Kong SAR, Taiwan, China, Japan, and Australia.
 
 ## Skills
 
@@ -238,6 +251,8 @@ Runtime Fly secrets:
 | `OPENAI_BASE_URL` | `st-api` | Optional custom OpenAI-compatible gateway |
 | `OPENAI_MODEL` | `st-api` | Optional model selection |
 | `ST_SECRET_KEY` | `st-api` | JWT signing and credential encryption; legacy env name retained |
+| `SMS_PROVIDER` | `st-api` | Set to `dry_run` until a real SMS vendor adapter is configured |
+| `SMS_MOCK_RETURN_CODE` | `st-api` | Set to `false` outside local development so OTP codes are never exposed |
 | `COROS_AUTOMATION_MODE` | `st-api` | `real` in production |
 
 Rollback:

@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import useSWR from 'swr'
 import { fetcher, postJson } from '@/lib/api/client'
 import type { CoachMessage } from '@/lib/api/types'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 const ATHLETE_ID = 1
 
@@ -16,6 +17,7 @@ export default function CoachSheet({ open, onClose }: Props) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const { t } = useI18n()
 
   const { data, mutate } = useSWR<CoachMessage[]>(
     open ? `/api/coach/conversations/${ATHLETE_ID}?limit=50` : null,
@@ -55,7 +57,7 @@ export default function CoachSheet({ open, onClose }: Props) {
         padding: '14px 16px',
         borderBottom: '1px solid var(--rule)',
       }}>
-        <span className="hand" style={{ fontSize: 18, fontWeight: 700 }}>教练</span>
+        <span className="hand" style={{ fontSize: 18, fontWeight: 700 }}>{t.coach.title}</span>
         <button
           onClick={onClose}
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--ink-faint)' }}
@@ -66,7 +68,7 @@ export default function CoachSheet({ open, onClose }: Props) {
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {messages.length === 0 && (
           <p className="hand text-faint" style={{ fontSize: 14, textAlign: 'center', marginTop: 40 }}>
-            有什么问题尽管问 👋
+            {t.coach.empty}
           </p>
         )}
         {messages.map((m) => (
@@ -118,7 +120,7 @@ export default function CoachSheet({ open, onClose }: Props) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-          placeholder="发消息…"
+          placeholder={t.coach.placeholder}
           rows={1}
           style={{
             flex: 1,
@@ -148,7 +150,7 @@ export default function CoachSheet({ open, onClose }: Props) {
             transition: 'background 0.15s',
           }}
         >
-          发送
+          {t.coach.send}
         </button>
       </div>
     </div>

@@ -343,6 +343,31 @@ export interface RunningAssessmentOut {
 
 /* ── COROS import result ─────────────────────────────────── */
 
+export interface CorosStatusOut {
+  athlete_id: number
+  connected: boolean
+  auth_status: string
+  username: string | null
+  last_login_at: string | null
+  last_import_at: string | null
+  last_sync_at: string | null
+  last_error: string | null
+}
+
+export interface DeviceAccountOut {
+  id: number
+  athlete_id: number
+  device_type: string
+  external_user_id: string
+  username: string | null
+  auth_status: string
+  last_login_at: string | null
+  last_import_at: string | null
+  last_sync_at: string | null
+  last_error: string | null
+  created_at: string
+}
+
 export interface HistoryImportOut {
   athlete_id: number
   provider: string

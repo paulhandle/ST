@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { SkillManifestOut } from '@/lib/api/types'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface Props {
   skills: SkillManifestOut[]
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export default function SkillList({ skills, onSwitch }: Props) {
+  const { t } = useI18n()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {skills.map((s) => (
@@ -22,7 +24,7 @@ export default function SkillList({ skills, onSwitch }: Props) {
           <div className="between" style={{ marginBottom: 4 }}>
             <span className="hand" style={{ fontSize: 15, fontWeight: 700 }}>{s.name}</span>
             {s.is_active
-              ? <span className="sk-pill sk-pill--filled" style={{ fontSize: 11 }}>当前</span>
+              ? <span className="sk-pill sk-pill--filled" style={{ fontSize: 11 }}>{t.skills.current}</span>
               : (
                 <button
                   onClick={() => onSwitch(s.slug)}
@@ -37,7 +39,7 @@ export default function SkillList({ skills, onSwitch }: Props) {
                     cursor: 'pointer',
                   }}
                 >
-                  切换
+                  {t.skills.switch}
                 </button>
               )
             }
@@ -57,7 +59,7 @@ export default function SkillList({ skills, onSwitch }: Props) {
             className="hand"
             style={{ fontSize: 12, color: 'var(--ink-faint)', display: 'inline-block', marginTop: 8, textDecoration: 'none' }}
           >
-            查看方法论 →
+            {t.skills.viewMethodology} →
           </Link>
         </div>
       ))}

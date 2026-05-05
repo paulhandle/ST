@@ -1,13 +1,15 @@
 import type { AthleteActivityOut } from '@/lib/api/types'
 import { formatPace } from '@/lib/api/types'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface Props {
   activity: AthleteActivityOut
 }
 
 export default function ActivityRow({ activity }: Props) {
+  const { language, t } = useI18n()
   const date = new Date(activity.started_at)
-  const dateStr = date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+  const dateStr = date.toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US', { month: 'numeric', day: 'numeric' })
 
   return (
     <div style={{
@@ -25,7 +27,7 @@ export default function ActivityRow({ activity }: Props) {
           {activity.title}
         </div>
         <div className="annot text-faint" style={{ fontSize: 12 }}>
-          {activity.distance_km != null ? `${activity.distance_km.toFixed(1)} km · ` : ''}{activity.duration_min} 分钟
+          {activity.distance_km != null ? `${activity.distance_km.toFixed(1)} km · ` : ''}{activity.duration_min} {t.common.minutes}
           {activity.avg_pace_sec_per_km
             ? ` · ${formatPace(activity.avg_pace_sec_per_km)}/km`
             : ''}

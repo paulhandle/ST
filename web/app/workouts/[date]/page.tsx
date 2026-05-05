@@ -8,6 +8,7 @@ import { formatPace, formatKm } from '@/lib/api/types'
 import PaceRangeBar from '@/components/today/PaceRangeBar'
 import WorkoutSteps from '@/components/today/WorkoutSteps'
 import YesterdayCompare from '@/components/today/YesterdayCompare'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 export default function WorkoutDetailPage({ params }: { params: { date: string } }) {
   const { date } = params
@@ -15,10 +16,11 @@ export default function WorkoutDetailPage({ params }: { params: { date: string }
   const { workout: data, isLoading, error, refresh } = useWorkoutByDate(date)
   const [marking, setMarking] = useState(false)
   const [marked, setMarked] = useState<string | null>(null)
+  const { language, t } = useI18n()
 
   const displayDate = (() => {
     try {
-      return new Date(date + 'T00:00:00').toLocaleDateString('zh-CN', {
+      return new Date(date + 'T00:00:00').toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US', {
         month: 'long', day: 'numeric', weekday: 'short',
       })
     } catch { return date }
@@ -42,7 +44,7 @@ export default function WorkoutDetailPage({ params }: { params: { date: string }
     return (
       <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center',
                     justifyContent: 'center' }}>
-        <span className="hand text-faint" style={{ fontSize: 14 }}>加载中…</span>
+        <span className="hand text-faint" style={{ fontSize: 14 }}>{t.common.loading}</span>
       </div>
     )
   }
@@ -55,7 +57,7 @@ export default function WorkoutDetailPage({ params }: { params: { date: string }
         <button onClick={() => router.back()} className="hand"
           style={{ background: 'none', border: 'none', color: 'var(--ink-faint)',
                    cursor: 'pointer', fontSize: 14 }}>
-          ← 返回
+          ← {t.common.back}
         </button>
       </div>
     )
@@ -79,7 +81,9 @@ export default function WorkoutDetailPage({ params }: { params: { date: string }
         <div>
           <div className="hand" style={{ fontSize: 16, fontWeight: 700 }}>{displayDate}</div>
           {data?.week_index && (
-            <div className="annot text-faint" style={{ fontSize: 12 }}>第 {data.week_index} 周</div>
+            <div className="annot text-faint" style={{ fontSize: 12 }}>
+              {language === 'zh' ? `${t.workout.weekPrefix} ${data.week_index} 周` : `${t.workout.weekPrefix} ${data.week_index}`}
+            </div>
           )}
         </div>
       </div>
@@ -88,7 +92,7 @@ export default function WorkoutDetailPage({ params }: { params: { date: string }
         <div style={{ padding: '48px 24px', textAlign: 'center' }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🌿</div>
           <div className="hand" style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
-            休息日
+            {t.workout.restDay}
           </div>
           {recovery_recommendation ? (
             <div style={{ padding: '12px 16px', background: 'var(--accent-light)',
@@ -100,7 +104,7 @@ export default function WorkoutDetailPage({ params }: { params: { date: string }
             </div>
           ) : (
             <div className="hand text-faint" style={{ fontSize: 14, lineHeight: 1.6 }}>
-              好好恢复 💪
+              {t.workout.recoverWell}
             </div>
           )}
         </div>
@@ -120,12 +124,12 @@ export default function WorkoutDetailPage({ params }: { params: { date: string }
           <div style={{ display: 'flex', padding: '0 16px 16px',
                         borderBottom: '1px solid var(--rule-soft)' }}>
             {workout.distance_m && (
-              <BigNum label="公里" value={formatKm(workout.distance_m)} />
+              <BigNum label={t.workout.distance} value={formatKm(workout.distance_m)} />
             )}
-            <BigNum label="分钟" value={`${workout.duration_min}`} />
+            <BigNum label={t.workout.duration} value={`${workout.duration_min}`} />
             {workout.target_min != null && workout.target_max != null && (
               <BigNum
-                label="配速"
+                label={t.workout.pace}
                 value={`${formatPace(workout.target_min)}–${formatPace(workout.target_max)}`}
               />
             )}
@@ -167,7 +171,7 @@ export default function WorkoutDetailPage({ params }: { params: { date: string }
           {/* ── Mark done ───────────────────────────────────── */}
           <div style={{ padding: '16px', display: 'flex', gap: 10, flexDirection: 'column' }}>
             <div className="hand text-faint" style={{ fontSize: 12, textAlign: 'center' }}>
-              完成了吗？
+              {t.workout.doneQuestion}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {(['completed', 'partial', 'skipped'] as const).map((s) => (
@@ -185,7 +189,7 @@ export default function WorkoutDetailPage({ params }: { params: { date: string }
                     color: (s === 'completed' || marked === s) ? '#050505' : 'var(--ink)',
                   }}
                 >
-                  {s === 'completed' ? '完成 ✓' : s === 'partial' ? '部分' : '跳过'}
+                  {s === 'completed' ? `${t.workout.complete} ✓` : s === 'partial' ? t.workout.partial : t.workout.skip}
                 </button>
               ))}
             </div>

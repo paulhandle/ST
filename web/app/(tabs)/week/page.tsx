@@ -6,14 +6,7 @@ import { useWeek } from '@/lib/hooks/useWeek'
 import { useDashboard } from '@/lib/hooks/useDashboard'
 import { formatPace } from '@/lib/api/types'
 import type { WeekDay } from '@/lib/api/types'
-
-const STATUS_LABEL: Record<string, string> = {
-  completed: '完成',
-  partial: '部分',
-  miss: '缺训',
-  rest: '休息',
-  future: '计划中',
-}
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 export default function WeekPage() {
   const { dashboard } = useDashboard()
@@ -23,6 +16,7 @@ export default function WeekPage() {
 
   const effectiveWeek = weekIndex ?? currentWeek
   const { week, isLoading, error } = useWeek(planId, planId ? effectiveWeek : undefined)
+  const { language, t } = useI18n()
 
   const totalWeeks = dashboard?.this_week.total_weeks ?? 1
 
@@ -40,12 +34,12 @@ export default function WeekPage() {
 
           <div style={{ textAlign: 'center' }}>
             <div className="hand" style={{ fontSize: 16, fontWeight: 700 }}>
-              第 {effectiveWeek} 周
+              {language === 'zh' ? `${t.week.weekPrefix} ${effectiveWeek} 周` : `${t.week.weekPrefix} ${effectiveWeek}`}
               {week?.phase ? ` · ${week.phase}` : ''}
               {week?.is_recovery ? ' 🔄' : ''}
             </div>
             <div className="annot text-faint" style={{ fontSize: 12 }}>
-              共 {totalWeeks} 周
+              {language === 'zh' ? `${t.week.totalWeeksPrefix} ${totalWeeks} 周` : `${t.week.totalWeeksPrefix} ${totalWeeks} ${t.common.weeks}`}
             </div>
           </div>
 
@@ -67,7 +61,7 @@ export default function WeekPage() {
               <span className="text-faint"> / {week.planned_km.toFixed(1)} km</span>
             </span>
             <span className="hand text-faint" style={{ fontSize: 12 }}>
-              {week.completed_quality}/{week.planned_quality} 质量课
+              {week.completed_quality}/{week.planned_quality} {t.week.quality}
             </span>
           </div>
           <div style={{ height: 6, borderRadius: 'var(--radius)', background: 'var(--rule-soft)', overflow: 'hidden' }}>
@@ -85,7 +79,7 @@ export default function WeekPage() {
       {/* ── Day rows ───────────────────────────────────────── */}
       {isLoading && (
         <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-          <span className="hand text-faint" style={{ fontSize: 14 }}>加载中…</span>
+          <span className="hand text-faint" style={{ fontSize: 14 }}>{t.common.loading}</span>
         </div>
       )}
 
@@ -103,8 +97,8 @@ export default function WeekPage() {
 }
 
 function DayRow({ day }: { day: WeekDay }) {
-  const WEEKDAY = ['一', '二', '三', '四', '五', '六', '日']
   const isToday = day.date === new Date().toISOString().slice(0, 10)
+  const { t } = useI18n()
 
   return (
     <Link
@@ -121,7 +115,7 @@ function DayRow({ day }: { day: WeekDay }) {
         {/* weekday + date */}
         <div style={{ width: 36, flexShrink: 0, textAlign: 'center' }}>
           <div className="hand" style={{ fontSize: 15, fontWeight: isToday ? 700 : 400, color: isToday ? 'var(--accent)' : 'var(--ink)' }}>
-            {WEEKDAY[day.weekday]}
+            {t.week.weekdays[day.weekday]}
           </div>
           <div className="annot text-faint" style={{ fontSize: 11 }}>
             {day.date.slice(5).replace('-', '/')}
@@ -138,13 +132,13 @@ function DayRow({ day }: { day: WeekDay }) {
             color: day.status === 'future' ? 'var(--ink-faint)' : 'var(--ink)',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
-            {day.title ?? (day.status === 'rest' ? '休息' : '—')}
+            {day.title ?? (day.status === 'rest' ? t.week.rest : '—')}
           </div>
           {(day.distance_km || day.duration_min) && (
             <div className="annot text-faint" style={{ fontSize: 12 }}>
               {day.distance_km != null ? `${day.distance_km.toFixed(1)} km` : ''}
               {day.distance_km != null && day.duration_min != null ? ' · ' : ''}
-              {day.duration_min != null ? `${day.duration_min} 分钟` : ''}
+              {day.duration_min != null ? `${day.duration_min} ${t.common.minutes}` : ''}
             </div>
           )}
         </div>
@@ -158,7 +152,7 @@ function DayRow({ day }: { day: WeekDay }) {
           flexShrink: 0,
           marginLeft: 8,
         }}>
-          {STATUS_LABEL[day.status]}
+          {t.week.status[day.status] ?? day.status}
         </div>
 
         <span style={{ color: 'var(--ink-faint)', marginLeft: 6, fontSize: 14 }}>›</span>

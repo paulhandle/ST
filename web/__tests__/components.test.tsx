@@ -3,12 +3,13 @@ import { render, screen } from '@testing-library/react'
 import React from 'react'
 
 vi.mock('next/link', () => ({
-  default: ({ children, href }: any) => <a href={href}>{children}</a>,
+  default: ({ children, href, ...props }: any) => <a href={href} {...props}>{children}</a>,
 }))
 
 import PaceRangeBar from '@/components/today/PaceRangeBar'
 import WorkoutSteps from '@/components/today/WorkoutSteps'
 import SkillChip from '@/components/SkillChip'
+import BrandLogo from '@/components/BrandLogo'
 import type { WorkoutStepOut } from '@/lib/api/types'
 import { formatPace } from '@/lib/api/types'
 
@@ -20,16 +21,16 @@ describe('PaceRangeBar', () => {
     expect(screen.getByText(/6:00/)).toBeInTheDocument()
   })
 
-  it('shows "✓ 在区间内" when actualPace is within zone', () => {
+  it('shows in-range status when actualPace is within zone', () => {
     // Zone: 330-360, actualPace=345 → in zone
     render(<PaceRangeBar targetMin={330} targetMax={360} actualPace={345} />)
-    expect(screen.getByText(/✓ 在区间内/)).toBeInTheDocument()
+    expect(screen.getByText(/✓ in range/)).toBeInTheDocument()
   })
 
-  it('shows "⚠ 超出区间" when actualPace is outside zone', () => {
+  it('shows out-of-range status when actualPace is outside zone', () => {
     // Zone: 330-360, actualPace=400 → out of zone
     render(<PaceRangeBar targetMin={330} targetMax={360} actualPace={400} />)
-    expect(screen.getByText(/⚠ 超出区间/)).toBeInTheDocument()
+    expect(screen.getByText(/⚠ out of range/)).toBeInTheDocument()
   })
 })
 
@@ -71,8 +72,7 @@ describe('WorkoutSteps', () => {
       },
     ]
     render(<WorkoutSteps steps={steps} />)
-    // Each step renders its duration in "X 分钟" format
-    const minuteLabels = screen.getAllByText(/分钟/)
+    const minuteLabels = screen.getAllByText(/min/)
     expect(minuteLabels).toHaveLength(3)
   })
 })
@@ -82,5 +82,27 @@ describe('SkillChip', () => {
     const skill = { slug: 'base-run', name: 'Base Running', version: '1.0.0' }
     render(<SkillChip skill={skill} />)
     expect(screen.getByText('Base Running')).toBeInTheDocument()
+  })
+})
+
+describe('BrandLogo', () => {
+  it('renders the full wordmark by default', () => {
+    render(<BrandLogo />)
+    expect(screen.getByText('Performance')).toBeInTheDocument()
+    expect(screen.getByText('Protocol')).toBeInTheDocument()
+  })
+
+  it('renders compact P2 mark without the full wordmark', () => {
+    render(<BrandLogo compact />)
+    expect(screen.getByLabelText('PerformanceProtocol')).toBeInTheDocument()
+    expect(screen.getByText('P')).toBeInTheDocument()
+    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.queryByText('Performance')).not.toBeInTheDocument()
+    expect(screen.queryByText('Protocol')).not.toBeInTheDocument()
+  })
+
+  it('keeps href on compact linked mark', () => {
+    render(<BrandLogo href="/dashboard" compact />)
+    expect(screen.getByLabelText('PerformanceProtocol')).toHaveAttribute('href', '/dashboard')
   })
 })

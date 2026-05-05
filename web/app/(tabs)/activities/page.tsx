@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useCalendar } from '@/lib/hooks/useCalendar'
 import MonthStrip from '@/components/activities/MonthStrip'
 import type { CalendarDay } from '@/lib/api/types'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 function getDateRange() {
   const from = new Date()
@@ -20,19 +21,14 @@ function getDateRange() {
 
 const { fromDate, toDate } = getDateRange()
 
-const FILTERS = [
-  { key: 'all',      label: '全部' },
-  { key: 'run',      label: '跑步' },
-  { key: 'cycle',    label: '骑车' },
-  { key: 'strength', label: '力量' },
-]
+const FILTER_KEYS = ['all', 'run', 'cycle', 'strength'] as const
 
-const STATUS_META: Record<string, { color: string; label: string }> = {
-  completed: { color: 'var(--ink)',             label: '完成' },
-  partial:   { color: 'var(--ink-mid)',          label: '部分' },
-  miss:      { color: 'var(--accent)',           label: '缺训' },
-  unmatched: { color: 'var(--ink-faint)',        label: '自由' },
-  planned:   { color: 'rgba(255,77,0,0.55)',     label: '计划' },
+const STATUS_COLOR: Record<string, string> = {
+  completed: 'var(--ink)',
+  partial: 'var(--ink-mid)',
+  miss: 'var(--accent)',
+  unmatched: 'var(--ink-faint)',
+  planned: 'rgba(255,77,0,0.55)',
 }
 
 export default function ActivitiesPage() {
@@ -40,6 +36,7 @@ export default function ActivitiesPage() {
   const [filter, setFilter] = useState('all')
   const listRef = useRef<HTMLDivElement>(null)
   const { days, isLoading, error } = useCalendar(fromDate, toDate)
+  const { language, t } = useI18n()
 
   const filtered = filter === 'all'
     ? days
@@ -72,7 +69,7 @@ export default function ActivitiesPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
       <div style={{ padding: '16px 16px 10px', flexShrink: 0,
                     borderBottom: '1px solid var(--rule-soft)' }}>
-        <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>运动</div>
+        <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>{t.activities.title}</div>
       </div>
 
       <div style={{ flexShrink: 0 }}>
@@ -84,20 +81,20 @@ export default function ActivitiesPage() {
         borderBottom: '1px solid var(--rule-soft)', overflowX: 'auto',
         scrollbarWidth: 'none',
       }}>
-        {FILTERS.map(f => (
+        {FILTER_KEYS.map(key => (
           <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
+            key={key}
+            onClick={() => setFilter(key)}
             className="hand"
             style={{
               padding: '4px 12px', borderRadius: 'var(--radius)', fontSize: 12, cursor: 'pointer',
-              border: `1px solid ${filter === f.key ? 'var(--accent)' : 'var(--rule)'}`,
-              background: filter === f.key ? 'var(--accent)' : 'var(--paper)',
-              color: filter === f.key ? '#050505' : 'var(--ink)',
+              border: `1px solid ${filter === key ? 'var(--accent)' : 'var(--rule)'}`,
+              background: filter === key ? 'var(--accent)' : 'var(--paper)',
+              color: filter === key ? '#050505' : 'var(--ink)',
               whiteSpace: 'nowrap', flexShrink: 0,
             }}
           >
-            {f.label}
+            {t.activities.filters[key]}
           </button>
         ))}
       </div>
@@ -106,7 +103,7 @@ export default function ActivitiesPage() {
         {isLoading && (
           <div className="hand text-faint"
                style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14 }}>
-            加载中…
+            {t.common.loading}
           </div>
         )}
         {error && (
@@ -118,7 +115,7 @@ export default function ActivitiesPage() {
         {!isLoading && !error && filtered.length === 0 && (
           <div className="hand text-faint"
                style={{ padding: '48px 16px', textAlign: 'center', fontSize: 14 }}>
-            暂无记录
+            {t.activities.empty}
           </div>
         )}
 
@@ -133,7 +130,7 @@ export default function ActivitiesPage() {
                 background: 'var(--paper)',
                 position: 'sticky', top: 0, zIndex: 1,
               }}>
-                {y}年{parseInt(m)}月
+                {language === 'zh' ? `${y}年${parseInt(m)}月` : new Date(`${mk}-01T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </div>
               {monthDays.map(day => (
                 <DayRow key={day.date} day={day} isSelected={day.date === selectedDate} />
@@ -147,7 +144,11 @@ export default function ActivitiesPage() {
 }
 
 function DayRow({ day, isSelected }: { day: CalendarDay; isSelected: boolean }) {
-  const meta = STATUS_META[day.status] ?? { color: 'var(--ink-faint)', label: day.status }
+  const { t } = useI18n()
+  const meta = {
+    color: STATUS_COLOR[day.status] ?? 'var(--ink-faint)',
+    label: t.activities.status[day.status] ?? day.status,
+  }
   const [, m, d] = day.date.split('-')
 
   return (
@@ -167,7 +168,7 @@ function DayRow({ day, isSelected }: { day: CalendarDay; isSelected: boolean }) 
             {parseInt(d)}
           </div>
           <div className="annot text-faint" style={{ fontSize: 10 }}>
-            {parseInt(m)}月
+            {parseInt(m)}{t.common.monthSuffix}
           </div>
         </div>
 
@@ -188,7 +189,7 @@ function DayRow({ day, isSelected }: { day: CalendarDay; isSelected: boolean }) 
             <div className="annot text-faint" style={{ fontSize: 12 }}>
               {day.distance_km != null ? `${day.distance_km.toFixed(1)} km` : ''}
               {day.distance_km != null && day.duration_min != null ? ' · ' : ''}
-              {day.duration_min != null ? `${day.duration_min} 分钟` : ''}
+              {day.duration_min != null ? `${day.duration_min} ${t.common.minutes}` : ''}
             </div>
           )}
         </div>

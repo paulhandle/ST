@@ -1,14 +1,16 @@
 import Link from 'next/link'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface Props {
   adjustment: { id: number; reason_headline: string }
 }
 
 export default function PendingAdjustmentSection({ adjustment }: Props) {
+  const { t } = useI18n()
   return (
     <div style={{ margin: '16px 16px 8px' }}>
       <div className="between" style={{ marginBottom: 10 }}>
-        <span className="hand" style={{ fontSize: 13, fontWeight: 700 }}>调整建议</span>
+        <span className="hand" style={{ fontSize: 13, fontWeight: 700 }}>{t.plan.pendingAdjustments}</span>
         <span
           className="hand"
           style={{
@@ -17,7 +19,7 @@ export default function PendingAdjustmentSection({ adjustment }: Props) {
             borderRadius: 'var(--radius)',
           }}
         >
-          1 待处理
+          {t.plan.pendingCount}
         </span>
       </div>
 
@@ -34,7 +36,7 @@ export default function PendingAdjustmentSection({ adjustment }: Props) {
           <span style={{ fontSize: 18, flexShrink: 0 }}>⚡</span>
           <div style={{ flex: 1 }}>
             <div className="hand" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, marginBottom: 2 }}>
-              查看建议
+              {t.plan.viewSuggestion}
             </div>
             <div className="hand" style={{ fontSize: 12, color: 'var(--ink-mid)' }}>
               {adjustment.reason_headline}

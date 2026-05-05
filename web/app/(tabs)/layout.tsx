@@ -4,28 +4,33 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import CoachButton from '@/components/CoachButton'
 import BrandLogo from '@/components/BrandLogo'
-
-const TABS = [
-  { href: '/dashboard',  label: '概览', icon: TabIconDashboard },
-  { href: '/activities', label: '运动', icon: TabIconActivities },
-  { href: '/week',       label: '本周', icon: TabIconWeek },
-  { href: '/plan',       label: '计划', icon: TabIconPlan },
-]
+import LanguageToggle from '@/components/LanguageToggle'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 export default function TabsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { language, setLanguage, t } = useI18n()
+  const tabs = [
+    { href: '/dashboard', label: t.nav.dashboard, icon: TabIconDashboard },
+    { href: '/activities', label: t.nav.activities, icon: TabIconActivities },
+    { href: '/week', label: t.nav.week, icon: TabIconWeek },
+    { href: '/plan', label: t.nav.plan, icon: TabIconPlan },
+  ]
 
   return (
     <>
       <div className="app-topbar">
         <BrandLogo href="/dashboard" compact />
-        <Link href="/settings" className="app-topbar-link">Settings</Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <LanguageToggle language={language} onChange={setLanguage} compact />
+          <Link href="/settings" className="app-topbar-link">{t.common.settings}</Link>
+        </div>
       </div>
 
       <div className="page-shell">{children}</div>
 
       <nav className="tabbar">
-        {TABS.map(({ href, label, icon: Icon }) => (
+        {tabs.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}

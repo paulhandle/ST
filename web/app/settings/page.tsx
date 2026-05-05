@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { clearToken } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface SettingRow {
   label: string
@@ -14,6 +15,7 @@ interface SettingRow {
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { t } = useI18n()
 
   function logout() {
     clearToken()
@@ -22,22 +24,22 @@ export default function SettingsPage() {
 
   const sections: { title: string; rows: SettingRow[] }[] = [
     {
-      title: '训练',
+      title: t.settings.training,
       rows: [
-        { label: '训练方法论', sub: '查看并切换 Skill', href: '/skills' },
-        { label: '历史活动', sub: '所有跑步记录与状态', href: '/activities' },
+        { label: t.settings.methodology, sub: t.settings.methodologySub, href: '/skills' },
+        { label: t.settings.history, sub: t.settings.historySub, href: '/activities' },
       ],
     },
     {
-      title: '数据',
+      title: t.settings.data,
       rows: [
-        { label: 'COROS 同步', sub: '管理设备连接', href: '/settings/coros' },
+        { label: t.settings.coros, sub: t.settings.corosSub, href: '/settings/coros' },
       ],
     },
     {
-      title: '账号',
+      title: t.settings.account,
       rows: [
-        { label: '退出登录', accent: true, onPress: logout },
+        { label: t.settings.logout, accent: true, onPress: logout },
       ],
     },
   ]
@@ -45,7 +47,7 @@ export default function SettingsPage() {
   return (
     <div>
       <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--rule-soft)' }}>
-        <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>设置</div>
+        <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>{t.settings.title}</div>
       </div>
 
       {sections.map((section) => (

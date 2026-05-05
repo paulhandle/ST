@@ -499,11 +499,14 @@ def _athlete_or_404(db: Session, athlete_id: int) -> AthleteProfile:
 
 def _device_account(db: Session, athlete_id: int, device_type: DeviceType) -> DeviceAccount | None:
     return db.execute(
-        select(DeviceAccount).where(
+        select(DeviceAccount)
+        .where(
             DeviceAccount.athlete_id == athlete_id,
             DeviceAccount.device_type == device_type,
         )
-    ).scalar_one_or_none()
+        .order_by(DeviceAccount.id.desc())
+        .limit(1)
+    ).scalars().first()
 
 
 def _training_plan_or_404(db: Session, plan_id: int) -> TrainingPlan:

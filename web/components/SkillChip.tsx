@@ -7,7 +7,7 @@ interface Props {
 export default function SkillChip({ skill }: Props) {
   return (
     <Link href="/settings" className="skill-chip" style={{ textDecoration: 'none', color: 'inherit' }}>
-      <span className="skill-chip-avatar">赵</span>
+      <span className="skill-chip-avatar">S</span>
       <span>{skill.name}</span>
       <span style={{ color: 'var(--ink-faint)', fontSize: 10, marginLeft: 2 }}>▾</span>
     </Link>

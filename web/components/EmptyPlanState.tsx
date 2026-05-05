@@ -1,18 +1,18 @@
 import Link from 'next/link'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 export default function EmptyPlanState() {
+  const { t } = useI18n()
   return (
     <div style={{ padding: '48px 24px', textAlign: 'center' }}>
       <div style={{ fontSize: 52, marginBottom: 16 }}>🏃</div>
 
       <div className="hand" style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
-        Build your next training cycle
+        {t.emptyPlan.title}
       </div>
 
       <div className="hand text-faint" style={{ fontSize: 14, lineHeight: 1.7, marginBottom: 32 }}>
-        Set a goal and generate a structured plan,
-        <br />
-        then track execution day by day.
+        {t.emptyPlan.body}
       </div>
 
       <Link
@@ -28,7 +28,7 @@ export default function EmptyPlanState() {
           textDecoration: 'none',
         }}
       >
-        Generate plan →
+        {t.emptyPlan.action} →
       </Link>
     </div>
   )

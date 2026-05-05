@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { fetcher } from '@/lib/api/client'
 import type { SkillDetailOut } from '@/lib/api/types'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 export default function SkillDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
   const router = useRouter()
+  const { t } = useI18n()
   const { data: skill, isLoading, error } = useSWR<SkillDetailOut>(
     `/api/skills/${slug}`,
     fetcher,
@@ -23,14 +25,14 @@ export default function SkillDetailPage({ params }: { params: Promise<{ slug: st
             className="hand text-faint"
             style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}
           >
-            ‹ 返回
+            ‹ {t.common.back}
           </button>
         </div>
       </div>
 
       {isLoading && (
         <div className="hand text-faint" style={{ padding: '32px 16px', textAlign: 'center', fontSize: 14 }}>
-          加载中…
+          {t.common.loading}
         </div>
       )}
 
@@ -70,7 +72,7 @@ export default function SkillDetailPage({ params }: { params: Promise<{ slug: st
             </pre>
           ) : (
             <div className="hand text-faint" style={{ padding: '16px', fontSize: 13 }}>
-              暂无方法论说明
+              {t.skills.noMethodology}
             </div>
           )}
         </div>

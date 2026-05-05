@@ -2,6 +2,7 @@
 
 import { useRef, useEffect } from 'react'
 import type { CalendarDay, CalendarStatus } from '@/lib/api/types'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 const DOT_COLOR: Record<CalendarStatus, string> = {
   completed: 'var(--ink)',
@@ -37,6 +38,7 @@ export default function MonthStrip({ days, selectedDate, onSelectDate }: Props) 
   const scrollRef = useRef<HTMLDivElement>(null)
   const today = new Date().toISOString().slice(0, 10)
   const dayMap = new Map(days.map(d => [d.date, d]))
+  const { t } = useI18n()
 
   useEffect(() => {
     const el = scrollRef.current
@@ -87,7 +89,7 @@ export default function MonthStrip({ days, selectedDate, onSelectDate }: Props) 
               lineHeight: 1.4,
               userSelect: 'none',
             }}>
-              {isFirstOfMonth ? `${monthNum}月` : '·'}
+              {isFirstOfMonth ? `${monthNum}${t.common.monthSuffix}` : '·'}
             </div>
 
             {/* Day number block */}

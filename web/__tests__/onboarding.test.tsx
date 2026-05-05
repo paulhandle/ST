@@ -11,7 +11,7 @@ import OnboardingPage from '@/app/onboarding/page'
 describe('OnboardingPage', () => {
   it('renders step 1 heading', () => {
     render(<OnboardingPage />)
-    expect(screen.getByText('连接 COROS')).toBeInTheDocument()
+    expect(screen.getByText('Connect COROS')).toBeInTheDocument()
   })
 
   it('shows step indicator', () => {
@@ -21,7 +21,7 @@ describe('OnboardingPage', () => {
 
   it('can navigate to step 2', () => {
     render(<OnboardingPage />)
-    fireEvent.click(screen.getByText('下一步'))
-    expect(screen.getByText('设定目标')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Next'))
+    expect(screen.getByText('Set Goal')).toBeInTheDocument()
   })
 })

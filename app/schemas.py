@@ -635,16 +635,20 @@ class CoachMessageResponse(BaseModel):
 # ── Auth schemas ─────────────────────────────────────────────────────────────
 
 class SendOTPRequest(BaseModel):
-    phone: str = Field(min_length=8, max_length=20)
+    phone: str | None = Field(default=None, min_length=8, max_length=24)
+    country_code: str | None = Field(default=None, min_length=2, max_length=5)
+    national_number: str | None = Field(default=None, min_length=4, max_length=24)
 
 
 class SendOTPResponse(BaseModel):
     message: str
-    otp_code: int  # mock only — remove when real SMS is wired
+    otp_code: int | None = None  # mock-only local/dev convenience
 
 
 class VerifyOTPRequest(BaseModel):
-    phone: str = Field(min_length=8, max_length=20)
+    phone: str | None = Field(default=None, min_length=8, max_length=24)
+    country_code: str | None = Field(default=None, min_length=2, max_length=5)
+    national_number: str | None = Field(default=None, min_length=4, max_length=24)
     code: str = Field(min_length=6, max_length=6)
 
 

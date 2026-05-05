@@ -28,3 +28,11 @@ These were validated by the user during the MVP+1 design discussion. Apply going
 - For exploratory or architectural questions, the user wants me to **push back** with concrete tensions, not write more agreeable design docs. Listing real risks/IP-issues/scientific-issues is more valuable than a polished diagram.
 - The user wants **directory structure that visibly separates skill from business logic** — not just module-level discipline. Skills live in their own top-level directory; tools in their own; KB in its own.
 - For projects without active git remotes / branches, **don't propose CI integration or extensive feature flags** — keep changes simple and purely structural.
+
+## 2026-05-05 — Clarify SMS rollout scope before narrowing
+
+- When SMS country scope changes mid-turn, confirm whether the user means product support or only the immediate test/default path before removing existing country options. The current implementation keeps the mainstream launch list rather than China-only.
+
+## 2026-05-05 — Shared SQLite tests must run sequentially
+
+- Backend unittest classes rebuild the same `st_test.db` with `Base.metadata.drop_all/create_all`. Do not run two backend unittest commands in parallel against that shared SQLite file; parallel runs can produce transient `no such table` or missing-row failures unrelated to the application code.

@@ -3,16 +3,18 @@
 import type { DashboardGoal } from '@/lib/api/types'
 import { formatTime } from '@/lib/api/types'
 import { LineChart, Line, ResponsiveContainer, Tooltip, YAxis } from 'recharts'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface Props {
   goal: DashboardGoal
 }
 
 export default function GoalCard({ goal }: Props) {
+  const { t } = useI18n()
   const trend = goal.monthly_delta_sec
-  const trendStr = trend === 0 ? '持平' :
-    trend < 0 ? `快了 ${formatTime(Math.abs(trend))}` :
-    `慢了 ${formatTime(trend)}`
+  const trendStr = trend === 0 ? t.dashboard.trendFlat :
+    trend < 0 ? `${t.dashboard.faster} ${formatTime(Math.abs(trend))}` :
+    `${t.dashboard.slower} ${formatTime(trend)}`
   const trendColor = trend < 0 ? 'var(--ink)' : trend > 0 ? 'var(--accent)' : 'var(--ink-faint)'
 
   const chartData = goal.prediction_history.map((p, i) => ({
@@ -23,8 +25,8 @@ export default function GoalCard({ goal }: Props) {
   return (
     <div style={{ margin: '12px 16px' }} className="sk-card">
       <div className="between" style={{ marginBottom: 8 }}>
-        <span className="hand" style={{ fontSize: 13, fontWeight: 700 }}>目标</span>
-        <span className="hand text-faint" style={{ fontSize: 12 }}>{goal.days_until} 天后</span>
+        <span className="hand" style={{ fontSize: 13, fontWeight: 700 }}>{t.dashboard.goal}</span>
+        <span className="hand text-faint" style={{ fontSize: 12 }}>{goal.days_until} {t.dashboard.daysUntil}</span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
@@ -33,7 +35,7 @@ export default function GoalCard({ goal }: Props) {
             {goal.label}
           </div>
           <div className="hand" style={{ fontSize: 12, color: trendColor, marginTop: 4 }}>
-            ↑ {trendStr}（过去30天）
+            ↑ {trendStr} ({t.dashboard.past30Days})
           </div>
         </div>
 
@@ -50,7 +52,7 @@ export default function GoalCard({ goal }: Props) {
                   dot={false}
                 />
                 <Tooltip
-                  formatter={(v: number) => [formatTime(v), '预测完赛']}
+                  formatter={(v: number) => [formatTime(v), t.dashboard.predictedFinish]}
                   contentStyle={{ fontFamily: 'var(--font-hand)', fontSize: 12, border: '1px solid var(--rule)' }}
                 />
               </LineChart>
@@ -60,7 +62,7 @@ export default function GoalCard({ goal }: Props) {
       </div>
 
       <div className="hand text-faint" style={{ fontSize: 11, marginTop: 8 }}>
-        {goal.race_date} 比赛日
+        {goal.race_date} {t.dashboard.raceDay}
       </div>
     </div>
   )

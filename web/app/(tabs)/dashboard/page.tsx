@@ -11,14 +11,16 @@ import RecentActivities from '@/components/dashboard/RecentActivities'
 import ReadinessPanel from '@/components/dashboard/ReadinessPanel'
 import EmptyPlanState from '@/components/EmptyPlanState'
 import Link from 'next/link'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 export default function DashboardPage() {
   const { dashboard, isLoading, error } = useDashboard()
+  const { language, t } = useI18n()
 
   if (isLoading) {
     return (
       <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-        <span className="hand text-faint" style={{ fontSize: 14 }}>加载中…</span>
+        <span className="hand text-faint" style={{ fontSize: 14 }}>{t.common.loading}</span>
       </div>
     )
   }
@@ -27,7 +29,7 @@ export default function DashboardPage() {
     return (
       <div style={{ padding: '32px 16px', textAlign: 'center' }}>
         <span className="hand text-faint" style={{ fontSize: 14 }}>
-          {error?.message ?? '暂无数据'}
+          {error?.message ?? t.common.noData}
         </span>
       </div>
     )
@@ -39,9 +41,12 @@ export default function DashboardPage() {
   const { greeting, athlete, pending_adjustment, today, this_week, goal, volume_history, recent_activities, readiness, meta } = dashboard
 
   const greetingText =
-    greeting.time_of_day === 'morning' ? '早上好' :
-    greeting.time_of_day === 'afternoon' ? '下午好' :
-    greeting.time_of_day === 'evening' ? '晚上好' : '你好'
+    greeting.time_of_day === 'morning' ? t.dashboard.morning :
+    greeting.time_of_day === 'afternoon' ? t.dashboard.afternoon :
+    greeting.time_of_day === 'evening' ? t.dashboard.evening : t.dashboard.hello
+  const weekLabel = language === 'zh'
+    ? `${t.dashboard.weekPrefix} ${greeting.week_index} 周`
+    : `${t.dashboard.weekPrefix} ${greeting.week_index}`
 
   return (
     <div>
@@ -56,7 +61,7 @@ export default function DashboardPage() {
             {greetingText}，{athlete.name.split('')[0]}
           </div>
           <div className="annot text-faint" style={{ fontSize: 13 }}>
-            {greeting.weekday_short} · 第 {greeting.week_index} 周
+            {greeting.weekday_short} · {weekLabel}
             {greeting.week_phase ? ` · ${greeting.week_phase}` : ''}
           </div>
         </div>
@@ -75,7 +80,7 @@ export default function DashboardPage() {
           </div>
           {meta.last_sync_at && (
             <span className="annot text-faint" style={{ fontSize: 11 }}>
-              同步 {new Date(meta.last_sync_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+              {t.dashboard.synced} {new Date(meta.last_sync_at).toLocaleTimeString(language === 'zh' ? 'zh-CN' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
         </div>
