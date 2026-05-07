@@ -39,6 +39,7 @@ export default function SettingsPage() {
     {
       title: t.settings.account,
       rows: [
+        { label: t.settings.security, sub: t.settings.securitySub, href: '/settings/security' },
         { label: t.settings.logout, accent: true, onPress: logout },
       ],
     },

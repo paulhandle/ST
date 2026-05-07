@@ -2,6 +2,71 @@
 
 **Branch:** `feat/coros-full-sync`
 
+## Auth Modernization: Google, Passkeys, SMS Fallback
+
+Objective: reduce paid SMS dependency by making Google account login and passkey the primary auth paths, while retaining SMS OTP as a fallback and adding abuse controls before users can add/use phone-based login.
+
+Context:
+- Current backend auth is phone OTP only. `users.phone` is non-null/unique, and `/auth/verify-otp` creates users directly by phone.
+- Current frontend login page only supports phone country code + OTP.
+- User wants SMS to remain available as fallback, and wants phone addition in personal settings with anti-abuse verification.
+- Google ID tokens should be verified server-side with `google-auth` against configured client id.
+- Passkey server verification should use a WebAuthn library, not hand-rolled cryptography.
+
+Design:
+1. Account model:
+   - [x] Make `users.phone` nullable for Google/passkey-first accounts.
+   - [x] Add `users.email`, `users.display_name`, and `users.avatar_url`.
+   - [x] Add `auth_identities` for provider identities (`phone`, `google`, `passkey`) with unique `(provider, provider_subject)`.
+   - [x] Add `webauthn_credentials` for credential id, public key, sign count, transports, device metadata, and last used time.
+   - [x] Add short-lived auth challenge/rate-limit storage for OTP/passkey ceremonies.
+
+2. Google login:
+   - [x] Add env config for `GOOGLE_CLIENT_ID`.
+   - [x] Add `POST /auth/google` accepting a Google ID token, verifying it server-side, creating/linking a user, and returning the existing JWT response shape.
+   - [x] Keep dev/test deterministic without requiring live Google network calls.
+
+3. Passkeys:
+   - [x] Add registration begin/finish endpoints for logged-in users adding a passkey from Settings/Me.
+   - [x] Add login begin/finish endpoints for passwordless passkey sign-in.
+   - [x] Use RP ID/origin config for `performanceprotocol.io`, `www.performanceprotocol.io`, and localhost.
+   - [x] Store verified WebAuthn credential metadata and update sign count on authentication.
+
+4. SMS fallback and phone linking:
+   - [x] Move SMS UI behind an explicit fallback option on `/login`.
+   - [x] Add Settings/Me entry to add or change phone.
+   - [x] Add OTP rate limiting: per phone, per IP, and per recent failed verification window.
+   - [x] Do not expose OTP codes outside local/mock mode.
+
+5. Frontend:
+   - [x] Login page prioritizes Google and passkey actions, with SMS fallback disclosure.
+   - [x] Settings/Me exposes passkey management and phone linking.
+   - [x] Existing token storage and onboarding routing remain compatible.
+
+6. Verification:
+   - [x] Backend auth tests for Google create/link, phone fallback, rate limits, passkey challenge lifecycle, and protected routes.
+   - [x] Frontend tests for login method ordering, SMS fallback, and settings account rows.
+   - [x] Update README and `tasks/devlog.md`.
+   - [x] Run backend unittest, frontend tests/type-check/build, and `git diff --check`.
+
+Review:
+- Added auth identity/passkey/challenge persistence and migration `c2a9d8e1b4f3_auth_identities_passkeys.py`.
+- Added Google ID token endpoint, passkey option/verify endpoints, phone linking endpoints, and OTP rate limiting.
+- Login now prioritizes Google/passkey and keeps SMS behind an explicit fallback option.
+- Settings/Me now links to `/settings/security`, which exposes passkey setup and phone fallback linking.
+- Current browser ceremony gap: Google Identity Services frontend and actual WebAuthn `navigator.credentials.create/get` payload handoff are scaffolded but not fully wired.
+- Verification passed:
+  - `uv run python -m unittest discover -s tests -v` -> 106/106 pass.
+  - `cd web && pnpm test` -> 88/88 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check` -> pass.
+
+Out of scope for this first implementation:
+- Full account merge UX when two existing accounts share an email.
+- Enterprise SSO beyond Google OIDC.
+- Removing SMS entirely.
+
 ## Brand Icon: P Squared App Mark
 
 Objective: add a real app/browser icon using the compact `P²` mark, with italic `P` and right-superscript `2`, so constrained surfaces can use the product icon instead of the full name.

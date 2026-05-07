@@ -1,5 +1,26 @@
 # Dev Log
 
+## 2026-05-07 - Auth modernization foundation
+
+Why: User called out that SMS OTP login is expensive and asked to prepare Google account login and passkey support, while keeping SMS as a fallback and allowing phone addition in personal settings with anti-abuse controls.
+
+How:
+- Added `google-auth`, `webauthn`, and `requests` backend dependencies.
+- Changed the auth model from phone-only accounts to account plus identities: nullable `users.phone`, optional email/display/avatar fields, `auth_identities`, `webauthn_credentials`, and `auth_challenges`.
+- Added Alembic migration `c2a9d8e1b4f3_auth_identities_passkeys.py`.
+- Reworked `app/api/auth.py` so OTP, Google, and passkey flows all return the existing JWT response shape. Added `/auth/google`, passkey registration/login option and verify endpoints, and phone-link endpoints for authenticated users.
+- Added OTP anti-abuse limits: per-phone send limit, per-IP send limit, and per-phone failed verification limit over the recent one-hour window.
+- Updated `/login` to prioritize Google and passkey actions, with SMS behind an explicit fallback option.
+- Added `/settings/security` for passkey setup and phone fallback linking, and added an Account security row in Settings/Me.
+- Updated README with Google/passkey config, auth storage tables, and new auth routes.
+
+Result:
+- Backend auth tests cover Google create/link, missing Google config, OTP rate limits, phone identity creation, passkey option challenge storage, and passkey allow-credentials discovery.
+- Targeted backend verification passed: `uv run python -m unittest tests.test_auth -v`.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 106/106 pass.
+- Targeted frontend verification passed: `pnpm test __tests__/login.test.tsx __tests__/settings.test.tsx __tests__/auth.test.ts`.
+- Remaining implementation gap: frontend currently exposes Google/passkey entry points and backend endpoints, but full browser Google Identity Services and WebAuthn `navigator.credentials.create/get` ceremony wiring is still the next step before production use.
+
 ## 2026-05-07 - P squared app icon
 
 Why: User asked for an icon in the compact `P^2` form. The app already had an inline compact brand mark in navigation, but the browser/PWA manifest still had no real icon asset.

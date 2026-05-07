@@ -27,24 +27,39 @@ beforeEach(() => {
 })
 
 describe('LoginPage', () => {
-  it('renders phone input', () => {
+  function openSmsFallback() {
+    fireEvent.click(screen.getByText(/Use phone code instead/))
+  }
+
+  it('prioritizes Google and passkey sign-in', () => {
     render(<LoginPage />)
+    expect(screen.getByText(/Continue with Google/)).toBeInTheDocument()
+    expect(screen.getByText(/Sign in with passkey/)).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText(/138 0013 8000/)).not.toBeInTheDocument()
+  })
+
+  it('renders phone input after choosing SMS fallback', () => {
+    render(<LoginPage />)
+    openSmsFallback()
     expect(screen.getByPlaceholderText(/138 0013 8000/)).toBeInTheDocument()
   })
 
   it('renders dialing-code selector with Taiwan, China wording', () => {
     render(<LoginPage />)
+    openSmsFallback()
     expect(screen.getByLabelText(/Country\/region code/i)).toHaveValue('+86')
     expect(screen.getByRole('option', { name: /Taiwan, China \(\+886\)/ })).toBeInTheDocument()
   })
 
   it('renders send OTP button', () => {
     render(<LoginPage />)
+    openSmsFallback()
     expect(screen.getByText(/Send code/)).toBeInTheDocument()
   })
 
   it('OTP input is hidden initially', () => {
     render(<LoginPage />)
+    openSmsFallback()
     expect(screen.queryByLabelText(/Verification code/)).not.toBeInTheDocument()
   })
 
@@ -55,6 +70,7 @@ describe('LoginPage', () => {
     })
 
     render(<LoginPage />)
+    openSmsFallback()
     const phoneInput = screen.getByPlaceholderText(/138 0013 8000/)
     fireEvent.change(phoneInput, { target: { value: '13800138000' } })
     fireEvent.click(screen.getByText(/Send code/))
@@ -71,6 +87,7 @@ describe('LoginPage', () => {
     })
 
     render(<LoginPage />)
+    openSmsFallback()
     // Use 11-digit phone so the button is enabled
     fireEvent.change(screen.getByPlaceholderText(/138 0013 8000/), {
       target: { value: '13800138999' },
@@ -89,6 +106,7 @@ describe('LoginPage', () => {
     })
 
     render(<LoginPage />)
+    openSmsFallback()
     fireEvent.change(screen.getByPlaceholderText(/138 0013 8000/), {
       target: { value: '138 0013 8000' },
     })
@@ -109,6 +127,7 @@ describe('LoginPage', () => {
     })
 
     render(<LoginPage />)
+    openSmsFallback()
     fireEvent.change(screen.getByLabelText(/Country\/region code/i), {
       target: { value: '+1' },
     })
@@ -133,6 +152,7 @@ describe('LoginPage', () => {
       })
 
     render(<LoginPage />)
+    openSmsFallback()
     fireEvent.change(screen.getByPlaceholderText(/138 0013 8000/), {
       target: { value: '13800138000' },
     })
@@ -154,6 +174,7 @@ describe('LoginPage', () => {
   it('switches login copy to Chinese', () => {
     render(<LoginPage />)
     fireEvent.click(screen.getByRole('button', { name: '中文' }))
+    fireEvent.click(screen.getByText('使用短信验证码'))
     expect(screen.getByText('手机号')).toBeInTheDocument()
     expect(screen.getByText('发送验证码')).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /中国台湾 \(\+886\)/ })).toBeInTheDocument()

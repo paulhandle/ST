@@ -20,6 +20,9 @@ dependencies = [
   "alembic>=1.13.0,<2.0.0",
   "psycopg[binary]>=3.1.0,<4.0.0",
   "fitparse==1.2.0",
+  "google-auth>=2.50.0",
+  "webauthn>=2.7.1",
+  "requests>=2.33.1",
 ]
 
 [tool.setuptools.packages.find]

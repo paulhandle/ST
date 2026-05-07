@@ -30,6 +30,13 @@ SMS_MOCK_RETURN_CODE = os.environ.get("SMS_MOCK_RETURN_CODE", "true").strip().lo
 SMS_API_KEY = os.environ.get("SMS_API_KEY", "")
 SMS_API_SECRET = os.environ.get("SMS_API_SECRET", "")
 SMS_SENDER_ID = os.environ.get("SMS_SENDER_ID", "PerformanceProtocol")
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+WEBAUTHN_RP_ID = os.environ.get("WEBAUTHN_RP_ID", "localhost")
+WEBAUTHN_RP_NAME = os.environ.get("WEBAUTHN_RP_NAME", "PerformanceProtocol")
+WEBAUTHN_ALLOWED_ORIGINS = os.environ.get(
+    "WEBAUTHN_ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,https://performanceprotocol.io,https://www.performanceprotocol.io",
+)
 
 
 def sms_provider_name() -> str:
@@ -41,6 +48,23 @@ def sms_mock_return_code() -> bool:
     if raw is None:
         return SMS_MOCK_RETURN_CODE
     return raw.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def google_client_id() -> str:
+    return os.environ.get("GOOGLE_CLIENT_ID", GOOGLE_CLIENT_ID).strip()
+
+
+def webauthn_rp_id() -> str:
+    return os.environ.get("WEBAUTHN_RP_ID", WEBAUTHN_RP_ID).strip() or "localhost"
+
+
+def webauthn_rp_name() -> str:
+    return os.environ.get("WEBAUTHN_RP_NAME", WEBAUTHN_RP_NAME).strip() or "PerformanceProtocol"
+
+
+def webauthn_allowed_origins() -> list[str]:
+    raw = os.environ.get("WEBAUTHN_ALLOWED_ORIGINS", WEBAUTHN_ALLOWED_ORIGINS)
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
 def load_local_env(path: Path | None = None) -> None:

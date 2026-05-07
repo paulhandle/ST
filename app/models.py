@@ -66,6 +66,19 @@ class SyncStatus(str, Enum):
     FAILED = "failed"
 
 
+class AuthProvider(str, Enum):
+    PHONE = "phone"
+    GOOGLE = "google"
+    PASSKEY = "passkey"
+
+
+class AuthChallengePurpose(str, Enum):
+    OTP_SEND = "otp_send"
+    OTP_VERIFY_FAIL = "otp_verify_fail"
+    PASSKEY_REGISTER = "passkey_register"
+    PASSKEY_LOGIN = "passkey_login"
+
+
 class RaceGoalStatus(str, Enum):
     DRAFT = "draft"
     ACCEPTED = "accepted"
@@ -102,10 +115,64 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    phone: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(20), unique=True, index=True, nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True)
+    display_name: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
+    avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     athletes: Mapped[list["AthleteProfile"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    auth_identities: Mapped[list["AuthIdentity"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    webauthn_credentials: Mapped[list["WebAuthnCredential"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class AuthIdentity(Base):
+    __tablename__ = "auth_identities"
+    __table_args__ = (UniqueConstraint("provider", "provider_subject", name="uq_auth_identity_provider_subject"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
+    provider: Mapped[AuthProvider] = mapped_column(SqlEnum(AuthProvider), index=True)
+    provider_subject: Mapped[str] = mapped_column(String(255), index=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), index=True, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="auth_identities")
+
+
+class WebAuthnCredential(Base):
+    __tablename__ = "webauthn_credentials"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
+    credential_id: Mapped[str] = mapped_column(String(512), unique=True, index=True)
+    public_key: Mapped[bytes] = mapped_column(LargeBinary)
+    sign_count: Mapped[int] = mapped_column(Integer, default=0)
+    transports_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="webauthn_credentials")
+
+
+class AuthChallenge(Base):
+    __tablename__ = "auth_challenges"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    purpose: Mapped[AuthChallengePurpose] = mapped_column(SqlEnum(AuthChallengePurpose), index=True)
+    subject: Mapped[str] = mapped_column(String(255), index=True)
+    challenge: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(80), index=True, nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    consumed: Mapped[bool] = mapped_column(Boolean, default=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
 class OTPCode(Base):

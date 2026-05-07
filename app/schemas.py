@@ -776,8 +776,44 @@ class VerifyOTPResponse(BaseModel):
     is_new_user: bool
 
 
+class GoogleLoginRequest(BaseModel):
+    id_token: str = Field(min_length=10)
+
+
+class PasskeyRegistrationStartResponse(BaseModel):
+    options: dict
+
+
+class PasskeyRegistrationFinishRequest(BaseModel):
+    credential: dict
+    name: str | None = Field(default=None, max_length=120)
+
+
+class PasskeyAuthenticationStartRequest(BaseModel):
+    email: str | None = Field(default=None, max_length=255)
+
+
+class PasskeyAuthenticationStartResponse(BaseModel):
+    options: dict
+
+
+class PasskeyAuthenticationFinishRequest(BaseModel):
+    credential: dict
+
+
+class PhoneLinkStartRequest(SendOTPRequest):
+    pass
+
+
+class PhoneLinkFinishRequest(VerifyOTPRequest):
+    pass
+
+
 class UserOut(BaseModel):
     id: int
-    phone: str
+    phone: str | None = None
+    email: str | None = None
+    display_name: str | None = None
+    avatar_url: str | None = None
 
     model_config = {"from_attributes": True}

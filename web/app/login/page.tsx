@@ -9,10 +9,15 @@ import { DIALING_REGIONS, dialingRegionFor } from '@/lib/i18n/countryCodes'
 import { useI18n } from '@/lib/i18n/I18nProvider'
 
 type Step = 'phone' | 'otp'
+type LoginMode = 'primary' | 'sms'
 
 const COPY = {
   en: {
     tagline: 'Endurance performance system',
+    google: 'Continue with Google',
+    passkey: 'Sign in with passkey',
+    smsFallback: 'Use phone code instead',
+    primaryError: 'This sign-in method is not configured yet.',
     countryCode: 'Country/region code',
     phone: 'Phone number',
     otp: 'Verification code',
@@ -26,6 +31,10 @@ const COPY = {
   },
   zh: {
     tagline: '耐力表现系统',
+    google: '使用 Google 登录',
+    passkey: '使用 Passkey 登录',
+    smsFallback: '使用短信验证码',
+    primaryError: '这个登录方式还没有配置。',
     countryCode: '国家/地区区号',
     phone: '手机号',
     otp: '验证码',
@@ -44,6 +53,7 @@ export default function LoginPage() {
   const { language, setLanguage } = useI18n()
   const t = COPY[language]
   const [step, setStep] = useState<Step>('phone')
+  const [mode, setMode] = useState<LoginMode>('primary')
   const [countryCode, setCountryCode] = useState('+86')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
@@ -77,6 +87,33 @@ export default function LoginPage() {
         return
       }
       setStep('otp')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function unavailablePrimaryMethod() {
+    setError(t.primaryError)
+  }
+
+  async function passkeyLogin() {
+    setError(null)
+    setLoading(true)
+    try {
+      if (!window.PublicKeyCredential || !navigator.credentials) {
+        setError(t.primaryError)
+        return
+      }
+      const res = await fetch('/api/auth/passkeys/login/options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (!res.ok) {
+        setError(t.primaryError)
+        return
+      }
+      setError(t.primaryError)
     } finally {
       setLoading(false)
     }
@@ -121,110 +158,134 @@ export default function LoginPage() {
       <div className="annot text-faint" style={{ fontSize: 14, marginBottom: 48 }}>{t.tagline}</div>
 
       <div style={{ width: '100%', maxWidth: 380 }}>
-        <div style={{ marginBottom: 16 }}>
-          <label htmlFor="country-code" className="hand" style={labelStyle}>
-            {t.countryCode}
-          </label>
-          <select
-            id="country-code"
-            value={countryCode}
-            onChange={e => setCountryCode(e.target.value)}
-            disabled={step === 'otp'}
-            className="hand"
-            style={{
-              ...inputStyle,
-              opacity: step === 'otp' ? 0.6 : 1,
-            }}
-          >
-            {DIALING_REGIONS.map(region => (
-              <option key={region.code} value={region.code}>
-                {region.label[language]} ({region.code})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label htmlFor="phone" className="hand" style={labelStyle}>
-            {t.phone}
-          </label>
-          <input
-            id="phone"
-            type="tel"
-            placeholder={selectedRegion.sample}
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            disabled={step === 'otp'}
-            className="hand"
-            style={{
-              ...inputStyle,
-              opacity: step === 'otp' ? 0.6 : 1,
-            }}
-          />
-        </div>
-
-        {step === 'otp' && (
-          <div style={{ marginBottom: 16 }}>
-            <label htmlFor="otp" className="hand" style={labelStyle}>
-              {t.otp}
-            </label>
-            <input
-              id="otp"
-              type="text"
-              inputMode="numeric"
-              placeholder="123456"
-              value={otp}
-              onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              maxLength={6}
-              autoFocus
-              className="hand"
-              style={{
-                ...inputStyle,
-                border: '1px solid var(--accent)',
-                fontSize: 20,
-                letterSpacing: 6,
-              }}
-            />
-          </div>
-        )}
-
-        {error && (
+        {error && mode === 'primary' && (
           <div className="hand" style={{ color: 'var(--accent)', fontSize: 13, marginBottom: 12 }}>
             {error}
           </div>
         )}
-
-        {step === 'phone' ? (
-          <button
-            onClick={sendOtp}
-            disabled={!canSend || loading}
-            style={primaryButtonStyle(canSend)}
-          >
-            {loading ? t.sending : t.send}
-          </button>
-        ) : (
+        {mode === 'primary' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <button
-              onClick={verifyOtp}
-              disabled={otp.length < 6 || loading}
-              style={primaryButtonStyle(otp.length === 6)}
-            >
-              {loading ? t.verifying : t.signIn}
+            <button onClick={unavailablePrimaryMethod} style={secondaryButtonStyle}>
+              {t.google}
+            </button>
+            <button onClick={passkeyLogin} disabled={loading} style={secondaryButtonStyle}>
+              {t.passkey}
             </button>
             <button
-              onClick={() => { setStep('phone'); setOtp(''); setError(null) }}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontFamily: 'var(--font-hand)',
-                fontSize: 13,
-                color: 'var(--ink-faint)',
-                cursor: 'pointer',
-              }}
+              onClick={() => { setMode('sms'); setError(null) }}
+              style={{ ...secondaryButtonStyle, borderStyle: 'dashed', color: 'var(--ink-faint)' }}
             >
-              {t.resend}
+              {t.smsFallback}
             </button>
           </div>
+        ) : (
+          <>
+            <div style={{ marginBottom: 16 }}>
+              <label htmlFor="country-code" className="hand" style={labelStyle}>
+                {t.countryCode}
+              </label>
+              <select
+                id="country-code"
+                value={countryCode}
+                onChange={e => setCountryCode(e.target.value)}
+                disabled={step === 'otp'}
+                className="hand"
+                style={{
+                  ...inputStyle,
+                  opacity: step === 'otp' ? 0.6 : 1,
+                }}
+              >
+                {DIALING_REGIONS.map(region => (
+                  <option key={region.code} value={region.code}>
+                    {region.label[language]} ({region.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label htmlFor="phone" className="hand" style={labelStyle}>
+                {t.phone}
+              </label>
+              <input
+                id="phone"
+                type="tel"
+                placeholder={selectedRegion.sample}
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                disabled={step === 'otp'}
+                className="hand"
+                style={{
+                  ...inputStyle,
+                  opacity: step === 'otp' ? 0.6 : 1,
+                }}
+              />
+            </div>
+
+            {step === 'otp' && (
+              <div style={{ marginBottom: 16 }}>
+                <label htmlFor="otp" className="hand" style={labelStyle}>
+                  {t.otp}
+                </label>
+                <input
+                  id="otp"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="123456"
+                  value={otp}
+                  onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  maxLength={6}
+                  autoFocus
+                  className="hand"
+                  style={{
+                    ...inputStyle,
+                    border: '1px solid var(--accent)',
+                    fontSize: 20,
+                    letterSpacing: 6,
+                  }}
+                />
+              </div>
+            )}
+
+            {error && (
+              <div className="hand" style={{ color: 'var(--accent)', fontSize: 13, marginBottom: 12 }}>
+                {error}
+              </div>
+            )}
+
+            {step === 'phone' ? (
+              <button
+                onClick={sendOtp}
+                disabled={!canSend || loading}
+                style={primaryButtonStyle(canSend)}
+              >
+                {loading ? t.sending : t.send}
+              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <button
+                  onClick={verifyOtp}
+                  disabled={otp.length < 6 || loading}
+                  style={primaryButtonStyle(otp.length === 6)}
+                >
+                  {loading ? t.verifying : t.signIn}
+                </button>
+                <button
+                  onClick={() => { setStep('phone'); setOtp(''); setError(null) }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    fontFamily: 'var(--font-hand)',
+                    fontSize: 13,
+                    color: 'var(--ink-faint)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t.resend}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -263,4 +324,16 @@ function primaryButtonStyle(active: boolean): React.CSSProperties {
     cursor: active ? 'pointer' : 'default',
     transition: 'background 0.15s',
   }
+}
+
+const secondaryButtonStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '14px',
+  background: 'var(--paper)',
+  color: 'var(--ink)',
+  border: '1px solid var(--rule)',
+  borderRadius: 'var(--radius)',
+  fontFamily: 'var(--font-hand)',
+  fontSize: 16,
+  cursor: 'pointer',
 }
