@@ -1,12 +1,12 @@
 import useSWR from 'swr'
 import { fetcher } from '@/lib/api/client'
 import type { DashboardOut } from '@/lib/api/types'
-
-const ATHLETE_ID = 1
+import { getAthleteId } from '@/lib/auth'
 
 export function useDashboard() {
+  const athleteId = getAthleteId()
   const { data, error, isLoading, mutate } = useSWR<DashboardOut>(
-    `/api/athletes/${ATHLETE_ID}/dashboard`,
+    `/api/athletes/${athleteId}/dashboard`,
     fetcher,
     { refreshInterval: 60_000 },
   )

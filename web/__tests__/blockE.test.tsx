@@ -29,11 +29,13 @@ describe('Tab bar', () => {
     expect(screen.queryByText('Protocol')).not.toBeInTheDocument()
   })
 
-  it('shows Overview, This Week, and Plan tabs', () => {
+  it('shows Overview, Plan, and Me tabs without the Week tab', () => {
     render(<TabsLayout><div /></TabsLayout>)
     expect(screen.getByText('Overview')).toBeInTheDocument()
-    expect(screen.getByText('This Week')).toBeInTheDocument()
     expect(screen.getByText('Plan')).toBeInTheDocument()
+    expect(screen.getByText('Me')).toBeInTheDocument()
+    expect(screen.queryByText('This Week')).not.toBeInTheDocument()
+    expect(screen.queryByText('Settings')).not.toBeInTheDocument()
   })
 })
 
@@ -72,6 +74,7 @@ describe('WorkoutDetailPage', () => {
 
 vi.mock('@/lib/auth', () => ({
   getToken: () => 'mock-token',
+  getAthleteId: () => 1,
 }))
 
 describe('PlanGeneratePage', () => {
@@ -169,6 +172,12 @@ describe('ActivitiesPage', () => {
     render(<ActivitiesPage />)
     expect(screen.getByText('跑步 8.0km')).toBeInTheDocument()
     expect(screen.getByText('Long Run')).toBeInTheDocument()
+  })
+
+  it('links real activities to detail and planned rows to workouts', () => {
+    render(<ActivitiesPage />)
+    expect(screen.getByText('跑步 8.0km').closest('a')).toHaveAttribute('href', '/activities/1')
+    expect(screen.getByText('Long Run').closest('a')).toHaveAttribute('href', '/workouts/2026-05-10')
   })
 
   it('renders MonthStrip with today visible', () => {

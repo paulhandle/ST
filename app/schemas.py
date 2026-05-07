@@ -140,6 +140,7 @@ class CorosStatusOut(BaseModel):
     athlete_id: int
     connected: bool
     auth_status: str
+    automation_mode: str = "fake"
     username: str | None = None
     last_login_at: datetime | None = None
     last_import_at: datetime | None = None
@@ -158,6 +159,46 @@ class HistoryImportOut(BaseModel):
     updated_count: int
     metric_count: int = 0
     message: str
+
+
+class CorosSyncStartRequest(BaseModel):
+    athlete_id: int
+
+
+class ProviderSyncJobOut(BaseModel):
+    id: int
+    athlete_id: int
+    provider: str
+    status: str
+    phase: str
+    message: str | None = None
+    total_count: int = 0
+    processed_count: int = 0
+    imported_count: int = 0
+    updated_count: int = 0
+    metric_count: int = 0
+    failed_count: int = 0
+    raw_record_count: int = 0
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error_message: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ProviderSyncEventOut(BaseModel):
+    id: int
+    job_id: int
+    level: str
+    phase: str
+    message: str
+    processed_count: int | None = None
+    total_count: int | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class CalendarDayOut(BaseModel):
@@ -194,6 +235,82 @@ class AthleteActivityOut(BaseModel):
     delta_summary: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class ActivityDetailSampleOut(BaseModel):
+    sample_index: int
+    timestamp: datetime
+    elapsed_sec: float | None = None
+    distance_m: float | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    altitude_m: float | None = None
+    heart_rate: float | None = None
+    cadence: float | None = None
+    speed_mps: float | None = None
+    pace_sec_per_km: float | None = None
+    power_w: float | None = None
+    temperature_c: float | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class ActivityDetailLapOut(BaseModel):
+    lap_index: int
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    duration_sec: float | None = None
+    distance_m: float | None = None
+    avg_hr: float | None = None
+    max_hr: float | None = None
+    min_hr: float | None = None
+    avg_cadence: float | None = None
+    max_cadence: float | None = None
+    avg_speed_mps: float | None = None
+    max_speed_mps: float | None = None
+    avg_power_w: float | None = None
+    elevation_gain_m: float | None = None
+    elevation_loss_m: float | None = None
+    calories: float | None = None
+    avg_temperature_c: float | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class ActivityDetailSourceOut(BaseModel):
+    source_format: str
+    file_size_bytes: int
+    payload_hash: str
+    file_url_host: str | None = None
+    downloaded_at: datetime
+    parsed_at: datetime | None = None
+    stored_sample_count: int
+    stored_lap_count: int
+    warnings: list[str] = []
+
+
+class ActivityDetailRouteBoundsOut(BaseModel):
+    min_latitude: float | None = None
+    max_latitude: float | None = None
+    min_longitude: float | None = None
+    max_longitude: float | None = None
+
+
+class ActivityDetailInterpretationOut(BaseModel):
+    effort_distribution: str
+    pace_consistency: str
+    heart_rate_drift: str
+    data_quality: str
+
+
+class ActivityDetailOut(BaseModel):
+    activity: AthleteActivityOut
+    source: ActivityDetailSourceOut | None = None
+    samples: list[ActivityDetailSampleOut] = []
+    laps: list[ActivityDetailLapOut] = []
+    route_bounds: ActivityDetailRouteBoundsOut
+    interpretation: ActivityDetailInterpretationOut
+    returned_sample_count: int
 
 
 class RunningAssessmentOut(BaseModel):

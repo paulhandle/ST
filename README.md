@@ -8,12 +8,12 @@ The product-facing brand is **PerformanceProtocol**. `ST` remains only as a lega
 
 ## Product Loop
 
-1. Import historical training data and performance metrics from COROS.
-2. Assess current running fitness and target feasibility.
-3. Generate a structured training cycle from a selected training skill.
-4. Let the athlete confirm the plan.
+1. Sign in with phone OTP and complete first-run onboarding.
+2. Connect COROS and import historical training data, FIT detail exports, and performance metrics.
+3. Choose one training skill for the cycle.
+4. Generate and confirm a structured training cycle from that skill, goal, and weekly availability.
 5. Sync confirmed future workouts to the COROS calendar.
-6. Track execution and propose weekly adjustments.
+6. Track execution, inspect activity detail, and propose weekly adjustments.
 
 Legacy generic training-method and mock device-sync endpoints are still present for compatibility.
 
@@ -101,7 +101,7 @@ Local URLs:
 
 ## Environment
 
-Copy `.env.example` to `.env` for local credentials. `.env` is ignored by git.
+Copy `.env.example` to `.env` for local runtime configuration. `.env` is ignored by git.
 
 ```bash
 cp .env.example .env
@@ -113,14 +113,68 @@ Important variables:
 |---|---|
 | `ST_SECRET_KEY` | Legacy env var for JWT signing and local credential encryption. Keep the name for compatibility. |
 | `ST_DATABASE_URL` | Legacy env var for local DB override. Defaults to `sqlite:///st.db`; tests use `sqlite:///st_test.db`. |
-| `COROS_AUTOMATION_MODE` | `fake` for tests/dev; `real` enables the direct COROS API client. |
-| `COROS_USERNAME` / `COROS_PASSWORD` | Local probe credentials only. The app stores user credentials through `/coros/connect`. |
+| `COROS_AUTOMATION_MODE` | Defaults to `real` for the direct COROS API client. Set `fake` only for automated tests or explicit synthetic-data development. COROS account credentials are entered in Settings and stored encrypted in the database, not in `.env`. |
 | `COROS_TRAINING_HUB_URL` | Training Hub probe base URL. |
 | `COROS_HEADLESS` | Set `false` when running browser probes interactively. |
 | `SMS_PROVIDER` | `mock` by default. `dry_run` exercises provider wiring without returning OTP codes. |
 | `SMS_MOCK_RETURN_CODE` | `true` in local/test mock mode to include `otp_code` in responses; set `false` outside local development. |
 | `SMS_API_KEY` / `SMS_API_SECRET` / `SMS_SENDER_ID` | Reserved for the future real SMS vendor adapter. |
 | `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` | Optional LLM configuration for skill personalization and coach interpretation. |
+
+## COROS Real Sync
+
+`COROS_AUTOMATION_MODE` defaults to `real`, which uses the direct COROS API client. Do not put COROS account username/password in `.env`. Enter the account in **Settings -> COROS Sync**; the backend stores the password encrypted in `device_accounts.encrypted_password` and uses it for import/sync jobs. Use `COROS_AUTOMATION_MODE=fake` only for automated tests or deliberate synthetic-data development.
+
+For standalone real-data inspection without starting the web UI:
+
+```bash
+uv run python scripts/coros_real_fetch_probe.py --athlete-id 1
+uv run python scripts/coros_db_inspect.py --athlete-id 1
+uv run python scripts/coros_export_activity_sample.py --athlete-id 1
+uv run python scripts/coros_export_file_probe.py 477263761401479169 --athlete-id 1 --file-types 4,3,1,0
+uv run python scripts/coros_import_fit_export.py var/coros_real_sync/exports/477263761401479169/477263761401479169.fit --athlete-id 1 --provider-activity-id 477263761401479169
+```
+
+`coros_real_fetch_probe.py` first tries the encrypted DB credential for that athlete. If none exists, it prompts for the COROS username/password without echoing the password. Probe output is written under ignored `var/coros_real_sync/`.
+
+`coros_export_file_probe.py` uses the same encrypted DB credential to call the Training Hub export path (`POST /activity/detail/download`) and downloads real `.fit`, `.tcx`, `.gpx`, `.kml`, or `.csv` files under ignored `var/coros_real_sync/exports/`. For production ingestion, the app downloads only `.fit` (`fileType=4`) per activity, archives the raw FIT bytes, and parses GPS, per-sample metrics, and laps from that single file. TCX/GPX/CSV exports are debugging/reference tools only.
+
+`coros_import_fit_export.py` imports a downloaded `.fit` file into the activity detail tables for local review. For example, the current real sample `477263761401479169` imports as 4092 samples and 11 laps.
+
+If old synthetic COROS rows are present in a local database, remove only those tagged fake rows with:
+
+```bash
+uv run python scripts/coros_cleanup_fake_data.py --athlete-id 1 --dry-run
+uv run python scripts/coros_cleanup_fake_data.py --athlete-id 1
+```
+To import a saved probe artifact into the local DB for review:
+
+```bash
+uv run python scripts/coros_import_fetch_file.py var/coros_real_sync/full-fetch-1-YYYYMMDD-HHMMSS.json --athlete-id 1
+```
+
+To debug the COROS detail endpoint for one activity:
+
+```bash
+uv run python scripts/coros_detail_probe.py <label_id> --athlete-id 1 --sport-type 100
+```
+
+COROS data storage:
+
+| Table | What it stores |
+|---|---|
+| `device_accounts` | COROS account state, username, encrypted password, last login/import/sync timestamps, last error. |
+| `provider_sync_jobs` | Full-sync job status, phase, progress counters, imported/updated/metric/raw/failed counts. |
+| `provider_sync_events` | Progress/event log for each sync job, including warnings when a detail endpoint fails. |
+| `provider_raw_records` | Raw COROS endpoint/page/detail payloads, keyed by provider, record type, and provider record id. |
+| `athlete_activities` | Normalized activity rows used by dashboard/history/assessment, with the activity raw payload also stored in `raw_payload_json`. |
+| `activity_laps` | Normalized laps when available from imported activity payloads. |
+| `activity_detail_exports` | Raw FIT export archive and metadata: source format, byte size, payload hash, download/parse timestamps, parser warnings, sample/lap counts. |
+| `activity_detail_samples` | Parsed FIT record samples: timestamp, elapsed seconds, distance, GPS latitude/longitude, altitude, heart rate, cadence, speed/pace, power, temperature, and raw field JSON. |
+| `activity_detail_laps` | Parsed FIT lap records: duration, distance, heart rate, cadence, speed, power, ascent/descent, calories, temperature, and raw field JSON. |
+| `athlete_metric_snapshots` | Normalized metrics such as LTHR, threshold pace, fatigue, marathon prediction, and related dashboard metrics. |
+
+The current full sync fetches all `/activity/query` pages, keeps all sport types, captures dashboard/profile/team/schedule/plan raw payloads where COROS returns them, then downloads one FIT export per discovered activity through `POST /activity/detail/download?labelId=...&sportType=...&fileType=4`. The older `/activity/detail/filter` variants are not used for production detail ingestion because they returned COROS service/parameter errors during real testing.
 
 ## Auth
 
@@ -141,6 +195,12 @@ curl http://127.0.0.1:8000/auth/me \
 
 OTP codes expire after 10 minutes and can be used once. The initial country/region list in the web login selector covers China mainland, United States, United Kingdom, Singapore, Hong Kong SAR, Taiwan, China, Japan, and Australia.
 
+## First-Run Onboarding
+
+After OTP verification, new users complete `/onboarding`. The flow collects COROS credentials, target race information, weekly training availability, and the training skill for the first cycle. Finishing onboarding is intentionally blocking on plan generation: the web app creates the athlete, stores the returned athlete id in `pp_athlete_id`, optionally connects COROS, creates a marathon goal when target data is present, calls `/marathon/plans/generate` with the selected `skill_slug`, confirms the returned plan through `/plans/{id}/confirm`, then routes to `/plan`.
+
+COROS connection failure does not block onboarding because the athlete can reconnect later from Settings. Plan generation failure does block onboarding because an empty Plan tab means the core product flow did not complete.
+
 ## Skills
 
 | Slug | Description | Use Case |
@@ -154,13 +214,15 @@ OTP codes expire after 10 minutes and can be used once. The initial country/regi
 | Route | Purpose |
 |---|---|
 | `/login` | Phone OTP sign-in |
-| `/onboarding` | First-run setup: COROS, goal, training days, confirmation |
+| `/onboarding` | First-run setup: COROS, goal, training days, skill selection, plan generation, confirmation |
 | `/dashboard` | Training overview |
 | `/today` | Redirects to today's workout detail |
-| `/week` | Current-week training calendar |
+| `/week` | Legacy current-week training calendar route; not shown in primary navigation |
 | `/plan` | Plan overview and pending adjustment entry |
 | `/plan/generate` | Plan generation wizard |
 | `/activities` | Calendar strip and activity timeline |
+| `/activities/[id]` | Activity detail with route, metric timelines, laps, interpretation, and FIT source metadata |
+| `/me` | Profile, device sync, language, account, and settings entry points |
 | `/skills` | Skill selection |
 | `/skills/[slug]` | Skill methodology detail |
 | `/adjustments/[id]` | Adjustment detail and apply/reject flow |
@@ -181,8 +243,12 @@ OTP codes expire after 10 minutes and can be used once. The initial country/regi
 - `GET /athletes/{id}/week`
 - `GET /athletes/{id}/history`
 - `GET /athletes/{id}/calendar`
+- `GET /athletes/{id}/activities/{activity_id}`
 - `POST /coros/connect`
 - `POST /coros/import`
+- `POST /coros/sync/start`
+- `GET /coros/sync/jobs/{id}`
+- `GET /coros/sync/jobs/{id}/events`
 - `POST /athletes/{id}/assessment/run`
 - `POST /marathon/goals`
 - `POST /marathon/plans/generate`

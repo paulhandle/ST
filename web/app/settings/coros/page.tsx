@@ -1,39 +1,56 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import useSWR from 'swr'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { fetcher, postJson } from '@/lib/api/client'
-import type { CorosStatusOut, DeviceAccountOut, HistoryImportOut } from '@/lib/api/types'
+import type { CorosStatusOut, DeviceAccountOut, ProviderSyncEventOut, ProviderSyncJobOut } from '@/lib/api/types'
 import { useI18n } from '@/lib/i18n/I18nProvider'
-
-const ATHLETE_ID = 1
+import { getAthleteId } from '@/lib/auth'
 
 export default function CorosSettingsPage() {
-  const router = useRouter()
   const { t, language } = useI18n()
   const c = t.settings.corosSettings
+  const athleteId = getAthleteId()
   const { data: status, isLoading, mutate } = useSWR<CorosStatusOut>(
-    `/api/coros/status?athlete_id=${ATHLETE_ID}`,
+    `/api/coros/status?athlete_id=${athleteId}`,
     fetcher,
   )
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [connecting, setConnecting] = useState(false)
-  const [importing, setImporting] = useState(false)
+  const [startingSync, setStartingSync] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [importResult, setImportResult] = useState<HistoryImportOut | null>(null)
+  const [jobId, setJobId] = useState<number | null>(null)
+
+  const { data: syncJob, mutate: mutateJob } = useSWR<ProviderSyncJobOut>(
+    jobId ? `/api/coros/sync/jobs/${jobId}` : null,
+    fetcher,
+    { refreshInterval: latest => isActiveJob(latest) ? 1200 : 0 },
+  )
+  const { data: syncEvents, mutate: mutateEvents } = useSWR<ProviderSyncEventOut[]>(
+    jobId ? `/api/coros/sync/jobs/${jobId}/events?limit=8` : null,
+    fetcher,
+    { refreshInterval: () => isActiveJob(syncJob) ? 1600 : 0 },
+  )
+
+  useEffect(() => {
+    if (!syncJob) return
+    if (syncJob.status === 'succeeded' || syncJob.status === 'failed') {
+      mutate()
+      mutateEvents()
+    }
+  }, [mutate, mutateEvents, syncJob])
 
   async function connectCoros() {
     setConnecting(true)
     setError(null)
     setMessage(null)
-    setImportResult(null)
     try {
       const account = await postJson<DeviceAccountOut>('/api/coros/connect', {
-        athlete_id: ATHLETE_ID,
+        athlete_id: athleteId,
         username,
         password,
       })
@@ -51,29 +68,31 @@ export default function CorosSettingsPage() {
     }
   }
 
-  async function importHistory() {
-    setImporting(true)
+  async function startFullSync() {
+    setStartingSync(true)
     setError(null)
     setMessage(null)
-    setImportResult(null)
     try {
-      const result = await postJson<HistoryImportOut>(
-        `/api/coros/import?athlete_id=${ATHLETE_ID}`,
-        { device_type: 'coros' },
-      )
-      setImportResult(result)
+      const job = await postJson<ProviderSyncJobOut>('/api/coros/sync/start', {
+        athlete_id: athleteId,
+      })
+      setJobId(job.id)
       setMessage(c.importSuccess)
-      await mutate()
+      await mutateJob()
+      await mutateEvents()
     } catch (e) {
       setError(formatError(e, c.importFailed))
     } finally {
-      setImporting(false)
+      setStartingSync(false)
     }
   }
 
   const connected = status?.connected ?? false
   const statusLabel = statusLabelFor(status, c)
   const statusColor = connected ? 'var(--ink)' : status?.auth_status === 'failed' ? 'var(--accent)' : 'var(--ink-faint)'
+  const progress = syncJob ? progressFor(syncJob) : 0
+  const syncTitle = syncTitleFor(syncJob, c)
+  const events = syncEvents ? [...syncEvents].reverse() : []
 
   return (
     <div>
@@ -84,8 +103,8 @@ export default function CorosSettingsPage() {
         alignItems: 'center',
         gap: 12,
       }}>
-        <button
-          onClick={() => router.back()}
+        <Link
+          href="/settings"
           aria-label={t.common.back}
           style={{
             background: 'none',
@@ -95,19 +114,34 @@ export default function CorosSettingsPage() {
             color: 'var(--ink-faint)',
             padding: 0,
             lineHeight: 1,
+            textDecoration: 'none',
           }}
         >
           ‹
-        </button>
+        </Link>
         <div>
           <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>{c.title}</div>
           <div className="annot text-faint" style={{ fontSize: 13, marginTop: 4 }}>{c.subtitle}</div>
         </div>
+        <Link
+          href="/settings"
+          aria-label={t.common.close}
+          style={{
+            marginLeft: 'auto',
+            color: 'var(--ink-faint)',
+            textDecoration: 'none',
+            fontSize: 22,
+            lineHeight: 1,
+          }}
+        >
+          ×
+        </Link>
       </div>
 
       <section style={{ borderBottom: '1px solid var(--rule-soft)' }}>
         <SectionLabel>{c.status}</SectionLabel>
         <InfoRow label={c.status} value={isLoading ? t.common.loading : statusLabel} valueColor={statusColor} />
+        <InfoRow label={c.mode} value={status?.automation_mode === 'real' ? c.realMode : c.fakeMode} valueColor={status?.automation_mode === 'real' ? 'var(--ink)' : 'var(--accent)'}/>
         <InfoRow label={c.account} value={status?.username || c.never} />
         <InfoRow label={c.lastLogin} value={formatDateTime(status?.last_login_at, language, c.never)} />
         <InfoRow label={c.lastImport} value={formatDateTime(status?.last_import_at, language, c.never)} />
@@ -150,20 +184,57 @@ export default function CorosSettingsPage() {
         </div>
       </section>
 
-      <section style={{ padding: '16px' }}>
-        <button
-          onClick={importHistory}
-          disabled={!connected || importing}
-          style={secondaryButtonStyle(connected && !importing)}
-        >
-          {importing ? c.importing : c.importHistory}
-        </button>
-        {importResult && (
-          <div className="hand" style={{ fontSize: 13, color: 'var(--ink-faint)', marginTop: 12, lineHeight: 1.6 }}>
-            {c.importSummary} {importResult.imported_count} · {c.updatedSummary} {importResult.updated_count} · {c.metricsSummary} {importResult.metric_count}
-          </div>
+      <section style={{ padding: '16px', borderBottom: '1px solid var(--rule-soft)' }}>
+        <div className="hand" style={{ fontSize: 16, fontWeight: 700 }}>{syncTitle}</div>
+        <div className="annot text-faint" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 6 }}>
+          {syncJob?.message || c.syncIdle}
+        </div>
+        {syncJob && (
+          <>
+            <div
+              aria-label={c.syncTitle}
+              style={{ height: 8, background: 'var(--surface-low)', borderRadius: 4, marginTop: 14, overflow: 'hidden' }}
+            >
+              <div style={{ width: `${progress}%`, height: '100%', background: 'var(--accent)' }} />
+            </div>
+            <div className="hand" style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 8,
+              fontSize: 12,
+              color: 'var(--ink-faint)',
+              marginTop: 12,
+            }}>
+              <Stat label={c.importSummary} value={syncJob.imported_count} />
+              <Stat label={c.updatedSummary} value={syncJob.updated_count} />
+              <Stat label={c.metricsSummary} value={syncJob.metric_count} />
+              <Stat label={c.rawSummary} value={syncJob.raw_record_count} />
+              <Stat label={c.failedSummary} value={syncJob.failed_count} />
+              <Stat label={syncJob.phase} value={`${syncJob.processed_count}/${syncJob.total_count || '...'}`} />
+            </div>
+          </>
         )}
+        <button
+          onClick={startFullSync}
+          disabled={!connected || startingSync || isActiveJob(syncJob)}
+          style={{ ...secondaryButtonStyle(connected && !startingSync && !isActiveJob(syncJob)), marginTop: 16 }}
+        >
+          {startingSync ? c.importing : c.importHistory}
+        </button>
       </section>
+
+      {events.length > 0 && (
+        <section style={{ padding: '16px' }}>
+          <SectionLabelInline>{c.syncEvents}</SectionLabelInline>
+          <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
+            {events.map(event => (
+              <div key={event.id} className="hand" style={{ fontSize: 12, lineHeight: 1.5, color: event.level === 'error' ? 'var(--accent)' : 'var(--ink-faint)' }}>
+                <span style={{ color: 'var(--ink)' }}>{event.phase}</span> · {event.message}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {(message || error) && (
         <div style={{ padding: '0 16px 24px' }}>
@@ -184,6 +255,14 @@ export default function CorosSettingsPage() {
 function SectionLabel({ children }: { children: string }) {
   return (
     <div className="hand text-faint" style={{ fontSize: 12, padding: '14px 16px 6px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+      {children}
+    </div>
+  )
+}
+
+function SectionLabelInline({ children }: { children: string }) {
+  return (
+    <div className="hand text-faint" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
       {children}
     </div>
   )
@@ -213,11 +292,38 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+function Stat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div style={{ border: '1px solid var(--rule-soft)', borderRadius: 'var(--radius)', padding: 8 }}>
+      <div style={{ color: 'var(--ink)', fontWeight: 700 }}>{value}</div>
+      <div>{label}</div>
+    </div>
+  )
+}
+
 function statusLabelFor(status: CorosStatusOut | undefined, c: ReturnType<typeof useI18n>['t']['settings']['corosSettings']) {
   if (!status) return c.disconnected
   if (status.connected) return c.connected
   if (status.auth_status === 'failed') return c.failed
   return c.disconnected
+}
+
+function syncTitleFor(job: ProviderSyncJobOut | undefined, c: ReturnType<typeof useI18n>['t']['settings']['corosSettings']) {
+  if (!job) return c.syncTitle
+  if (job.status === 'succeeded') return c.syncComplete
+  if (job.status === 'failed') return c.syncFailed
+  return c.syncRunning
+}
+
+function progressFor(job: ProviderSyncJobOut) {
+  if (job.status === 'succeeded') return 100
+  if (job.total_count > 0) return Math.max(5, Math.min(95, Math.round((job.processed_count / job.total_count) * 100)))
+  if (job.status === 'running') return 12
+  return 3
+}
+
+function isActiveJob(job: ProviderSyncJobOut | undefined) {
+  return job?.status === 'queued' || job?.status === 'running'
 }
 
 function formatDateTime(value: string | null | undefined, language: 'en' | 'zh', fallback: string) {

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">PerformanceProtocol P squared icon</title>
+  <desc id="desc">Italic P with a superscript 2 on a black and orange square.</desc>
+  <rect width="512" height="512" rx="96" fill="#070707"/>
+  <path d="M84 420L138 92h132c73 0 119 38 119 101 0 84-65 136-161 136h-46l-15 91H84zm112-176h43c41 0 70-20 70-51 0-23-18-36-49-36h-44l-20 87z" fill="#ff6a00" transform="translate(48 0) skewX(-9)"/>
+  <path d="M333 189v-22l55-50c18-16 26-28 26-42 0-16-11-26-29-26-17 0-31 9-44 24l-8-9c14-17 31-28 53-28 26 0 43 16 43 39 0 18-9 32-30 51l-44 40h77v23h-99z" fill="#fff7ed"/>
+</svg>

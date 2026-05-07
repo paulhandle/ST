@@ -290,7 +290,7 @@ def cmd_plan(args):
     username = os.environ.get("COROS_USERNAME", "")
     password = os.environ.get("COROS_PASSWORD", "")
     if not username or not password:
-        _err("COROS_USERNAME / COROS_PASSWORD not set in .env"); sys.exit(1)
+        _err("Export COROS_USERNAME / COROS_PASSWORD in the current shell for this CLI run"); sys.exit(1)
 
     profile = load_profile()
     athlete_name = profile.name if profile.name and profile.name != "Athlete" else args.athlete_name

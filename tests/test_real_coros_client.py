@@ -233,6 +233,89 @@ class TestRealCorosActivityMapping(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             client.fetch_history("user@example.com")
 
+    def test_fetch_full_history_keeps_all_sports_and_all_pages(self):
+        client = self._logged_in_client()
+        old_ts = int(datetime(2024, 1, 10, 8, 0, tzinfo=UTC).timestamp())
+        cycling_item = {
+            **_ACTIVITY_PAGE["data"]["dataList"][0],
+            "labelId": "ride-001",
+            "sportType": 200,
+            "startTime": old_ts,
+            "name": "Old bike ride",
+        }
+        run_item = {
+            **_ACTIVITY_PAGE["data"]["dataList"][0],
+            "labelId": "run-002",
+            "sportType": 100,
+            "startTime": int(datetime(2026, 4, 21, 8, 0, tzinfo=UTC).timestamp()),
+            "name": "Recent run",
+        }
+        page_1 = {"result": "0000", "data": {"dataList": [cycling_item], "totalPage": 2}}
+        page_2 = {"result": "0000", "data": {"dataList": [run_item], "totalPage": 2}}
+        def fake_urlopen(req, timeout=None):
+            url = req.full_url
+            if "pageNumber=1" in url:
+                return _resp(page_1)
+            if "pageNumber=2" in url:
+                return _resp(page_2)
+            if "dashboard/query" in url:
+                return _resp(_DASHBOARD)
+            return _resp({"result": "0000", "data": {}})
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            result = client.fetch_full_history("user@example.com")
+
+        ids = [activity["provider_activity_id"] for activity in result["activities"]]
+        self.assertEqual(["ride-001", "run-002"], ids)
+        self.assertEqual("cycling", result["activities"][0]["sport"])
+        raw_types = [record["record_type"] for record in result["raw_records"]]
+        self.assertEqual(2, raw_types.count("activity_list_page"))
+        self.assertNotIn("activity_detail", raw_types)
+
+    def test_fetch_full_history_uses_list_discovery_without_detail_endpoint(self):
+        client = self._logged_in_client()
+        page_1 = {"result": "0000", "data": {"dataList": [_ACTIVITY_PAGE["data"]["dataList"][0]], "totalPage": 1}}
+
+        def fake_urlopen(req, timeout=None):
+            url = req.full_url
+            if "activity/query" in url:
+                return _resp(page_1)
+            if "dashboard/query" in url:
+                return _resp(_DASHBOARD)
+            return _resp({"result": "0000", "data": {}})
+
+        events: list[dict] = []
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            result = client.fetch_full_history("user@example.com", progress=lambda **event: events.append(event))
+
+        self.assertEqual(1, len(result["activities"]))
+        self.assertEqual("act-001", result["activities"][0]["provider_activity_id"])
+        self.assertEqual(0, result["stats"]["failed_count"])
+        self.assertTrue(any(event["phase"] == "activity_list" for event in events))
+
+    def test_download_activity_fit_export_requests_file_type_4_and_downloads_bytes(self):
+        client = self._logged_in_client()
+        export_response = {"result": "0000", "data": {"fileUrl": "https://download.example.com/activity.fit"}}
+        file_response = MagicMock()
+        file_response.read.return_value = b"FITDATA"
+        file_response.__enter__.return_value = file_response
+        captured_urls: list[str] = []
+
+        def fake_urlopen(req, timeout=None):
+            captured_urls.append(req.full_url)
+            if "activity/detail/download" in req.full_url:
+                return _resp(export_response)
+            return file_response
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            result = client.download_activity_fit_export("act-001", 100)
+
+        self.assertEqual(b"FITDATA", result["data"])
+        self.assertEqual("fit", result["source_format"])
+        self.assertEqual("download.example.com", result["file_url_host"])
+        self.assertIn("fileType=4", captured_urls[0])
+        self.assertIn("labelId=act-001", captured_urls[0])
+
 
 class TestRealCorosSyncWorkouts(unittest.TestCase):
     def _logged_in_client(self) -> RealCorosAutomationClient:

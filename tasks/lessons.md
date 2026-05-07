@@ -36,3 +36,21 @@ These were validated by the user during the MVP+1 design discussion. Apply going
 ## 2026-05-05 — Shared SQLite tests must run sequentially
 
 - Backend unittest classes rebuild the same `st_test.db` with `Base.metadata.drop_all/create_all`. Do not run two backend unittest commands in parallel against that shared SQLite file; parallel runs can produce transient `no such table` or missing-row failures unrelated to the application code.
+
+## 2026-05-05 — COROS account credentials belong in app storage, not env
+
+- Do not document or require `COROS_USERNAME` / `COROS_PASSWORD` as app environment variables. Users enter COROS credentials in Settings, and the backend stores them encrypted in the database for sync jobs. Local probe scripts may still accept temporary env credentials as a developer-only tool, but `.env`, `.env.example`, README app setup, Fly secrets, and production docs must not ask users to put COROS account passwords there.
+
+## 2026-05-06 — Real COROS validation must not default to synthetic data
+
+- For user-facing COROS validation and local product testing, default runtime behavior should use real COROS data when credentials are configured. Keep fake COROS only as an explicit automated-test or synthetic-development mode, and label/remove old fake rows before asking the user to validate captured data.
+- COROS activity list/detail API payloads are not enough for user validation of a real activity. When the user asks for "all data" or checks against Training Hub pages, use the Training Hub export path (`POST /activity/detail/download`) and inspect `.fit/.tcx/.gpx/.csv` exports for GPS, trackpoints, laps, and split data.
+
+## 2026-05-07 — COROS detail production path is FIT-only
+
+- Do not revive `/activity/detail/filter` as the normal detail source unless a fresh real probe proves it returns richer, reliable data. The production detail path should discover activities from `/activity/query`, then download one `.fit` export (`fileType=4`) per activity and parse GPS/time-series/laps from that canonical raw archive. TCX/GPX/CSV are for debugging and manual comparison, not routine sync.
+- Existing local SQLite databases may have application tables without an Alembic version stamp. When a local migration hits "table already exists", do not drop or reset the real review database. Use a non-destructive table creation path for local inspection and keep Alembic migrations valid for clean/prod databases.
+
+## 2026-05-07 — First-run onboarding must create the training plan
+
+- Do not treat onboarding as profile/COROS setup only. The product core is skill selection plus plan generation, so first-run onboarding must load available skills, let the user choose one, call the plan generation API with that `skill_slug`, confirm the generated plan, and route to the plan/dashboard only after a plan exists. A successful onboarding that leaves Plan empty is a broken core flow.

@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import os
-from typing import Protocol
+from typing import Callable, Protocol
+from urllib.parse import urlencode, urlparse
 from uuid import uuid5, NAMESPACE_URL
 
 
@@ -20,6 +21,12 @@ class CorosAutomationClient(Protocol):
         raise NotImplementedError
 
     def fetch_history(self, username: str) -> dict:
+        raise NotImplementedError
+
+    def fetch_full_history(self, username: str, progress: Callable[..., None] | None = None) -> dict:
+        raise NotImplementedError
+
+    def download_activity_fit_export(self, label_id: str, sport_type: int) -> dict:
         raise NotImplementedError
 
     def sync_workouts(self, username: str, workouts: list[dict]) -> list[dict]:
@@ -75,6 +82,85 @@ class RealCorosAutomationClient:
         metrics = self._fetch_metrics()
         return {"activities": activities, "metrics": metrics}
 
+    def fetch_full_history(self, username: str, progress: Callable[..., None] | None = None) -> dict:
+        if not self._token:
+            raise RuntimeError("Not logged in. Call login() first.")
+
+        activities: list[dict] = []
+        raw_records: list[dict] = []
+        failed_count = 0
+
+        page = 1
+        total_pages = 1
+        while page <= total_pages and page <= 1000:
+            endpoint = f"/activity/query?pageNumber={page}&size=20"
+            data = self._get(endpoint)
+            raw_records.append({
+                "record_type": "activity_list_page",
+                "provider_record_id": f"activity.query.page.{page}",
+                "endpoint": endpoint,
+                "payload": data,
+            })
+            items = data.get("dataList", [])
+            total_pages = int(data.get("totalPage") or total_pages or 1)
+            if progress:
+                progress(
+                    phase="activity_list",
+                    level="info",
+                    message=f"Read COROS activity page {page} of {total_pages}",
+                    processed=page,
+                    total=total_pages,
+                )
+
+            for index, item in enumerate(items, start=1):
+                label_id = str(item.get("labelId") or item.get("id") or "")
+                if label_id and progress:
+                    progress(
+                        phase="activity_list",
+                        level="info",
+                        message=f"Discovered COROS activity {label_id}",
+                        processed=(page - 1) * 20 + index,
+                        total=None,
+                    )
+                activities.append(self._map_activity(item))
+
+            page += 1
+
+        metrics, metric_records = self._fetch_metrics_with_raw_records()
+        raw_records.extend(metric_records)
+        if progress:
+            progress(
+                phase="save",
+                level="info",
+                message=f"Fetched {len(activities)} activities and {len(raw_records)} raw COROS records",
+                processed=len(activities),
+                total=len(activities),
+            )
+        return {
+            "activities": activities,
+            "metrics": metrics,
+            "raw_records": raw_records,
+            "stats": {"failed_count": failed_count},
+        }
+
+    def download_activity_fit_export(self, label_id: str, sport_type: int) -> dict:
+        if not self._token:
+            raise RuntimeError("Not logged in. Call login() first.")
+        params = urlencode({"labelId": label_id, "sportType": sport_type, "fileType": 4})
+        response = self._post_data(f"/activity/detail/download?{params}", {})
+        file_url = _extract_file_url(response)
+        if not file_url:
+            raise RuntimeError("COROS FIT export response did not include fileUrl")
+        return {
+            "label_id": label_id,
+            "sport_type": sport_type,
+            "file_type": 4,
+            "source_format": "fit",
+            "file_url": file_url,
+            "file_url_host": urlparse(file_url).netloc,
+            "data": self._download_bytes(file_url),
+        }
+
     def _fetch_activities(self, days_back: int = 365) -> list[dict]:
         from datetime import timezone, timedelta
 
@@ -99,7 +185,7 @@ class RealCorosAutomationClient:
 
         return activities
 
-    def _map_activity(self, item: dict) -> dict:
+    def _map_activity(self, item: dict, detail: dict | None = None) -> dict:
         from datetime import timezone, timedelta
 
         tz_offset_min = item.get("startTimezone", 0) * 15
@@ -118,10 +204,13 @@ class RealCorosAutomationClient:
         avg_power = float(item["avgPower"]) if item.get("avgPower") else None
         training_load = float(item["trainingLoad"]) if item.get("trainingLoad") else None
 
+        sport, discipline = _sport_and_discipline(item.get("sportType"))
+        raw_payload = item if detail is None else {"summary": item, "detail": detail}
+
         return {
             "provider_activity_id": item["labelId"],
-            "sport": "running",
-            "discipline": "run",
+            "sport": sport,
+            "discipline": discipline,
             "started_at": started_at,
             "timezone": _tz_name(tz_offset_min),
             "duration_sec": duration_sec,
@@ -130,23 +219,34 @@ class RealCorosAutomationClient:
             "elevation_gain_m": float(item.get("ascent", 0) or 0),
             "avg_pace_sec_per_km": avg_pace,
             "avg_hr": avg_hr,
-            "max_hr": None,
+            "max_hr": float(item["maxHr"]) if item.get("maxHr") else None,
             "avg_cadence": avg_cadence,
             "avg_power": avg_power,
             "training_load": training_load,
             "perceived_effort": None,
             "feedback_text": item.get("name", ""),
             "laps": [],
-            "raw_payload": item,
+            "raw_payload": raw_payload,
         }
 
     def _fetch_metrics(self) -> list[dict]:
+        metrics, _records = self._fetch_metrics_with_raw_records()
+        return metrics
+
+    def _fetch_metrics_with_raw_records(self) -> tuple[list[dict], list[dict]]:
         from datetime import timezone
 
         metrics = []
+        raw_records = []
         now = datetime.now(tz=timezone.utc)
         try:
             dash = self._get("/dashboard/query")
+            raw_records.append({
+                "record_type": "dashboard",
+                "provider_record_id": "dashboard.query",
+                "endpoint": "/dashboard/query",
+                "payload": dash,
+            })
             summary = dash.get("summaryInfo", {})
             _maybe_metric(metrics, now, summary, "lthr", "lthr", "bpm")
             if summary.get("lthr"):
@@ -182,7 +282,41 @@ class RealCorosAutomationClient:
                     break
         except Exception:
             pass
-        return metrics
+        for endpoint, record_type in [
+            ("/dashboard/detail/query", "dashboard_detail"),
+            ("/profile/private/query", "profile_private"),
+            ("/team/user/teamlist", "team_user_teamlist"),
+            ("/training/plan/query", "training_plan_query"),
+        ]:
+            try:
+                payload = self._get(endpoint)
+                raw_records.append({
+                    "record_type": record_type,
+                    "provider_record_id": endpoint.strip("/").replace("/", "."),
+                    "endpoint": endpoint,
+                    "payload": payload,
+                })
+            except Exception:
+                pass
+        try:
+            today = datetime.now(tz=timezone.utc).strftime("%Y%m%d")
+            schedule_endpoint = f"/training/schedule/query?startDate=20000101&endDate={today}&supportRestExercise=1"
+            payload = self._get(schedule_endpoint)
+            raw_records.append({
+                "record_type": "training_schedule_query",
+                "provider_record_id": "training.schedule.query.full",
+                "endpoint": schedule_endpoint,
+                "payload": payload,
+            })
+        except Exception:
+            pass
+        return metrics, raw_records
+
+    def _fetch_activity_detail(self, label_id: str) -> dict:
+        payload = self._post_data("/activity/detail/filter", {"labelId": label_id})
+        if isinstance(payload, dict):
+            return payload
+        return {"payload": payload}
 
     def _get(self, path: str) -> dict:
         import json
@@ -397,6 +531,19 @@ class RealCorosAutomationClient:
         with urllib.request.urlopen(req, timeout=20) as resp:
             return json.loads(resp.read())
 
+    def _post_data(self, path: str, body: dict) -> dict:
+        result = self._post(path, body)
+        if result.get("result") != "0000":
+            raise RuntimeError(f"COROS API {path}: {result.get('message')}")
+        return result.get("data", {})
+
+    def _download_bytes(self, url: str) -> bytes:
+        import urllib.request
+
+        req = urllib.request.Request(url, headers={"User-Agent": "COROS-Training-Hub/1.0"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return resp.read()
+
 
 def _tz_name(offset_min: int) -> str:
     h, m = divmod(abs(offset_min), 60)
@@ -414,6 +561,34 @@ def _maybe_metric(metrics: list, now, src: dict, src_key: str, metric_type: str,
             "unit": unit,
             "raw_payload": {"source": "coros_dashboard"},
         })
+
+
+def _sport_and_discipline(sport_type: object) -> tuple[str, str]:
+    try:
+        value = int(sport_type)
+    except (TypeError, ValueError):
+        return "unknown", "unknown"
+    if value in {100, 101, 102}:
+        return "running", "run"
+    if value in {200, 201, 202, 203}:
+        return "cycling", "ride"
+    if value in {300, 301, 302}:
+        return "swimming", "swim"
+    if value in {400, 401, 402}:
+        return "strength", "strength"
+    return "other", "other"
+
+
+def _extract_file_url(response: dict) -> str:
+    if not isinstance(response, dict):
+        return ""
+    if isinstance(response.get("data"), dict) and response["data"].get("fileUrl"):
+        return str(response["data"]["fileUrl"])
+    if isinstance(response.get("value"), dict) and response["value"].get("fileUrl"):
+        return str(response["value"]["fileUrl"])
+    if response.get("fileUrl"):
+        return str(response["fileUrl"])
+    return ""
 
 
 
@@ -502,6 +677,32 @@ class FakeCorosAutomationClient:
         ]
         return {"activities": activities, "metrics": metrics}
 
+    def fetch_full_history(self, username: str, progress: Callable[..., None] | None = None) -> dict:
+        history = self.fetch_history(username)
+        if progress:
+            progress(
+                phase="save",
+                level="info",
+                message=f"Generated {len(history['activities'])} fake COROS activities",
+                processed=len(history["activities"]),
+                total=len(history["activities"]),
+            )
+        return {
+            **history,
+            "raw_records": [
+                {
+                    "record_type": "fake_history",
+                    "provider_record_id": f"fake.history.{username}",
+                    "endpoint": "fake://coros/history",
+                    "payload": history,
+                }
+            ],
+            "stats": {"failed_count": 0},
+        }
+
+    def download_activity_fit_export(self, label_id: str, sport_type: int) -> dict:
+        raise RuntimeError("Fake COROS client does not provide FIT exports")
+
     def sync_workouts(self, username: str, workouts: list[dict]) -> list[dict]:
         results = []
         for workout in workouts:
@@ -520,7 +721,7 @@ class FakeCorosAutomationClient:
 
 
 def coros_automation_client() -> CorosAutomationClient:
-    mode = os.environ.get("COROS_AUTOMATION_MODE", "fake").strip().lower()
+    mode = os.environ.get("COROS_AUTOMATION_MODE", "real").strip().lower()
     if mode == "real":
         return RealCorosAutomationClient()
     return FakeCorosAutomationClient()

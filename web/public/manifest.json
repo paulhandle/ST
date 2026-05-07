@@ -4,7 +4,14 @@
   "description": "Endurance training plans, execution tracking, device sync, and adaptive feedback.",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#fafaf6",
-  "theme_color": "#fafaf6",
-  "icons": []
+  "background_color": "#070707",
+  "theme_color": "#070707",
+  "icons": [
+    {
+      "src": "/icons/pp-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }

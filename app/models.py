@@ -12,6 +12,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -137,7 +138,16 @@ class AthleteProfile(Base):
     activities: Mapped[list["AthleteActivity"]] = relationship(
         back_populates="athlete", cascade="all, delete-orphan"
     )
+    activity_detail_exports: Mapped[list["ActivityDetailExport"]] = relationship(
+        back_populates="athlete", cascade="all, delete-orphan"
+    )
     metric_snapshots: Mapped[list["AthleteMetricSnapshot"]] = relationship(
+        back_populates="athlete", cascade="all, delete-orphan"
+    )
+    provider_raw_records: Mapped[list["ProviderRawRecord"]] = relationship(
+        back_populates="athlete", cascade="all, delete-orphan"
+    )
+    provider_sync_jobs: Mapped[list["ProviderSyncJob"]] = relationship(
         back_populates="athlete", cascade="all, delete-orphan"
     )
     race_goals: Mapped[list["RaceGoal"]] = relationship(back_populates="athlete", cascade="all, delete-orphan")
@@ -268,6 +278,15 @@ class AthleteActivity(Base):
 
     athlete: Mapped["AthleteProfile"] = relationship(back_populates="activities")
     laps: Mapped[list["ActivityLap"]] = relationship(back_populates="activity", cascade="all, delete-orphan")
+    detail_exports: Mapped[list["ActivityDetailExport"]] = relationship(
+        back_populates="activity", cascade="all, delete-orphan", order_by="ActivityDetailExport.id"
+    )
+    detail_samples: Mapped[list["ActivityDetailSample"]] = relationship(
+        back_populates="activity", cascade="all, delete-orphan", order_by="ActivityDetailSample.sample_index"
+    )
+    detail_laps: Mapped[list["ActivityDetailLap"]] = relationship(
+        back_populates="activity", cascade="all, delete-orphan", order_by="ActivityDetailLap.lap_index"
+    )
     matched_workout: Mapped[Optional["StructuredWorkout"]] = relationship(foreign_keys=[matched_workout_id])
 
 
@@ -286,6 +305,92 @@ class ActivityLap(Base):
     activity: Mapped["AthleteActivity"] = relationship(back_populates="laps")
 
 
+class ActivityDetailExport(Base):
+    __tablename__ = "activity_detail_exports"
+    __table_args__ = (
+        UniqueConstraint("activity_id", "source_format", name="uq_activity_detail_export_format"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    athlete_id: Mapped[int] = mapped_column(ForeignKey("athlete_profiles.id"), index=True)
+    activity_id: Mapped[int] = mapped_column(ForeignKey("athlete_activities.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(40), index=True)
+    provider_activity_id: Mapped[str] = mapped_column(String(160), index=True)
+    source_format: Mapped[str] = mapped_column(String(20), default="fit")
+    file_size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    payload_hash: Mapped[str] = mapped_column(String(64), default="")
+    file_url_host: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    downloaded_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), index=True)
+    parsed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    sample_count: Mapped[int] = mapped_column(Integer, default=0)
+    lap_count: Mapped[int] = mapped_column(Integer, default=0)
+    warnings_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    raw_file_bytes: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
+
+    athlete: Mapped["AthleteProfile"] = relationship(back_populates="activity_detail_exports")
+    activity: Mapped["AthleteActivity"] = relationship(back_populates="detail_exports")
+
+
+class ActivityDetailSample(Base):
+    __tablename__ = "activity_detail_samples"
+    __table_args__ = (
+        UniqueConstraint("activity_id", "sample_index", name="uq_activity_detail_sample_index"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    activity_id: Mapped[int] = mapped_column(ForeignKey("athlete_activities.id"), index=True)
+    sample_index: Mapped[int] = mapped_column(Integer)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, index=True)
+    elapsed_sec: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    distance_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    altitude_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    heart_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    cadence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    speed_mps: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    pace_sec_per_km: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    power_w: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    temperature_c: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    raw_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    activity: Mapped["AthleteActivity"] = relationship(back_populates="detail_samples")
+
+
+class ActivityDetailLap(Base):
+    __tablename__ = "activity_detail_laps"
+    __table_args__ = (
+        UniqueConstraint("activity_id", "lap_index", name="uq_activity_detail_lap_index"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    activity_id: Mapped[int] = mapped_column(ForeignKey("athlete_activities.id"), index=True)
+    lap_index: Mapped[int] = mapped_column(Integer)
+    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    duration_sec: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    distance_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_hr: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    max_hr: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    min_hr: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_cadence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    max_cadence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_speed_mps: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    max_speed_mps: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_power_w: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    elevation_gain_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    elevation_loss_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    calories: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_temperature_c: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    raw_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    activity: Mapped["AthleteActivity"] = relationship(back_populates="detail_laps")
+
+
 class AthleteMetricSnapshot(Base):
     __tablename__ = "athlete_metric_snapshots"
 
@@ -299,6 +404,77 @@ class AthleteMetricSnapshot(Base):
     raw_payload_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     athlete: Mapped["AthleteProfile"] = relationship(back_populates="metric_snapshots")
+
+
+class ProviderSyncJob(Base):
+    __tablename__ = "provider_sync_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    athlete_id: Mapped[int] = mapped_column(ForeignKey("athlete_profiles.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(40), index=True)
+    status: Mapped[str] = mapped_column(String(40), default="queued", index=True)
+    phase: Mapped[str] = mapped_column(String(80), default="queued")
+    message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    total_count: Mapped[int] = mapped_column(Integer, default=0)
+    processed_count: Mapped[int] = mapped_column(Integer, default=0)
+    imported_count: Mapped[int] = mapped_column(Integer, default=0)
+    updated_count: Mapped[int] = mapped_column(Integer, default=0)
+    metric_count: Mapped[int] = mapped_column(Integer, default=0)
+    failed_count: Mapped[int] = mapped_column(Integer, default=0)
+    raw_record_count: Mapped[int] = mapped_column(Integer, default=0)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
+
+    athlete: Mapped["AthleteProfile"] = relationship(back_populates="provider_sync_jobs")
+    events: Mapped[list["ProviderSyncEvent"]] = relationship(
+        back_populates="job", cascade="all, delete-orphan", order_by="ProviderSyncEvent.id"
+    )
+    raw_records: Mapped[list["ProviderRawRecord"]] = relationship(back_populates="sync_job")
+
+
+class ProviderSyncEvent(Base):
+    __tablename__ = "provider_sync_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("provider_sync_jobs.id"), index=True)
+    level: Mapped[str] = mapped_column(String(20), default="info")
+    phase: Mapped[str] = mapped_column(String(80), default="running")
+    message: Mapped[str] = mapped_column(Text)
+    processed_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    total_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), index=True)
+
+    job: Mapped["ProviderSyncJob"] = relationship(back_populates="events")
+
+
+class ProviderRawRecord(Base):
+    __tablename__ = "provider_raw_records"
+    __table_args__ = (
+        UniqueConstraint("provider", "record_type", "provider_record_id", name="uq_provider_raw_record"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    athlete_id: Mapped[int] = mapped_column(ForeignKey("athlete_profiles.id"), index=True)
+    sync_job_id: Mapped[Optional[int]] = mapped_column(ForeignKey("provider_sync_jobs.id"), nullable=True, index=True)
+    provider: Mapped[str] = mapped_column(String(40), index=True)
+    record_type: Mapped[str] = mapped_column(String(80), index=True)
+    provider_record_id: Mapped[str] = mapped_column(String(220), index=True)
+    endpoint: Mapped[Optional[str]] = mapped_column(String(240), nullable=True)
+    payload_hash: Mapped[str] = mapped_column(String(64))
+    payload_json: Mapped[str] = mapped_column(Text)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
+
+    athlete: Mapped["AthleteProfile"] = relationship(back_populates="provider_raw_records")
+    sync_job: Mapped[Optional["ProviderSyncJob"]] = relationship(back_populates="raw_records")
 
 
 class RaceGoal(Base):

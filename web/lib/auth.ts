@@ -1,4 +1,5 @@
 const TOKEN_KEY = 'st_token'
+const ATHLETE_ID_KEY = 'pp_athlete_id'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30 // 30 days, matches JWT TTL
 
 export function getToken(): string | null {
@@ -19,10 +20,23 @@ export function saveToken(token: string): void {
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(ATHLETE_ID_KEY)
   document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`
 }
 
 export function isAuthenticated(): boolean {
   const t = getToken()
   return !!t && t.length > 0
+}
+
+export function saveAthleteId(athleteId: number): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(ATHLETE_ID_KEY, String(athleteId))
+}
+
+export function getAthleteId(): number {
+  if (typeof window === 'undefined') return 1
+  const raw = localStorage.getItem(ATHLETE_ID_KEY)
+  const parsed = raw ? Number(raw) : 1
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
 }
