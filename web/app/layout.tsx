@@ -21,6 +21,11 @@ export const metadata: Metadata = {
   title: 'PerformanceProtocol',
   description: 'Endurance training plans, execution tracking, device sync, and adaptive feedback for serious athletes.',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/icons/pp-icon.svg',
+    shortcut: '/icons/pp-icon.svg',
+    apple: '/icons/pp-icon.svg',
+  },
 }
 
 export const viewport: Viewport = {

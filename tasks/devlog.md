@@ -1,5 +1,21 @@
 # Dev Log
 
+## 2026-05-07 - P squared app icon
+
+Why: User asked for an icon in the compact `P^2` form. The app already had an inline compact brand mark in navigation, but the browser/PWA manifest still had no real icon asset.
+
+How:
+- Added `web/public/icons/pp-icon.svg`, a black/orange SVG app icon with an italic `P` and a right-superscript `2`.
+- Registered the icon in `web/public/manifest.json` with `sizes: "any"` and `purpose: "any maskable"`.
+- Added Next metadata icon entries in `web/app/layout.tsx` for browser shortcut and app icon use.
+- Added `web/__tests__/manifest.test.ts` to guard that the manifest references the compact P squared icon.
+
+Result:
+- Focused frontend tests passed: `cd web && pnpm test __tests__/manifest.test.ts __tests__/components.test.tsx`.
+- Production build passed: `cd web && pnpm build`.
+- Type-check passed after build regenerated `.next/types`: `cd web && pnpm type-check`.
+- `git diff --check`: pass.
+
 ## 2026-05-07 - First-run onboarding skill selection and plan activation
 
 Why: User reported that after first login they entered COROS credentials and configured their goal, but the Plan tab was still empty. Root cause: onboarding only created an athlete, optionally connected COROS, and attempted a stale goal endpoint. It never exposed the product-core skill choice, never called `/marathon/plans/generate`, never confirmed the generated plan, and most authenticated frontend surfaces still assumed athlete id `1`.

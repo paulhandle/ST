@@ -2,6 +2,19 @@
 
 **Branch:** `feat/coros-full-sync`
 
+## Brand Icon: P Squared App Mark
+
+Objective: add a real app/browser icon using the compact `P²` mark, with italic `P` and right-superscript `2`, so constrained surfaces can use the product icon instead of the full name.
+
+1. [x] Add `web/public/icons/pp-icon.svg` with the black/orange brand palette.
+2. [x] Register the icon in `web/public/manifest.json` and Next metadata.
+3. [x] Add a manifest regression test.
+4. [x] Verify:
+   - `cd web && pnpm test __tests__/manifest.test.ts __tests__/components.test.tsx` -> pass.
+   - `cd web && pnpm build` -> pass.
+   - `cd web && pnpm type-check` -> pass after build regenerated `.next/types`.
+   - `git diff --check` -> pass.
+
 ## Bugfix: First-Run Skill Selection And Plan Creation
 
 Objective: fix the first-login onboarding flow so configuring COROS/goal does not leave the Plan tab empty. Onboarding must expose the available skills, require a skill choice, generate the matching training plan, confirm it, and then route the user into the app with an active plan.
