@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -11,7 +11,8 @@ import os
 
 from app.kb.running_assessment import assess_running_ability
 from app.tools.coros.automation import coros_automation_client
-from app.tools.coros.credentials import encrypt_secret
+from app.tools.coros.credentials import decrypt_secret, encrypt_secret
+from app.tools.coros.full_sync import ACTIVE_SYNC_STATUSES, run_coros_full_sync_job
 from app.tools.coros.sync import sync_confirmed_plan_to_coros
 from app.core.auth import get_current_user
 from app.models import User  # noqa: F401 – used in TYPE_CHECKING context via string annotation
@@ -20,6 +21,9 @@ from app.tools.devices.service import sync_plan_to_device
 from app.ingestion.service import import_provider_history
 from app.models import (
     AdjustmentStatus,
+    ActivityDetailExport,
+    ActivityDetailLap,
+    ActivityDetailSample,
     AthleteActivity,
     AthleteMetricSnapshot,
     AthleteProfile,
@@ -28,6 +32,8 @@ from app.models import (
     DeviceType,
     PlanAdjustment,
     PlanStatus,
+    ProviderSyncEvent,
+    ProviderSyncJob,
     RaceGoal,
     SportType,
     StructuredWorkout,
@@ -51,6 +57,12 @@ from app.core.matching import (
 )
 from app.schemas import (
     AdjustmentAffectedWorkout,
+    ActivityDetailInterpretationOut,
+    ActivityDetailLapOut,
+    ActivityDetailOut,
+    ActivityDetailRouteBoundsOut,
+    ActivityDetailSampleOut,
+    ActivityDetailSourceOut,
     AthleteActivityOut,
     CalendarDayOut,
     AthleteCreate,
@@ -59,6 +71,7 @@ from app.schemas import (
     CoachMessageRequest,
     CoachMessageResponse,
     CorosConnectRequest,
+    CorosSyncStartRequest,
     CorosStatusOut,
     DashboardAthleteRef,
     DashboardGoal,
@@ -89,6 +102,8 @@ from app.schemas import (
     PlanSyncOut,
     PlanVolumeCurveOut,
     PlanVolumeCurvePoint,
+    ProviderSyncEventOut,
+    ProviderSyncJobOut,
     ProviderSyncRecordOut,
     RaceGoalOut,
     RegenerateFromTodayOut,
@@ -292,13 +307,20 @@ def connect_coros(request: CorosConnectRequest, db: Session = Depends(get_db), _
 
 @router.get("/coros/status", response_model=CorosStatusOut)
 def coros_status(athlete_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
+    mode = os.environ.get("COROS_AUTOMATION_MODE", "real").strip().lower() or "real"
     account = _device_account(db, athlete_id, DeviceType.COROS)
     if account is None:
-        return CorosStatusOut(athlete_id=athlete_id, connected=False, auth_status="disconnected")
+        return CorosStatusOut(
+            athlete_id=athlete_id,
+            connected=False,
+            auth_status="disconnected",
+            automation_mode=mode,
+        )
     return CorosStatusOut(
         athlete_id=athlete_id,
         connected=account.auth_status == "connected",
         auth_status=account.auth_status,
+        automation_mode=mode,
         username=account.username,
         last_login_at=account.last_login_at,
         last_import_at=account.last_import_at,
@@ -310,6 +332,71 @@ def coros_status(athlete_id: int, db: Session = Depends(get_db), _user: "User" =
 @router.post("/coros/import", response_model=HistoryImportOut)
 def import_coros_history(request: HistoryImportRequest, athlete_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     return _import_history(db=db, athlete_id=athlete_id, device_type=DeviceType.COROS)
+
+
+@router.post("/coros/sync/start", response_model=ProviderSyncJobOut)
+def start_coros_full_sync(
+    request: CorosSyncStartRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _user: "User" = Depends(get_current_user),
+):
+    _athlete_or_404(db, request.athlete_id)
+    account = _device_account(db, request.athlete_id, DeviceType.COROS)
+    if account is None or account.auth_status != "connected" or not account.encrypted_password:
+        raise HTTPException(status_code=400, detail="COROS account not connected")
+
+    active_job = db.execute(
+        select(ProviderSyncJob)
+        .where(
+            ProviderSyncJob.athlete_id == request.athlete_id,
+            ProviderSyncJob.provider == "coros",
+            ProviderSyncJob.status.in_(ACTIVE_SYNC_STATUSES),
+        )
+        .order_by(ProviderSyncJob.id.desc())
+        .limit(1)
+    ).scalars().first()
+    if active_job is not None:
+        return active_job
+
+    job = ProviderSyncJob(
+        athlete_id=request.athlete_id,
+        provider="coros",
+        status="queued",
+        phase="queued",
+        message="Queued COROS full sync",
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    background_tasks.add_task(run_coros_full_sync_job, job.id)
+    return job
+
+
+@router.get("/coros/sync/jobs/{job_id}", response_model=ProviderSyncJobOut)
+def get_coros_sync_job(job_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
+    job = db.get(ProviderSyncJob, job_id)
+    if job is None or job.provider != "coros":
+        raise HTTPException(status_code=404, detail="Sync job not found")
+    return job
+
+
+@router.get("/coros/sync/jobs/{job_id}/events", response_model=list[ProviderSyncEventOut])
+def get_coros_sync_events(
+    job_id: int,
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    _user: "User" = Depends(get_current_user),
+):
+    job = db.get(ProviderSyncJob, job_id)
+    if job is None or job.provider != "coros":
+        raise HTTPException(status_code=404, detail="Sync job not found")
+    return db.execute(
+        select(ProviderSyncEvent)
+        .where(ProviderSyncEvent.job_id == job_id)
+        .order_by(ProviderSyncEvent.id.desc())
+        .limit(limit)
+    ).scalars().all()
 
 
 @router.post("/athletes/{athlete_id}/history/import", response_model=HistoryImportOut)
@@ -326,6 +413,53 @@ def get_history(athlete_id: int, db: Session = Depends(get_db), _user: "User" = 
         .order_by(AthleteActivity.started_at.desc())
     ).scalars().all()
     return [_activity_with_match(db, a) for a in activities]
+
+
+@router.get("/athletes/{athlete_id}/activities/{activity_id}", response_model=ActivityDetailOut)
+def get_activity_detail(
+    athlete_id: int,
+    activity_id: int,
+    sample_limit: int = Query(default=800, ge=100, le=5000),
+    db: Session = Depends(get_db),
+    _user: "User" = Depends(get_current_user),
+) -> ActivityDetailOut:
+    _athlete_or_404(db, athlete_id)
+    activity = db.execute(
+        select(AthleteActivity)
+        .where(AthleteActivity.id == activity_id)
+        .where(AthleteActivity.athlete_id == athlete_id)
+        .options(selectinload(AthleteActivity.matched_workout))
+    ).scalar_one_or_none()
+    if activity is None:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    export = db.execute(
+        select(ActivityDetailExport)
+        .where(ActivityDetailExport.activity_id == activity.id)
+        .where(ActivityDetailExport.source_format == "fit")
+        .order_by(ActivityDetailExport.downloaded_at.desc(), ActivityDetailExport.id.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    sample_rows = db.execute(
+        select(ActivityDetailSample)
+        .where(ActivityDetailSample.activity_id == activity.id)
+        .order_by(ActivityDetailSample.sample_index.asc())
+    ).scalars().all()
+    lap_rows = db.execute(
+        select(ActivityDetailLap)
+        .where(ActivityDetailLap.activity_id == activity.id)
+        .order_by(ActivityDetailLap.lap_index.asc())
+    ).scalars().all()
+    selected_samples = _downsample_samples(sample_rows, sample_limit)
+    return ActivityDetailOut(
+        activity=_activity_with_match(db, activity),
+        source=_activity_detail_source(export),
+        samples=[ActivityDetailSampleOut.model_validate(sample) for sample in selected_samples],
+        laps=[ActivityDetailLapOut.model_validate(lap) for lap in lap_rows],
+        route_bounds=_route_bounds(sample_rows),
+        interpretation=_activity_interpretation(activity, sample_rows, lap_rows, export),
+        returned_sample_count=len(selected_samples),
+    )
 
 
 @router.get("/athletes/{athlete_id}/assessment", response_model=RunningAssessmentOut)
@@ -449,19 +583,19 @@ def _import_history(db: Session, athlete_id: int, device_type: DeviceType) -> Hi
 
     if device_type == DeviceType.COROS:
         account = _device_account(db, athlete_id, DeviceType.COROS)
-        if account is None:
-            account = DeviceAccount(
-                athlete_id=athlete_id,
-                device_type=DeviceType.COROS,
-                external_user_id=f"coros_user_{athlete_id}",
-                username=f"coros_user_{athlete_id}",
-                encrypted_password=encrypt_secret("local-fake-password"),
-                auth_status="connected",
-            )
-            db.add(account)
-            db.flush()
+        if account is None or account.auth_status != "connected" or not account.encrypted_password:
+            raise HTTPException(status_code=400, detail="COROS account not connected")
         client = coros_automation_client()
-        history = client.fetch_history(account.username or account.external_user_id)
+        username = account.username or account.external_user_id
+        password = decrypt_secret(account.encrypted_password)
+        login = client.login(username, password)
+        if not login.ok:
+            account.auth_status = "failed"
+            account.last_error = login.message
+            db.commit()
+            raise HTTPException(status_code=400, detail=login.message)
+        account.last_login_at = datetime.now(UTC)
+        history = client.fetch_history(username)
     else:
         client = coros_automation_client()
         history = client.fetch_history(f"{provider}_user_{athlete_id}")
@@ -1225,6 +1359,106 @@ def _activity_with_match(db: Session, activity: AthleteActivity) -> AthleteActiv
         base["delta_summary"] = None
 
     return AthleteActivityOut(**base)
+
+
+def _downsample_samples(samples: list[ActivityDetailSample], limit: int) -> list[ActivityDetailSample]:
+    if len(samples) <= limit:
+        return samples
+    last = len(samples) - 1
+    indices = [round(i * last / (limit - 1)) for i in range(limit)]
+    return [samples[index] for index in indices]
+
+
+def _activity_detail_source(export: ActivityDetailExport | None) -> ActivityDetailSourceOut | None:
+    if export is None:
+        return None
+    warnings: list[str] = []
+    if export.warnings_json:
+        try:
+            parsed = json.loads(export.warnings_json)
+            if isinstance(parsed, list):
+                warnings = [str(item) for item in parsed]
+        except json.JSONDecodeError:
+            warnings = [export.warnings_json]
+    return ActivityDetailSourceOut(
+        source_format=export.source_format,
+        file_size_bytes=export.file_size_bytes,
+        payload_hash=export.payload_hash,
+        file_url_host=export.file_url_host,
+        downloaded_at=export.downloaded_at,
+        parsed_at=export.parsed_at,
+        stored_sample_count=export.sample_count,
+        stored_lap_count=export.lap_count,
+        warnings=warnings,
+    )
+
+
+def _route_bounds(samples: list[ActivityDetailSample]) -> ActivityDetailRouteBoundsOut:
+    gps = [sample for sample in samples if sample.latitude is not None and sample.longitude is not None]
+    if not gps:
+        return ActivityDetailRouteBoundsOut()
+    latitudes = [float(sample.latitude) for sample in gps if sample.latitude is not None]
+    longitudes = [float(sample.longitude) for sample in gps if sample.longitude is not None]
+    return ActivityDetailRouteBoundsOut(
+        min_latitude=min(latitudes),
+        max_latitude=max(latitudes),
+        min_longitude=min(longitudes),
+        max_longitude=max(longitudes),
+    )
+
+
+def _activity_interpretation(
+    activity: AthleteActivity,
+    samples: list[ActivityDetailSample],
+    laps: list[ActivityDetailLap],
+    export: ActivityDetailExport | None,
+) -> ActivityDetailInterpretationOut:
+    gps_count = sum(1 for sample in samples if sample.latitude is not None and sample.longitude is not None)
+    hr_samples = [float(sample.heart_rate) for sample in samples if sample.heart_rate is not None]
+    pace_samples = [
+        float(sample.pace_sec_per_km)
+        for sample in samples
+        if sample.pace_sec_per_km is not None and 120 <= float(sample.pace_sec_per_km) <= 900
+    ]
+    effort = "No heart-rate stream was parsed from this activity."
+    if hr_samples:
+        avg_hr = sum(hr_samples) / len(hr_samples)
+        max_hr = max(hr_samples)
+        effort = f"Average heart rate {avg_hr:.0f} bpm with peak {max_hr:.0f} bpm across {len(hr_samples)} samples."
+    consistency = "Pace consistency cannot be calculated without valid pace samples."
+    if pace_samples:
+        mean_pace = sum(pace_samples) / len(pace_samples)
+        variance = sum((value - mean_pace) ** 2 for value in pace_samples) / len(pace_samples)
+        spread = variance ** 0.5
+        consistency = f"Second-by-second pace variability is {spread:.0f} sec/km around a {mean_pace:.0f} sec/km mean."
+    drift = "Heart-rate drift needs both heart-rate and pace streams."
+    if len(hr_samples) >= 20 and len(pace_samples) >= 20:
+        midpoint = len(samples) // 2
+        first_hr = _avg([sample.heart_rate for sample in samples[:midpoint]])
+        second_hr = _avg([sample.heart_rate for sample in samples[midpoint:]])
+        if first_hr and second_hr:
+            drift = f"Heart rate changed from {first_hr:.0f} bpm in the first half to {second_hr:.0f} bpm in the second half."
+    quality = (
+        f"Parsed {len(samples)} samples, {gps_count} GPS points, and {len(laps)} laps"
+        f" from {export.source_format.upper() if export else 'no export'} source."
+    )
+    if export and export.warnings_json not in (None, "[]"):
+        quality += " Parser warnings are available in the source section."
+    if not activity.distance_m:
+        quality += " Activity summary distance is missing."
+    return ActivityDetailInterpretationOut(
+        effort_distribution=effort,
+        pace_consistency=consistency,
+        heart_rate_drift=drift,
+        data_quality=quality,
+    )
+
+
+def _avg(values: list[float | None]) -> float | None:
+    numeric = [float(value) for value in values if value is not None]
+    if not numeric:
+        return None
+    return sum(numeric) / len(numeric)
 
 
 def _compute_recovery_recommendation(

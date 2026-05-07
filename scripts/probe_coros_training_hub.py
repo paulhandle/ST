@@ -20,7 +20,7 @@ def main() -> int:
     headless = os.environ.get("COROS_HEADLESS", "false").lower() in {"1", "true", "yes"}
 
     if not username or not password:
-        print("Missing COROS_USERNAME or COROS_PASSWORD. Put them in local .env first.")
+        print("Missing COROS_USERNAME or COROS_PASSWORD. Export them in the current shell for this probe only.")
         return 2
 
     try:

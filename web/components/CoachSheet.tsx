@@ -5,8 +5,7 @@ import useSWR from 'swr'
 import { fetcher, postJson } from '@/lib/api/client'
 import type { CoachMessage } from '@/lib/api/types'
 import { useI18n } from '@/lib/i18n/I18nProvider'
-
-const ATHLETE_ID = 1
+import { getAthleteId } from '@/lib/auth'
 
 interface Props {
   open: boolean
@@ -18,9 +17,10 @@ export default function CoachSheet({ open, onClose }: Props) {
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const { t } = useI18n()
+  const athleteId = getAthleteId()
 
   const { data, mutate } = useSWR<CoachMessage[]>(
-    open ? `/api/coach/conversations/${ATHLETE_ID}?limit=50` : null,
+    open ? `/api/coach/conversations/${athleteId}?limit=50` : null,
     fetcher,
   )
 
@@ -32,7 +32,7 @@ export default function CoachSheet({ open, onClose }: Props) {
     setSending(true)
     setText('')
     try {
-      await postJson('/api/coach/message', { athlete_id: ATHLETE_ID, text: msg })
+      await postJson('/api/coach/message', { athlete_id: athleteId, text: msg })
       await mutate()
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
     } finally {

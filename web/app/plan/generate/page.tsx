@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getToken } from '@/lib/auth'
+import { getAthleteId, getToken } from '@/lib/auth'
 import type { RunningAssessmentOut, HistoryImportOut, SkillManifestOut } from '@/lib/api/types'
 import { useI18n } from '@/lib/i18n/I18nProvider'
 import type { AppCopy } from '@/lib/i18n/copy'
-
-const ATHLETE_ID = 1
 
 type Step = 1 | 2 | 3 | 4 | 5
 
@@ -63,9 +61,9 @@ const DEFAULT_SKILL: SkillManifestOut = {
   is_active: true,
 }
 
-function fallbackAssessment(message: string, t: AppCopy): RunningAssessmentOut {
+function fallbackAssessment(message: string, t: AppCopy, athleteId: number): RunningAssessmentOut {
   return {
-    athlete_id: ATHLETE_ID,
+    athlete_id: athleteId,
     overall_score: 20,
     readiness_level: 'low',
     safe_weekly_distance_range_km: [15, 25],
@@ -112,6 +110,7 @@ export default function PlanGeneratePage() {
   const router = useRouter()
   const [s, setS] = useState<WizardState>(INIT)
   const { t } = useI18n()
+  const athleteId = getAthleteId()
 
   function patch(p: Partial<WizardState>) {
     setS(prev => ({ ...prev, ...p }))
@@ -123,7 +122,7 @@ export default function PlanGeneratePage() {
     const token = getToken()
     patch({ loading: true, error: null, step: 1 })
     let importResult: HistoryImportOut = {
-      athlete_id: ATHLETE_ID,
+      athlete_id: athleteId,
       provider: 'coros',
       imported_count: 0,
       updated_count: 0,
@@ -133,7 +132,7 @@ export default function PlanGeneratePage() {
     let warning: string | null = null
 
     try {
-      const importRes = await fetch(`/api/coros/import?athlete_id=${ATHLETE_ID}`, {
+      const importRes = await fetch(`/api/coros/import?athlete_id=${athleteId}`, {
         method: 'POST',
         headers: authHdr(token),
         body: JSON.stringify({ device_type: 'coros' }),
@@ -150,7 +149,7 @@ export default function PlanGeneratePage() {
     let assessment: RunningAssessmentOut
     try {
       const assessRes = await fetch(
-        `/api/athletes/${ATHLETE_ID}/assessment/run?target_time_sec=14400&plan_weeks=16&weekly_training_days=5`,
+        `/api/athletes/${athleteId}/assessment/run?target_time_sec=14400&plan_weeks=16&weekly_training_days=5`,
         { method: 'POST', headers: authHdr(token) },
       )
       if (!assessRes.ok) throw new Error(t.planGenerate.assessmentFailed)
@@ -160,7 +159,7 @@ export default function PlanGeneratePage() {
     } catch (e) {
       const message = e instanceof Error ? e.message : t.planGenerate.assessmentFailed
       warning = message
-      assessment = fallbackAssessment(message, t)
+      assessment = fallbackAssessment(message, t, athleteId)
     }
 
     let skills: SkillManifestOut[] = [DEFAULT_SKILL]
@@ -198,7 +197,7 @@ export default function PlanGeneratePage() {
         method: 'POST',
         headers: authHdr(token),
         body: JSON.stringify({
-          athlete_id: ATHLETE_ID,
+          athlete_id: athleteId,
           target_time_sec: hmToSec(s.targetH, s.targetM),
           plan_weeks: s.planWeeks,
           skill_slug: s.selectedSkill,

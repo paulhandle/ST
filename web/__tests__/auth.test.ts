@@ -8,7 +8,7 @@ vi.stubGlobal('localStorage', {
   removeItem: (k: string) => { delete store[k] },
 })
 
-import { getToken, saveToken, clearToken, isAuthenticated } from '@/lib/auth'
+import { clearToken, getAthleteId, getToken, isAuthenticated, saveAthleteId, saveToken } from '@/lib/auth'
 
 function getCookieValue(name: string): string | null {
   const match = document.cookie.split('; ').find(p => p.startsWith(`${name}=`))
@@ -56,6 +56,12 @@ describe('clearToken', () => {
     clearToken()
     expect(getCookieValue('st_token')).toBeNull()
   })
+
+  it('removes stored athlete id', () => {
+    store.pp_athlete_id = '42'
+    clearToken()
+    expect(store.pp_athlete_id).toBeUndefined()
+  })
 })
 
 describe('isAuthenticated', () => {
@@ -71,5 +77,16 @@ describe('isAuthenticated', () => {
   it('returns false when token is empty string', () => {
     store['st_token'] = ''
     expect(isAuthenticated()).toBe(false)
+  })
+})
+
+describe('athlete id storage', () => {
+  it('defaults to athlete 1 before onboarding stores an id', () => {
+    expect(getAthleteId()).toBe(1)
+  })
+
+  it('saves and reads the current athlete id', () => {
+    saveAthleteId(42)
+    expect(getAthleteId()).toBe(42)
   })
 })

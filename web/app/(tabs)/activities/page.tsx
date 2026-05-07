@@ -150,10 +150,11 @@ function DayRow({ day, isSelected }: { day: CalendarDay; isSelected: boolean }) 
     label: t.activities.status[day.status] ?? day.status,
   }
   const [, m, d] = day.date.split('-')
+  const href = day.activity_id != null ? `/activities/${day.activity_id}` : `/workouts/${day.date}`
 
   return (
     <Link
-      href={`/workouts/${day.date}`}
+      href={href}
       data-listdate={day.date}
       style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
     >

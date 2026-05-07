@@ -15,15 +15,24 @@ import { useDashboard } from '@/lib/hooks/useDashboard'
 import { useToday } from '@/lib/hooks/useToday'
 import { useWeek } from '@/lib/hooks/useWeek'
 
+const store: Record<string, string> = {}
+vi.stubGlobal('localStorage', {
+  getItem: (k: string) => store[k] ?? null,
+  setItem: (k: string, v: string) => { store[k] = v },
+  removeItem: (k: string) => { delete store[k] },
+})
+
 beforeEach(() => {
   vi.clearAllMocks()
+  Object.keys(store).forEach(k => delete store[k])
 })
 
 describe('useDashboard', () => {
-  it('calls SWR with /api/athletes/1/dashboard', () => {
+  it('calls SWR with stored athlete id', () => {
+    store.pp_athlete_id = '42'
     useDashboard()
     expect(useSWR).toHaveBeenCalledWith(
-      '/api/athletes/1/dashboard',
+      '/api/athletes/42/dashboard',
       expect.anything(),
       expect.anything(),
     )
@@ -31,10 +40,11 @@ describe('useDashboard', () => {
 })
 
 describe('useToday', () => {
-  it('calls SWR with /api/athletes/1/today', () => {
+  it('calls SWR with stored athlete id', () => {
+    store.pp_athlete_id = '42'
     useToday()
     expect(useSWR).toHaveBeenCalledWith(
-      '/api/athletes/1/today',
+      '/api/athletes/42/today',
       expect.anything(),
       expect.anything(),
     )

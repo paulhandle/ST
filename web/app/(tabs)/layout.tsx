@@ -13,8 +13,8 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
   const tabs = [
     { href: '/dashboard', label: t.nav.dashboard, icon: TabIconDashboard },
     { href: '/activities', label: t.nav.activities, icon: TabIconActivities },
-    { href: '/week', label: t.nav.week, icon: TabIconWeek },
     { href: '/plan', label: t.nav.plan, icon: TabIconPlan },
+    { href: '/me', label: t.nav.me, icon: TabIconMe },
   ]
 
   return (
@@ -23,7 +23,6 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
         <BrandLogo href="/dashboard" compact />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <LanguageToggle language={language} onChange={setLanguage} compact />
-          <Link href="/settings" className="app-topbar-link">{t.common.settings}</Link>
         </div>
       </div>
 
@@ -74,17 +73,12 @@ function TabIconActivities({ active }: { active: boolean }) {
   )
 }
 
-function TabIconWeek({ active }: { active: boolean }) {
+function TabIconMe({ active }: { active: boolean }) {
   const c = active ? 'var(--accent)' : 'var(--ink-faint)'
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-      <rect x="2" y="5" width="18" height="15" rx="2" stroke={c} strokeWidth="1.5" />
-      <line x1="2" y1="9" x2="20" y2="9" stroke={c} strokeWidth="1.2" />
-      {[5, 8, 11, 14, 17].map((x) => (
-        <line key={x} x1={x} y1="5" x2={x} y2="9" stroke={c} strokeWidth="1" />
-      ))}
-      <line x1="6" y1="2" x2="6" y2="6" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="16" y1="2" x2="16" y2="6" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="11" cy="7" r="4" stroke={c} strokeWidth="1.5" />
+      <path d="M4 20c1.4-4 4-6 7-6s5.6 2 7 6" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }

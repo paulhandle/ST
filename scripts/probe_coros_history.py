@@ -127,7 +127,7 @@ def main() -> int:
     username = os.environ.get("COROS_USERNAME")
     password = os.environ.get("COROS_PASSWORD")
     if not username or not password:
-        print("ERROR: set COROS_USERNAME and COROS_PASSWORD in .env", file=sys.stderr)
+        print("ERROR: export COROS_USERNAME and COROS_PASSWORD in the current shell for this probe only", file=sys.stderr)
         return 2
 
     client = RealCorosAutomationClient()

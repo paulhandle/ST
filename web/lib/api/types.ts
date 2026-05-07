@@ -114,16 +114,99 @@ export interface WeekOut {
 
 export interface AthleteActivityOut {
   id: number
+  athlete_id?: number
+  provider?: string
+  provider_activity_id?: string
+  sport?: string
+  discipline?: string
   started_at: string
-  title: string
-  distance_km: number
-  duration_min: number
+  title?: string
+  distance_km?: number
+  duration_min?: number
+  distance_m?: number
+  duration_sec?: number
+  elevation_gain_m?: number | null
   avg_pace_sec_per_km: number | null
   avg_hr: number | null
+  training_load?: number | null
+  perceived_effort?: number | null
+  feedback_text?: string | null
   matched_workout_title: string | null
-  matched_workout_planned_distance_m: number | null
+  matched_workout_planned_distance_m?: number | null
   match_status: MatchStatus
   delta_summary: string | null
+}
+
+export interface ActivityDetailSampleOut {
+  sample_index: number
+  timestamp: string
+  elapsed_sec: number | null
+  distance_m: number | null
+  latitude: number | null
+  longitude: number | null
+  altitude_m: number | null
+  heart_rate: number | null
+  cadence: number | null
+  speed_mps: number | null
+  pace_sec_per_km: number | null
+  power_w: number | null
+  temperature_c: number | null
+}
+
+export interface ActivityDetailLapOut {
+  lap_index: number
+  start_time: string | null
+  end_time: string | null
+  duration_sec: number | null
+  distance_m: number | null
+  avg_hr: number | null
+  max_hr: number | null
+  min_hr: number | null
+  avg_cadence: number | null
+  max_cadence: number | null
+  avg_speed_mps: number | null
+  max_speed_mps: number | null
+  avg_power_w: number | null
+  elevation_gain_m: number | null
+  elevation_loss_m: number | null
+  calories: number | null
+  avg_temperature_c: number | null
+}
+
+export interface ActivityDetailSourceOut {
+  source_format: string
+  file_size_bytes: number
+  payload_hash: string
+  file_url_host: string | null
+  downloaded_at: string
+  parsed_at: string | null
+  stored_sample_count: number
+  stored_lap_count: number
+  warnings: string[]
+}
+
+export interface ActivityDetailRouteBoundsOut {
+  min_latitude: number | null
+  max_latitude: number | null
+  min_longitude: number | null
+  max_longitude: number | null
+}
+
+export interface ActivityDetailInterpretationOut {
+  effort_distribution: string
+  pace_consistency: string
+  heart_rate_drift: string
+  data_quality: string
+}
+
+export interface ActivityDetailOut {
+  activity: AthleteActivityOut
+  source: ActivityDetailSourceOut | null
+  samples: ActivityDetailSampleOut[]
+  laps: ActivityDetailLapOut[]
+  route_bounds: ActivityDetailRouteBoundsOut
+  interpretation: ActivityDetailInterpretationOut
+  returned_sample_count: number
 }
 
 /* ── Dashboard aggregate ─────────────────────────────────── */
@@ -347,6 +430,7 @@ export interface CorosStatusOut {
   athlete_id: number
   connected: boolean
   auth_status: string
+  automation_mode: string
   username: string | null
   last_login_at: string | null
   last_import_at: string | null
@@ -375,6 +459,38 @@ export interface HistoryImportOut {
   updated_count: number
   metric_count: number
   message: string
+}
+
+export interface ProviderSyncJobOut {
+  id: number
+  athlete_id: number
+  provider: string
+  status: string
+  phase: string
+  message: string | null
+  total_count: number
+  processed_count: number
+  imported_count: number
+  updated_count: number
+  metric_count: number
+  failed_count: number
+  raw_record_count: number
+  started_at: string | null
+  completed_at: string | null
+  error_message: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProviderSyncEventOut {
+  id: number
+  job_id: number
+  level: string
+  phase: string
+  message: string
+  processed_count: number | null
+  total_count: number | null
+  created_at: string
 }
 
 /* ── Calendar ────────────────────────────────────────────── */

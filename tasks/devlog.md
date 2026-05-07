@@ -1,5 +1,125 @@
 # Dev Log
 
+## 2026-05-07 - First-run onboarding skill selection and plan activation
+
+Why: User reported that after first login they entered COROS credentials and configured their goal, but the Plan tab was still empty. Root cause: onboarding only created an athlete, optionally connected COROS, and attempted a stale goal endpoint. It never exposed the product-core skill choice, never called `/marathon/plans/generate`, never confirmed the generated plan, and most authenticated frontend surfaces still assumed athlete id `1`.
+
+How:
+- Reworked `web/app/onboarding/page.tsx` from four steps to five: COROS, goal, availability, skill, and confirmation.
+- Added onboarding skill loading from `/api/skills` with a built-in fallback skill, plan-week selection, selected skill confirmation, and blocking plan-generation error messaging.
+- Updated onboarding submit to create the athlete, save the returned athlete id via `saveAthleteId()`, optionally connect COROS, create a marathon goal through `/api/marathon/goals`, generate a plan through `/api/marathon/plans/generate` with `skill_slug`, availability, target, weeks, and optional race goal id, confirm the plan through `/api/plans/{plan_id}/confirm`, then route to `/plan`.
+- Added `pp_athlete_id` local storage helpers in `web/lib/auth.ts`, and replaced hardcoded athlete `1` in dashboard/today/calendar/workout/activity detail/COROS settings/coach sheet/manual plan generation hooks and pages.
+- Updated frontend i18n copy and regression tests for onboarding skill selection, athlete id storage, dynamic hook URLs, COROS settings auth mocks, and existing Block E plan-generation tests.
+
+Result:
+- First-run completion now creates and activates a real selected-skill training plan, so the Plan tab is populated immediately after onboarding.
+- `cd web && pnpm test`: 82/82 pass. Existing non-fatal warnings remain from jsdom `--localstorage-file` setup and React `act(...)` notices in onboarding tests.
+- `cd web && pnpm type-check`: pass.
+- `cd web && pnpm build`: pass.
+- `git diff --check`: pass.
+
+## 2026-05-07 - FIT-based COROS activity detail and Me navigation
+
+Why: User confirmed GPS data is required and asked to implement the final, non-MVP activity detail experience. The previous list/detail payload path did not match COROS Training Hub; the export drawer data is richer and includes GPS/time-series/laps.
+
+How:
+- Added `fitparse==1.2.0`, `app/tools/coros/fit_parser.py`, `tests/test_coros_fit_parser.py`, and parser coverage against the real sample FIT export for activity `477263761401479169`.
+- Added activity detail persistence models and migration for `activity_detail_exports`, `activity_detail_samples`, and `activity_detail_laps`. Added `app/ingestion/activity_details.py` to upsert raw FIT bytes, SHA-256 hash, source metadata, warnings, all parsed samples, and all parsed laps.
+- Added `scripts/coros_import_fit_export.py` for one-off local imports of downloaded FIT exports. Imported the real Beijing run sample into local `st.db` as activity id `145`.
+- Updated `RealCorosAutomationClient` with `download_activity_fit_export(label_id, sport_type)`, using `POST /activity/detail/download?...&fileType=4`, downloading the returned `fileUrl`, and returning raw bytes. Full sync now discovers activities from `/activity/query`, no longer attempts `/activity/detail/filter`, then downloads/parses one FIT export per activity with progress events and warning accounting.
+- Added `GET /athletes/{athlete_id}/activities/{activity_id}` returning normalized activity summary, source metadata, downsampled samples, detailed laps, route bounds, and interpretation text.
+- Added frontend detail types/hook/page at `web/app/activities/[id]/page.tsx`. The page renders a real GPS SVG route, HR/pace/elevation/cadence charts, laps, training interpretation, and FIT source/debug metadata.
+- Updated Activities rows so real activities link to `/activities/{activity_id}` while planned rows stay on `/workouts/{date}`. Removed Week from the primary tab bar and added `/me`, which reuses the settings entry points.
+- Updated README, `tasks/todo.md`, and `tasks/lessons.md` with the FIT-only production decision and local import/testing command.
+
+Result:
+- Real sample import result: `477263761401479169.fit` stored as 173080 bytes, 4092 samples, 11 laps, SHA-256 `b434f43c2422b788eb388cf291e1597f27c1fb0cdbc9649f4f38b6f933a93e73`, 0 parser warnings.
+- Targeted backend verification passed: `uv run python -m unittest tests.test_coros_full_sync tests.test_coros_fit_parser -v`.
+- Targeted frontend verification passed: `pnpm type-check` and `pnpm test __tests__/blockE.test.tsx __tests__/activityDetail.test.tsx`.
+- Local `uv run alembic upgrade head` could not be used on the existing `st.db` because tables already exist without a matching Alembic version stamp (`otp_codes already exists`). For local review only, `Base.metadata.create_all(bind=engine)` was used to add missing tables without deleting data; the migration remains the clean/prod database path.
+
+## 2026-05-06 - Real-only COROS local data cleanup and sample export
+
+Why: User asked to stop using fake COROS data, clear synthetic rows, and provide one real fetched activity case to validate whether the COROS capture matches expectations.
+
+How:
+- Changed COROS runtime defaults from fake to real in `coros_automation_client()` and `/coros/status`; explicit `COROS_AUTOMATION_MODE=fake` remains available for tests.
+- Updated `.env.example` and README so real mode is the default and fake mode is described as test-only/synthetic development behavior.
+- Added `scripts/coros_cleanup_fake_data.py`, which deletes only local COROS rows tagged with `fake_coros`/`fake_history` plus matching fake sync job/events and fake `coros_user_%` device accounts.
+- Added `scripts/coros_export_activity_sample.py`, which exports one stored real COROS activity with normalized DB fields and the original COROS raw payload under ignored `var/coros_real_sync/`.
+- Ran cleanup for athlete 1 and exported sample activity `477263761401479169`.
+
+Result:
+- Cleanup deleted 96 fake activities, 96 fake laps, 9 fake metric snapshots, 1 fake raw record, 3 fake sync events, 1 fake sync job, and 1 fake COROS device account.
+- Fresh DB inspection reports 694 COROS activities, 694 real-like numeric COROS ids, 0 fake-like activities, and 0 fake raw records.
+- Remaining real distribution: running 560, cycling 32, swimming 22, strength 3, other 77.
+- Exported sample: `var/coros_real_sync/activity-sample-477263761401479169.json`.
+- Current limitation remains: per-activity COROS detail/track endpoint is not solved yet; this sample validates the stored list-level COROS payload and normalized mapping, not full track/segment detail.
+
+## 2026-05-06 - COROS Training Hub export-file probe
+
+Why: User confirmed the COROS Training Hub page shows richer activity data than the current list-level sync, including split and GPS-level detail, and pointed to the UI's "Export data" drawer for `.fit`, `.tcx`, `.gpx`, `.kml`, and `.csv`.
+
+How:
+- Inspected the public Training Hub frontend bundles and found the export component in `/activity-detail`.
+- Confirmed the frontend calls `POST /activity/detail/download` with query params `labelId`, `sportType`, and `fileType`, and that running `sportType=100` supports export file types `[4,3,1,2,0]`.
+- Added `scripts/coros_export_file_probe.py`, which uses the encrypted DB COROS credential, requests export `fileUrl`s, downloads the returned files, and writes a sanitized summary under `var/coros_real_sync/exports/`.
+- Ran the script for activity `477263761401479169` with file types `4,3,1,0` (`.fit`, `.tcx`, `.gpx`, `.csv`).
+
+Result:
+- Successfully downloaded:
+  - `var/coros_real_sync/exports/477263761401479169/477263761401479169.fit` (`173080` bytes)
+  - `var/coros_real_sync/exports/477263761401479169/477263761401479169.tcx` (`1947438` bytes)
+  - `var/coros_real_sync/exports/477263761401479169/477263761401479169.gpx` (`1300458` bytes)
+  - `var/coros_real_sync/exports/477263761401479169/477263761401479169.csv` (`1771` bytes)
+- Export summary: `var/coros_real_sync/exports/477263761401479169/export-summary-20260506-045613.json`.
+- GPX contains 4091 trackpoints with lat/lon/elevation/time plus extensions for heart rate, cadence, distance, and speed.
+- TCX contains 4102 trackpoints and 11 laps with time, distance, heart-rate, cadence, position, altitude, and speed data.
+- CSV contains 12 split rows with per-km summary columns including pace, cadence, stride length, heart rate, temperature, elevation gain/loss, and calories.
+- Recommendation: use `.fit` as the canonical raw archive because it is compact and likely most complete, and parse `.tcx` or `.gpx` first for MVP detailed ingestion because they are standards-based XML and easy to verify without extra dependencies.
+
+## 2026-05-05 - COROS full-sync foundation and credential env cleanup
+
+Why: User clarified that COROS username/password must not appear in `.env`, and that the first real COROS sync should import all historical activity data with a long-running, friendly progress display rather than the current one-shot summary import.
+
+How:
+- Removed `COROS_USERNAME` / `COROS_PASSWORD` from local `.env` and `.env.example` without printing secret values. Updated README so app setup says COROS credentials are entered in Settings and stored encrypted in the database. Probe scripts still support temporary shell env credentials but no longer tell users to put them in `.env`.
+- Added provider full-sync persistence: `ProviderSyncJob`, `ProviderSyncEvent`, and `ProviderRawRecord` SQLAlchemy models, matching Pydantic output schemas, `upsert_provider_raw_records()`, and Alembic migration `4b7d0f8e2c6a_coros_full_sync_tables.py`.
+- Added COROS full-sync backend service `app/tools/coros/full_sync.py`. It opens its own `SessionLocal`, decrypts the DB-stored COROS password, logs into COROS, imports normalized activities/metrics, upserts raw provider payloads, and writes progress events.
+- Added API endpoints `POST /coros/sync/start`, `GET /coros/sync/jobs/{id}`, and `GET /coros/sync/jobs/{id}/events`. Starting a sync requires a connected COROS account and returns an existing queued/running job instead of creating duplicates.
+- Added `RealCorosAutomationClient.fetch_full_history()`: it pages all `/activity/query` results without the previous running-only or 365-day filters, tries `/activity/detail/filter` per activity, preserves list payloads when detail fetch fails, and captures dashboard/profile/team/schedule/plan raw payloads where safely available.
+- Reworked `/settings/coros` to start full sync and poll job/event endpoints, showing phase, progress, imported/updated/metric/raw/failed counts, recent events, and whether the backend is in fake or real COROS mode.
+- Tightened legacy `/coros/import` so it no longer auto-creates a fake COROS account; it now requires the encrypted DB credential created through Settings and logs in before importing.
+
+Result:
+- `uv run python -m unittest tests.test_coros_full_sync tests.test_real_coros_client.TestRealCorosActivityMapping -v`: pass.
+- `uv run python -m unittest discover -s tests -v`: 96/96 pass.
+- `cd web && pnpm test`: 76/76 pass. Vitest still emits the known non-fatal `--localstorage-file` warning from jsdom setup.
+- `cd web && pnpm type-check`: pass.
+- `cd web && pnpm build`: pass; 16 app routes generated including `/settings/coros`.
+- `uv run python -m py_compile app/models.py app/schemas.py app/api/routes.py app/tools/coros/automation.py app/tools/coros/full_sync.py app/ingestion/raw_records.py alembic/versions/4b7d0f8e2c6a_coros_full_sync_tables.py scripts/st_cli.py`: pass.
+- `git diff --check`: pass.
+
+## 2026-05-06 - Real COROS test loop, settings navigation, and storage inspection
+
+Why: User needed concrete instructions for testing real COROS sync, an obvious way to leave Settings > COROS, and standalone scripts to inspect exactly what real COROS data was fetched/stored. The user also suspected the previous visible sync was fake.
+
+How:
+- Replaced `/settings/coros` history-dependent `router.back()` with deterministic links to `/settings`, including a top-right close affordance.
+- Added README documentation for `COROS_AUTOMATION_MODE=real`, credential flow, standalone probe commands, and exact storage tables/fields.
+- Added `scripts/coros_real_fetch_probe.py`, which uses the encrypted DB COROS credential when present or prompts for password without echo, then writes a full fetched JSON artifact under ignored `var/coros_real_sync/`.
+- Added `scripts/coros_db_inspect.py` to summarize DB-stored COROS activities, metrics, raw records, sync jobs, and events. It now reports `real_like_count` and `fake_like_count` so old fake imports do not get confused with real COROS rows.
+- Added `scripts/coros_detail_probe.py` to try activity detail endpoint request variants for one label id, and `scripts/coros_import_fetch_file.py` to import a saved real fetch artifact into the local DB for review.
+- Ran a real COROS fetch using the encrypted DB credential for athlete 1 (`panglv@gmail.com`) without printing the password. The raw fetch artifact is `var/coros_real_sync/full-fetch-1-20260506-015256.json`.
+- Imported that saved artifact into local DB as sync job 3 and generated inspection summaries under `var/coros_real_sync/db-inspect-*.json`.
+
+Result:
+- Real COROS list fetch returned 694 activities across 35 `/activity/query` pages, covering `2022-11-22 14:04:22+08:00` through `2026-05-05 08:45:44+08:00`.
+- Sport distribution from real fetch: running 560, cycling 32, swimming 22, strength 3, other 77.
+- Raw records captured from real fetch: 35 activity list pages, dashboard, dashboard detail, private profile, and team list. These are stored in `provider_raw_records` for sync job 3.
+- Detail fetch is still not solved: `/activity/detail/filter` returns `Service exceptions` or `Parameter input error` for tested variants, including `labelId`, `labelId + sportType`, and related GET/POST forms. This means current real sync has full activity-list payloads and dashboard/profile payloads, but not per-activity detail/track/segment payloads yet.
+- Local DB currently contains mixed history for athlete 1: 694 real-like COROS activities and 96 fake-like activities from earlier fake testing.
+
 ## 2026-05-05 - I18n, SMS OTP prep, compact P² mark, and COROS hardening
 
 Why: User asked to prepare Chinese/English product surfaces, use a compact `P²` mark in constrained spaces, start SMS OTP vendor integration groundwork with international dialing-code selection, clean merged local branches, and harden COROS-related plan generation so missing or malformed COROS data does not block onboarding.
