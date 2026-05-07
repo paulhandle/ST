@@ -16,6 +16,13 @@ Result:
 - Type-check passed after build regenerated `.next/types`: `cd web && pnpm type-check`.
 - `git diff --check`: pass.
 
+Follow-up:
+- User hit `Error: Cannot find module './270.js'` from `web/.next/server/webpack-runtime.js`. The local `.next` directory had mixed/stale Next output: the runtime looked for `./270.js` while the rebuilt chunk existed at `web/.next/server/chunks/270.js`.
+- Found two Node processes listening on port 3000, stopped them, removed `web/.next`, and rebuilt successfully.
+- Runtime verification after rebuild: `/` returned HTTP 200 and no chunk error.
+- Also fixed `web/middleware.ts` to allow `/icons/*` publicly; before that, `/icons/pp-icon.svg` was redirected to `/login`, which would prevent the new app icon from loading for unauthenticated users.
+- Added `web/__tests__/middleware.test.ts` covering public icon access and protected route redirects.
+
 ## 2026-05-07 - First-run onboarding skill selection and plan activation
 
 Why: User reported that after first login they entered COROS credentials and configured their goal, but the Plan tab was still empty. Root cause: onboarding only created an athlete, optionally connected COROS, and attempted a stale goal endpoint. It never exposed the product-core skill choice, never called `/marathon/plans/generate`, never confirmed the generated plan, and most authenticated frontend surfaces still assumed athlete id `1`.

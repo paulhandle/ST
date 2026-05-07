@@ -15,6 +15,14 @@ Objective: add a real app/browser icon using the compact `P²` mark, with italic
    - `cd web && pnpm type-check` -> pass after build regenerated `.next/types`.
    - `git diff --check` -> pass.
 
+Follow-up:
+- [x] Diagnose `Cannot find module './270.js'` as stale/corrupted `.next` output caused by overlapping Next processes and mixed dev/build artifacts.
+- [x] Stop old port 3000 Node processes, remove `web/.next`, and rebuild.
+- [x] Allow `/icons/*` through auth middleware so the public P² icon is not redirected to `/login`.
+- [x] Verify runtime:
+  - `curl -i http://127.0.0.1:3000/` -> 200.
+  - `curl -i http://127.0.0.1:3000/icons/pp-icon.svg` -> 200 `image/svg+xml`.
+
 ## Bugfix: First-Run Skill Selection And Plan Creation
 
 Objective: fix the first-login onboarding flow so configuring COROS/goal does not leave the Plan tab empty. Onboarding must expose the available skills, require a skill choice, generate the matching training plan, confirm it, and then route the user into the app with an active plan.
