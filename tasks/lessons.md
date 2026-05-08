@@ -58,3 +58,8 @@ These were validated by the user during the MVP+1 design discussion. Apply going
 ## 2026-05-07 — SMS login is fallback-only visually
 
 - On login surfaces, Google and passkey are the primary actions. SMS should remain available but visually quiet: use a small one-line text link, not a full-width button or anything that competes with the primary auth methods.
+
+## 2026-05-08 — Auth success is not onboarding completion
+
+- Do not use `is_new_user` as the dashboard routing gate. A repeated Google/passkey/SMS login can be an existing account with no `AthleteProfile` yet. Login responses must expose setup state (`has_athlete`, `athlete_id`), and the web app should route to dashboard only when a valid athlete id is present.
+- When auth state says onboarding is incomplete, clear stale local `pp_athlete_id` before routing. A previous account's athlete id in localStorage can otherwise cause `Athlete not found` errors under a different authenticated user.

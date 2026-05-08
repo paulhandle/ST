@@ -128,11 +128,18 @@ def _latest_challenge(db: Session, purpose: AuthChallengePurpose, subject: str) 
 
 
 def _auth_response(user: User, is_new_user: bool) -> VerifyOTPResponse:
+    default_athlete = (
+        user.athletes[0]
+        if user.athletes
+        else None
+    )
     return VerifyOTPResponse(
         access_token=create_access_token(user.id),
         token_type="bearer",
         user_id=user.id,
         is_new_user=is_new_user,
+        has_athlete=default_athlete is not None,
+        athlete_id=default_athlete.id if default_athlete else None,
     )
 
 

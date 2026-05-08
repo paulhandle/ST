@@ -1,5 +1,29 @@
 # Dev Log
 
+## 2026-05-08 - Auth onboarding boundary hardening
+
+Why: User reported `404 {"detail":"Athlete not found"}` after logging in, then clicking Google login again before the new-registration/onboarding flow had completed. Root cause: auth routing used `is_new_user` as a proxy for setup completion. A repeated Google login can correctly return `is_new_user=false` because the account alias already exists, while the account still has no `AthleteProfile`. The frontend then routed to `/dashboard`, where athlete-scoped endpoints failed.
+
+How:
+- Extended `VerifyOTPResponse` with `has_athlete` and `athlete_id`.
+- Updated shared backend `_auth_response()` so SMS OTP, Google login, and passkey login all return explicit athlete setup state.
+- Changed `/login` to route to `/dashboard` only when `has_athlete=true` and a positive `athlete_id` is present.
+- Cleared stale local `pp_athlete_id` and routed to `/onboarding` whenever the auth response has no athlete.
+- Added `getStoredAthleteId()` for contexts that need to distinguish "no athlete id stored" from the legacy `getAthleteId()` fallback of `1`.
+- Changed the existing-token migration on `/login` so a token without a stored athlete id goes to `/onboarding`, not `/dashboard`.
+- Added a Google login in-flight guard to ignore duplicate credential callbacks while a login request is pending.
+- Added backend regression tests for repeat Google login without an athlete and existing Google login with an athlete.
+- Added frontend regression tests for no-athlete routing, athlete-id storage, existing-token routing, duplicate Google callbacks, and explicit athlete-id storage helpers.
+- Updated README auth/onboarding docs and recorded the routing lesson in `tasks/lessons.md`.
+
+Result:
+- Focused backend auth verification passed: `uv run python -m unittest tests.test_auth -v` -> 34/34 pass.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 108/108 pass.
+- Focused frontend verification passed: `cd web && pnpm test __tests__/login.test.tsx __tests__/auth.test.ts` -> 32/32 pass.
+- Full frontend verification passed: `cd web && pnpm test` -> 100/100 pass. Existing non-fatal jsdom localstorage and React `act(...)` warnings remain in older onboarding tests.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+
 ## 2026-05-08 - Activities timeline-first review UX
 
 Why: User said the Activities tab calendar management felt inefficient and accepted moving toward a timeline-first interaction. The old page put MonthStrip in the primary position, which is useful for date picking but inefficient for reviewing recent real workouts.

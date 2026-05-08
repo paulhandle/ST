@@ -774,6 +774,8 @@ class VerifyOTPResponse(BaseModel):
     token_type: str
     user_id: int
     is_new_user: bool
+    has_athlete: bool = False
+    athlete_id: int | None = None
 
 
 class GoogleLoginRequest(BaseModel):
