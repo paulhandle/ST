@@ -494,3 +494,41 @@ Review:
   - `cd web && pnpm type-check` -> pass.
   - `cd web && pnpm build` -> pass.
   - `curl -i http://127.0.0.1:3000/workouts/2026-07-05` -> HTTP 307 to `/login`.
+
+## UX: Activities Timeline-First Review
+
+Objective: make the Activities tab faster for reviewing real workouts by moving the calendar from the primary interaction to a secondary locator, with timeline, filters, and monthly summaries as the main workflow.
+
+Current issues:
+- MonthStrip takes prominent space but is inefficient when the user wants to review recent real workouts.
+- The list lacks quick summary context and status filtering, so planned rows and free activities compete visually.
+- Month navigation works only by date selection instead of explicit month jump.
+
+Plan:
+1. [x] Keep existing `/calendar` API and `CalendarDay` data shape.
+2. [x] Add top summary metrics for visible filtered activities: total activities, distance, duration, and planned/upcoming count.
+3. [x] Add a segmented view switch: Timeline as default, Calendar as secondary.
+4. [x] Add status filter chips in addition to sport filters.
+5. [x] Add compact month jump chips with per-month activity counts.
+6. [x] Render timeline grouped by month with richer rows and planned rows visually quieter.
+7. [x] Keep MonthStrip available only in Calendar view for date picking.
+8. [x] Update Activities tests and run frontend verification.
+
+Acceptance Criteria:
+- Default Activities view shows the timeline, not the calendar strip.
+- Users can filter by sport and status.
+- Users can jump to a month directly.
+- Existing activity detail/workout links remain correct.
+
+Review:
+- Activities now defaults to Timeline. Calendar remains available through a segmented control and is no longer the first thing taking vertical space.
+- Added summary metrics for visible rows: activity count, activity distance, activity duration, and planned count.
+- Added sport filters and status filters with explicit accessible labels.
+- Added month jump chips in Timeline view with per-month row counts.
+- Existing real activity links still go to `/activities/{activity_id}` and planned rows still go to `/workouts/{date}`.
+- Verification passed:
+  - `cd web && pnpm test __tests__/blockE.test.tsx` -> 15/15 pass.
+  - `cd web && pnpm test` -> 94/94 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check` -> pass.

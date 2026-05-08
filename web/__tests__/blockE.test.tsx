@@ -160,12 +160,21 @@ describe('MonthStrip', () => {
 import ActivitiesPage from '@/app/(tabs)/activities/page'
 
 describe('ActivitiesPage', () => {
+  it('uses timeline as the default review view', () => {
+    render(<ActivitiesPage />)
+    expect(screen.getByText('Timeline')).toBeInTheDocument()
+    expect(screen.getByText('Calendar')).toBeInTheDocument()
+    expect(screen.getByText('Jump to month')).toBeInTheDocument()
+  })
+
   it('renders filter chips', () => {
     render(<ActivitiesPage />)
-    expect(screen.getByText('All')).toBeInTheDocument()
-    expect(screen.getByText('Run')).toBeInTheDocument()
-    expect(screen.getByText('Ride')).toBeInTheDocument()
-    expect(screen.getByText('Strength')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sport filter: All' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sport filter: Run' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sport filter: Ride' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sport filter: Strength' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Status filter: Done' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Status filter: Planned' })).toBeInTheDocument()
   })
 
   it('renders list items from calendar data', () => {
@@ -180,9 +189,18 @@ describe('ActivitiesPage', () => {
     expect(screen.getByText('Long Run').closest('a')).toHaveAttribute('href', '/workouts/2026-05-10')
   })
 
-  it('renders MonthStrip with today visible', () => {
+  it('shows MonthStrip only in Calendar view', () => {
     render(<ActivitiesPage />)
     const today = new Date().getDate().toString()
+    expect(screen.queryAllByText(today).length).toBe(0)
+    fireEvent.click(screen.getByText('Calendar'))
     expect(screen.getAllByText(today).length).toBeGreaterThan(0)
+  })
+
+  it('filters by status', () => {
+    render(<ActivitiesPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Status filter: Done' }))
+    expect(screen.getByText('跑步 8.0km')).toBeInTheDocument()
+    expect(screen.queryByText('Long Run')).not.toBeInTheDocument()
   })
 })
