@@ -1,4 +1,4 @@
-"""auth identities and passkeys
+"""account aliases and passkeys
 
 Revision ID: c2a9d8e1b4f3
 Revises: b9c2e41a6f0d
@@ -20,29 +20,27 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     with op.batch_alter_table("users") as batch:
         batch.alter_column("phone", existing_type=sa.String(length=20), nullable=True)
-        batch.add_column(sa.Column("email", sa.String(length=255), nullable=True))
-        batch.add_column(sa.Column("display_name", sa.String(length=160), nullable=True))
-        batch.add_column(sa.Column("avatar_url", sa.Text(), nullable=True))
-    op.create_index(op.f("ix_users_email"), "users", ["email"], unique=True)
 
     op.create_table(
-        "auth_identities",
+        "account_aliases",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("provider", sa.Enum("PHONE", "GOOGLE", "PASSKEY", name="authprovider"), nullable=False),
+        sa.Column("provider", sa.Enum("PHONE", "EMAIL", "GOOGLE", "PASSKEY", name="authprovider"), nullable=False),
         sa.Column("provider_subject", sa.String(length=255), nullable=False),
         sa.Column("email", sa.String(length=255), nullable=True),
+        sa.Column("display_name", sa.String(length=160), nullable=True),
+        sa.Column("avatar_url", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("last_login_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("provider", "provider_subject", name="uq_auth_identity_provider_subject"),
+        sa.UniqueConstraint("provider", "provider_subject", name="uq_account_alias_provider_subject"),
     )
-    op.create_index(op.f("ix_auth_identities_email"), "auth_identities", ["email"], unique=False)
-    op.create_index(op.f("ix_auth_identities_id"), "auth_identities", ["id"], unique=False)
-    op.create_index(op.f("ix_auth_identities_provider"), "auth_identities", ["provider"], unique=False)
-    op.create_index(op.f("ix_auth_identities_provider_subject"), "auth_identities", ["provider_subject"], unique=False)
-    op.create_index(op.f("ix_auth_identities_user_id"), "auth_identities", ["user_id"], unique=False)
+    op.create_index(op.f("ix_account_aliases_email"), "account_aliases", ["email"], unique=False)
+    op.create_index(op.f("ix_account_aliases_id"), "account_aliases", ["id"], unique=False)
+    op.create_index(op.f("ix_account_aliases_provider"), "account_aliases", ["provider"], unique=False)
+    op.create_index(op.f("ix_account_aliases_provider_subject"), "account_aliases", ["provider_subject"], unique=False)
+    op.create_index(op.f("ix_account_aliases_user_id"), "account_aliases", ["user_id"], unique=False)
 
     op.create_table(
         "webauthn_credentials",
@@ -91,15 +89,11 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_webauthn_credentials_id"), table_name="webauthn_credentials")
     op.drop_index(op.f("ix_webauthn_credentials_credential_id"), table_name="webauthn_credentials")
     op.drop_table("webauthn_credentials")
-    op.drop_index(op.f("ix_auth_identities_user_id"), table_name="auth_identities")
-    op.drop_index(op.f("ix_auth_identities_provider_subject"), table_name="auth_identities")
-    op.drop_index(op.f("ix_auth_identities_provider"), table_name="auth_identities")
-    op.drop_index(op.f("ix_auth_identities_id"), table_name="auth_identities")
-    op.drop_index(op.f("ix_auth_identities_email"), table_name="auth_identities")
-    op.drop_table("auth_identities")
-    op.drop_index(op.f("ix_users_email"), table_name="users")
+    op.drop_index(op.f("ix_account_aliases_user_id"), table_name="account_aliases")
+    op.drop_index(op.f("ix_account_aliases_provider_subject"), table_name="account_aliases")
+    op.drop_index(op.f("ix_account_aliases_provider"), table_name="account_aliases")
+    op.drop_index(op.f("ix_account_aliases_id"), table_name="account_aliases")
+    op.drop_index(op.f("ix_account_aliases_email"), table_name="account_aliases")
+    op.drop_table("account_aliases")
     with op.batch_alter_table("users") as batch:
-        batch.drop_column("avatar_url")
-        batch.drop_column("display_name")
-        batch.drop_column("email")
         batch.alter_column("phone", existing_type=sa.String(length=20), nullable=False)

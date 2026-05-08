@@ -68,6 +68,7 @@ class SyncStatus(str, Enum):
 
 class AuthProvider(str, Enum):
     PHONE = "phone"
+    EMAIL = "email"
     GOOGLE = "google"
     PASSKEY = "passkey"
 
@@ -115,34 +116,62 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    phone: Mapped[Optional[str]] = mapped_column(String(20), unique=True, index=True, nullable=True)
-    email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True)
-    display_name: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
-    avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    _legacy_phone: Mapped[Optional[str]] = mapped_column("phone", String(20), unique=True, index=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     athletes: Mapped[list["AthleteProfile"]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    auth_identities: Mapped[list["AuthIdentity"]] = relationship(
+    account_aliases: Mapped[list["AccountAlias"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
     webauthn_credentials: Mapped[list["WebAuthnCredential"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
+    def _alias_for(self, provider: AuthProvider) -> Optional["AccountAlias"]:
+        for alias in self.account_aliases:
+            if alias.provider == provider:
+                return alias
+        return None
 
-class AuthIdentity(Base):
-    __tablename__ = "auth_identities"
-    __table_args__ = (UniqueConstraint("provider", "provider_subject", name="uq_auth_identity_provider_subject"),)
+    @property
+    def phone(self) -> Optional[str]:
+        alias = self._alias_for(AuthProvider.PHONE)
+        return alias.provider_subject if alias else self._legacy_phone
+
+    @property
+    def email(self) -> Optional[str]:
+        alias = self._alias_for(AuthProvider.EMAIL) or self._alias_for(AuthProvider.GOOGLE)
+        return alias.email or alias.provider_subject if alias else None
+
+    @property
+    def display_name(self) -> Optional[str]:
+        for provider in (AuthProvider.GOOGLE, AuthProvider.EMAIL, AuthProvider.PHONE):
+            alias = self._alias_for(provider)
+            if alias and alias.display_name:
+                return alias.display_name
+        return None
+
+    @property
+    def avatar_url(self) -> Optional[str]:
+        alias = self._alias_for(AuthProvider.GOOGLE)
+        return alias.avatar_url if alias else None
+
+
+class AccountAlias(Base):
+    __tablename__ = "account_aliases"
+    __table_args__ = (UniqueConstraint("provider", "provider_subject", name="uq_account_alias_provider_subject"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
     provider: Mapped[AuthProvider] = mapped_column(SqlEnum(AuthProvider), index=True)
     provider_subject: Mapped[str] = mapped_column(String(255), index=True)
     email: Mapped[Optional[str]] = mapped_column(String(255), index=True, nullable=True)
+    display_name: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
+    avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User"] = relationship(back_populates="auth_identities")
+    user: Mapped["User"] = relationship(back_populates="account_aliases")
 
 
 class WebAuthnCredential(Base):

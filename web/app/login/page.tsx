@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import Script from 'next/script'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveToken, getToken } from '@/lib/auth'
 import BrandLogo from '@/components/BrandLogo'
@@ -10,6 +11,26 @@ import { useI18n } from '@/lib/i18n/I18nProvider'
 
 type Step = 'phone' | 'otp'
 type LoginMode = 'primary' | 'sms'
+type AuthResponse = { access_token: string; is_new_user?: boolean }
+type GoogleCredentialResponse = { credential?: string }
+type GoogleIdentityApi = {
+  initialize: (config: {
+    client_id: string
+    callback: (response: GoogleCredentialResponse) => void
+    ux_mode?: 'popup' | 'redirect'
+  }) => void
+  renderButton: (parent: HTMLElement, options: Record<string, string | number | boolean>) => void
+}
+
+declare global {
+  interface Window {
+    google?: {
+      accounts?: {
+        id?: GoogleIdentityApi
+      }
+    }
+  }
+}
 
 const COPY = {
   en: {
@@ -18,6 +39,8 @@ const COPY = {
     passkey: 'Sign in with passkey',
     smsFallback: 'Use phone code instead',
     primaryError: 'This sign-in method is not configured yet.',
+    googleError: 'Google sign-in is unavailable. Use phone code for now.',
+    googleLoading: 'Google sign-in is still loading.',
     countryCode: 'Country/region code',
     phone: 'Phone number',
     otp: 'Verification code',
@@ -35,6 +58,8 @@ const COPY = {
     passkey: '使用 Passkey 登录',
     smsFallback: '使用短信验证码',
     primaryError: '这个登录方式还没有配置。',
+    googleError: 'Google 登录暂时不可用，请先使用短信验证码。',
+    googleLoading: 'Google 登录还在加载中。',
     countryCode: '国家/地区区号',
     phone: '手机号',
     otp: '验证码',
@@ -52,12 +77,17 @@ export default function LoginPage() {
   const router = useRouter()
   const { language, setLanguage } = useI18n()
   const t = COPY[language]
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? ''
+  const smsLoginEnabled = process.env.NEXT_PUBLIC_SMS_LOGIN_ENABLED !== 'false'
+  const googleButtonRef = useRef<HTMLDivElement | null>(null)
   const [step, setStep] = useState<Step>('phone')
   const [mode, setMode] = useState<LoginMode>('primary')
   const [countryCode, setCountryCode] = useState('+86')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
+  const [googleReady, setGoogleReady] = useState(false)
+  const [googleScriptFailed, setGoogleScriptFailed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const selectedRegion = dialingRegionFor(countryCode)
   const canSend = phone.replace(/\D/g, '').length >= selectedRegion.minNationalDigits
@@ -71,6 +101,67 @@ export default function LoginPage() {
       router.replace('/dashboard')
     }
   }, [router])
+
+  const completeLogin = useCallback((data: AuthResponse) => {
+    saveToken(data.access_token)
+    router.replace(data.is_new_user ? '/onboarding' : '/dashboard')
+  }, [router])
+
+  const handleGoogleCredential = useCallback(async (response: GoogleCredentialResponse) => {
+    if (!response.credential) {
+      setError(t.googleError)
+      return
+    }
+    setError(null)
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_token: response.credential }),
+      })
+      if (!res.ok) {
+        setError(t.googleError)
+        return
+      }
+      const data = await res.json()
+      completeLogin(data)
+    } finally {
+      setLoading(false)
+    }
+  }, [completeLogin, t.googleError])
+
+  const initializeGoogle = useCallback(() => {
+    const googleId = window.google?.accounts?.id
+    if (!googleClientId || !googleId || !googleButtonRef.current) {
+      setGoogleReady(false)
+      return
+    }
+
+    googleId.initialize({
+      client_id: googleClientId,
+      callback: handleGoogleCredential,
+      ux_mode: 'popup',
+    })
+    const buttonWidth = Math.round(Math.min(380, Math.max(240, googleButtonRef.current.getBoundingClientRect().width || 380)))
+    googleButtonRef.current.innerHTML = ''
+    googleId.renderButton(googleButtonRef.current, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      shape: 'rectangular',
+      text: 'continue_with',
+      logo_alignment: 'left',
+      width: buttonWidth,
+      locale: language === 'zh' ? 'zh_CN' : 'en',
+    })
+    setGoogleReady(true)
+    setGoogleScriptFailed(false)
+  }, [googleClientId, handleGoogleCredential, language])
+
+  useEffect(() => {
+    initializeGoogle()
+  }, [initializeGoogle])
 
   async function sendOtp() {
     setError(null)
@@ -133,8 +224,7 @@ export default function LoginPage() {
         return
       }
       const data = await res.json()
-      saveToken(data.access_token)
-      router.replace(data.is_new_user ? '/onboarding' : '/dashboard')
+      completeLogin(data)
     } finally {
       setLoading(false)
     }
@@ -150,6 +240,17 @@ export default function LoginPage() {
       padding: '0 24px',
       background: 'var(--paper)',
     }}>
+      {googleClientId && (
+        <Script
+          src="https://accounts.google.com/gsi/client"
+          strategy="afterInteractive"
+          onLoad={initializeGoogle}
+          onError={() => {
+            setGoogleReady(false)
+            setGoogleScriptFailed(true)
+          }}
+        />
+      )}
       <div style={{ position: 'absolute', top: 20, right: 20 }}>
         <LanguageToggle language={language} onChange={setLanguage} />
       </div>
@@ -165,18 +266,44 @@ export default function LoginPage() {
         )}
         {mode === 'primary' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <button onClick={unavailablePrimaryMethod} style={secondaryButtonStyle}>
-              {t.google}
-            </button>
+            {googleClientId ? (
+              <>
+                <div
+                  ref={googleButtonRef}
+                  aria-label={t.google}
+                  style={{
+                    ...googleButtonContainerStyle,
+                    display: googleReady ? 'block' : 'none',
+                  }}
+                />
+                {!googleReady && (
+                  <button
+                    onClick={() => setError(googleScriptFailed ? t.googleError : t.googleLoading)}
+                    style={secondaryButtonStyle}
+                  >
+                    {t.google}
+                  </button>
+                )}
+              </>
+            ) : (
+              <button onClick={unavailablePrimaryMethod} style={secondaryButtonStyle}>
+                {t.google}
+              </button>
+            )}
             <button onClick={passkeyLogin} disabled={loading} style={secondaryButtonStyle}>
               {t.passkey}
             </button>
-            <button
-              onClick={() => { setMode('sms'); setError(null) }}
-              style={{ ...secondaryButtonStyle, borderStyle: 'dashed', color: 'var(--ink-faint)' }}
-            >
-              {t.smsFallback}
-            </button>
+            {smsLoginEnabled && (
+              <div style={fallbackLineStyle}>
+                <button
+                  onClick={() => { setMode('sms'); setError(null) }}
+                  style={textLinkButtonStyle}
+                  data-variant="text-link"
+                >
+                  {t.smsFallback}
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -336,4 +463,29 @@ const secondaryButtonStyle: React.CSSProperties = {
   fontFamily: 'var(--font-hand)',
   fontSize: 16,
   cursor: 'pointer',
+}
+
+const googleButtonContainerStyle: React.CSSProperties = {
+  width: '100%',
+  minHeight: 44,
+  overflow: 'hidden',
+}
+
+const fallbackLineStyle: React.CSSProperties = {
+  marginTop: 8,
+  textAlign: 'center',
+  fontSize: 13,
+  lineHeight: 1.5,
+}
+
+const textLinkButtonStyle: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  color: 'var(--ink-faint)',
+  cursor: 'pointer',
+  fontFamily: 'var(--font-hand)',
+  fontSize: 13,
+  textDecoration: 'underline',
+  textUnderlineOffset: 3,
 }

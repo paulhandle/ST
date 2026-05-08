@@ -97,6 +97,9 @@ flyctl certs show "$DOMAIN_WWW" --app "$WEB_APP"
 # Manual first deploy (recommended for the first time):
 #   flyctl deploy --config fly/api.toml --dockerfile Dockerfile.api --remote-only
 #   cd web && flyctl deploy --config ../fly/web.toml --dockerfile Dockerfile \
-#     --build-arg BACKEND_URL=https://api.performanceprotocol.io --remote-only
+#     --build-arg BACKEND_URL=https://api.performanceprotocol.io \
+#     --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID=119974323044-232k5lkdcrj2uhd14l9qdlh8nvo53vbr.apps.googleusercontent.com \
+#     --build-arg NEXT_PUBLIC_SMS_LOGIN_ENABLED=false \
+#     --remote-only
 #
 # After that, just push to main on GitHub → workflow handles deploys.

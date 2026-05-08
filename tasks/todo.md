@@ -377,3 +377,120 @@ Review:
 - Frontend activity rows now open `/activities/{activity_id}` for real activities, while planned rows keep `/workouts/{date}`.
 - Added activity detail UI with real GPS route SVG, metric charts, laps, training interpretation, and source metadata. Removed Week from primary tabs and added Me.
 - Local Alembic upgrade against existing `st.db` could not run because the DB has tables but no version stamp (`otp_codes already exists`). For local review, `Base.metadata.create_all()` was used to create only missing new tables; the Alembic migration remains for clean/prod databases.
+
+## Implementation: Google Sign-In Runtime Wiring
+
+Objective: use the configured Google OAuth client id to make Google login actually usable from the web login page, while keeping the existing backend `/auth/google` verification and SMS fallback behavior.
+
+Scope:
+- Wire the Google Identity Services browser flow on `/login`.
+- Store the provided Google OAuth client id in local env for backend verification and Next.js public build-time access.
+- Document the two env names clearly so local and production setup are not ambiguous.
+
+Plan:
+1. [x] Confirm current auth config and login test behavior.
+2. [x] Add `GOOGLE_CLIENT_ID` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` to local `.env`, and document both in `.env.example` / README.
+3. [x] Update `/login` so the Google button loads GIS, receives an ID token credential, calls `/api/auth/google`, saves the app token, and routes new users to onboarding.
+4. [x] Add frontend regression tests for configured Google success and missing/failed config behavior.
+5. [x] Verify with focused frontend tests, type-check/build if needed, and `git diff --check`.
+
+Acceptance Criteria:
+- Clicking Google when GIS returns a credential posts `{ id_token }` to `/api/auth/google`.
+- Successful Google auth saves the returned access token and follows the existing `is_new_user` route decision.
+- Missing Google client id still gives a clear login error and leaves SMS fallback available.
+- Backend verification still uses `GOOGLE_CLIENT_ID`; the public frontend value is only for loading the browser GIS flow.
+
+Review:
+- Local root `.env` now contains the provided Google OAuth client id for backend verification and the matching `NEXT_PUBLIC_GOOGLE_CLIENT_ID`; `web/.env.local` contains the public value for local Next.js runs. Also corrected the local `OPENAI_MODEL` key typo while editing `.env`.
+- `/login` now loads Google Identity Services, renders the GIS sign-in button when configured, posts the returned ID token to `/api/auth/google`, saves the returned app token, and routes with the existing onboarding/dashboard decision.
+- Production web deploy now passes the public Google client id as a Docker build arg; the web Dockerfile exposes it to `pnpm build`.
+- Production API runtime now has `GOOGLE_CLIENT_ID` set on Fly app `st-api`; Fly rolled both machines and reported healthy checks.
+- Verification completed so far:
+  - `cd web && pnpm test __tests__/login.test.tsx` -> 13/13 pass.
+  - `cd web && pnpm test` -> 90/90 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `uv run python -m unittest tests.test_auth -v` -> 32/32 pass.
+  - `flyctl secrets set GOOGLE_CLIENT_ID=... --app st-api` -> both machines updated and healthy.
+  - `git diff --check` -> pass.
+
+## Bugfix: Account Alias Auth Model And Quiet SMS Fallback
+
+Objective: fix Google login failing on the local database and align the account model with the product requirement that users can have multiple login forms without storing each credential directly on `users`. Also reduce SMS fallback visual prominence on `/login`.
+
+Context:
+- Local Google login failed with `sqlite3.OperationalError: no such column: users.email`.
+- Root cause: auth code queried `users.email`, while local `st.db` was in a half-migrated state with `auth_identities` present but no `users.email` column.
+- Product direction: `users` should be the account owner record; login handles belong in a separate account alias table.
+
+Plan:
+1. [x] Replace auth identity model/table with `account_aliases`.
+2. [x] Move Google email/name/avatar claims and phone/passkey provider subjects into aliases instead of `users`.
+3. [x] Update Google, SMS OTP, passkey login, and phone-link flows to resolve users through aliases.
+4. [x] Update local `st.db` non-destructively: back up DB, make `users.phone` nullable, create `account_aliases`, and migrate existing phone/auth identity aliases.
+5. [x] Change SMS fallback trigger on `/login` from a full-width secondary button to a small one-line text link.
+6. [x] Verify backend auth, frontend login tests, type-check/build, and `git diff --check`.
+
+Review:
+- `users` is now the account owner table; provider login handles and provider profile claims live in `account_aliases`.
+- Google login no longer queries `users.email`; it resolves Google `sub` aliases first, then normalized email aliases, and creates a user only if no alias exists.
+- SMS OTP login and phone linking resolve phone ownership through phone aliases. Passkey email discovery uses email aliases.
+- The local `st.db` was backed up to `var/db_backups/st-before-account-alias-20260507.db`, then repaired in place with nullable `users.phone` and migrated `account_aliases`.
+- `/login` SMS fallback is now a small one-line text link instead of a full-width secondary button.
+- Verification passed:
+  - `uv run python -m unittest tests.test_auth -v` -> 32/32 pass.
+  - `uv run python -m unittest discover -s tests -v` -> 106/106 pass.
+  - `cd web && pnpm test __tests__/login.test.tsx` -> 13/13 pass.
+  - `cd web && pnpm test` -> 90/90 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `ST_DATABASE_URL=sqlite:////private/tmp/st_auth_migration_check_20260507.db uv run alembic upgrade head` -> pass.
+  - `git diff --check` -> pass.
+
+## Bugfix: Plan Volume Curve Frontend Contract
+
+Objective: fix `/plan` crashing after setup because the frontend treated the volume-curve API response as an array even though the backend returns a wrapper object.
+
+Context:
+- User reported `curve.map is not a function` at `web/app/(tabs)/plan/page.tsx`.
+- Backend contract is `PlanVolumeCurveOut`: `{ plan_id, weeks, peak_planned_km, peak_executed_km }`.
+- Frontend typed the SWR result as `VolumeCurveWeek[]` and rendered `curve.map(...)`.
+
+Plan:
+1. [x] Add frontend `VolumeCurveOut` type matching the backend response.
+2. [x] Normalize `/plans/{id}/volume-curve` payloads to `weeks`, while tolerating an array payload for backward compatibility.
+3. [x] Render phase/chart/week list only when the normalized week array is non-empty.
+4. [x] Add a Plan page regression test proving wrapper-object responses render week rows without crashing.
+5. [x] Verify focused Plan page test, full frontend tests, type-check/build, and `git diff --check`.
+
+Review:
+- `/plan` now derives `curve` through `normalizeVolumeCurve(curvePayload)`.
+- Added `web/__tests__/planPage.test.tsx` for the backend wrapper-object response shape.
+- Verification passed:
+  - `cd web && pnpm test __tests__/planPage.test.tsx` -> 1/1 pass.
+  - `cd web && pnpm test` -> 91/91 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+
+## Runtime/Auth Config: Fresh Next Build, SMS Toggle, Passkey Production Secrets
+
+Objective: recover the local workout route from stale Next chunk output, hide SMS login in production until a vendor exists, and configure production passkey WebAuthn settings.
+
+Plan:
+1. [x] Stop stale local Next server, remove `web/.next`, and restart `npm run dev`.
+2. [x] Verify `/workouts/2026-07-05` no longer raises the missing vendor chunk error.
+3. [x] Add `NEXT_PUBLIC_SMS_LOGIN_ENABLED` so production can hide the SMS fallback while local development keeps it visible.
+4. [x] Pass `NEXT_PUBLIC_SMS_LOGIN_ENABLED=false` to production web builds.
+5. [x] Set production WebAuthn Fly secrets for passkey RP ID, RP name, and allowed origins.
+6. [x] Run frontend tests/type-check/build and update devlog.
+
+Review:
+- Removed stale `web/.next`, restarted local Next dev server, and verified `http://127.0.0.1:3000/workouts/2026-07-05` now returns the expected unauthenticated `307 /login` instead of a missing vendor chunk error.
+- Added `NEXT_PUBLIC_SMS_LOGIN_ENABLED`; local `web/.env.local` keeps it `true`, production Docker/GitHub Actions build sets it `false`.
+- Set production passkey/WebAuthn secrets on Fly `st-api`; both machines rolled and reported healthy checks.
+- Verification passed:
+  - `cd web && pnpm test __tests__/login.test.tsx __tests__/planPage.test.tsx` -> 15/15 pass.
+  - `cd web && pnpm test` -> 92/92 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `curl -i http://127.0.0.1:3000/workouts/2026-07-05` -> HTTP 307 to `/login`.

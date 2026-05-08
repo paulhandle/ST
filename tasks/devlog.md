@@ -1,5 +1,95 @@
 # Dev Log
 
+## 2026-05-08 - Runtime auth config and stale Next chunk cleanup
+
+Why: User reported `/workouts/2026-07-05` failing with `Cannot find module './vendor-chunks/swr@2.4.1_react@18.3.1.js'`, then asked how passkey should be configured and whether SMS can be hidden online until an SMS vendor is ready.
+
+How:
+- Stopped the stale local Next.js process on port 3000, removed `web/.next`, and restarted `npm run dev`.
+- Verified `http://127.0.0.1:3000/workouts/2026-07-05` no longer raises a missing chunk error; unauthenticated access now returns the expected 307 redirect to `/login`.
+- Added `NEXT_PUBLIC_SMS_LOGIN_ENABLED`. Local `web/.env.local` sets it to `true`; the web Dockerfile defaults it to `false`; GitHub Actions production deploy passes `NEXT_PUBLIC_SMS_LOGIN_ENABLED=false`.
+- Updated the login page to hide the SMS fallback entry when `NEXT_PUBLIC_SMS_LOGIN_ENABLED=false`.
+- Set Fly `st-api` WebAuthn production secrets: `WEBAUTHN_RP_ID=performanceprotocol.io`, `WEBAUTHN_RP_NAME=PerformanceProtocol`, and `WEBAUTHN_ALLOWED_ORIGINS=https://performanceprotocol.io,https://www.performanceprotocol.io`.
+- Updated README with SMS visibility and passkey production/local configuration.
+
+Result:
+- Focused frontend verification passed: `cd web && pnpm test __tests__/login.test.tsx __tests__/planPage.test.tsx` -> 15/15 pass.
+- Full frontend verification passed: `cd web && pnpm test` -> 92/92 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Runtime route check passed: `curl -i http://127.0.0.1:3000/workouts/2026-07-05` returned HTTP 307 to `/login` with no missing vendor chunk error.
+- Fly secret update passed: both `st-api` machines rolled and reported healthy checks.
+
+## 2026-05-08 - Plan volume curve response normalization
+
+Why: User reported `/plan` crashed after setup with `curve.map is not a function` in `web/app/(tabs)/plan/page.tsx`. The backend returns `PlanVolumeCurveOut` as a wrapper object with a `weeks` array, while the frontend typed the SWR result as `VolumeCurveWeek[]` and called `.map` directly on the object.
+
+How:
+- Added `VolumeCurveOut` to `web/lib/api/types.ts` to mirror the backend response.
+- Updated `/plan` to normalize the volume-curve payload through `normalizeVolumeCurve()`, using `payload.weeks` for the current API shape and tolerating a legacy direct array.
+- Changed phase/chart/week-list rendering to depend on `curve.length > 0`, so object payloads and empty payloads do not crash.
+- Added `web/__tests__/planPage.test.tsx` covering the backend wrapper-object shape.
+
+Result:
+- Focused Plan page verification passed: `cd web && pnpm test __tests__/planPage.test.tsx` -> 1/1 pass.
+- Full frontend verification passed: `cd web && pnpm test` -> 91/91 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+
+## 2026-05-07 - Quiet SMS fallback on login
+
+Why: User noted that the SMS login fallback was still too visually prominent. Since Google/passkey are the intended primary auth paths, SMS should stay available without competing with the main actions.
+
+How:
+- Changed the `/login` SMS fallback affordance from a full-width dashed secondary button to a small centered one-line text link.
+- Added a login test assertion that the SMS fallback trigger uses the text-link variant.
+- Recorded the UI preference in `tasks/lessons.md`.
+
+Result:
+- Focused login verification passed: `cd web && pnpm test __tests__/login.test.tsx` -> 13/13 pass.
+
+## 2026-05-07 - Account aliases for multi-method login
+
+Why: User hit Google login failure on local SQLite: `no such column: users.email`. The immediate cause was a half-migrated local DB, but the deeper design issue was that Google email/profile claims were being stored and queried on `users`. The account model needs to support multiple login forms by storing provider handles in an alias table.
+
+How:
+- Replaced the auth identity model/table with `AccountAlias` / `account_aliases`.
+- Kept `users` as the account owner table. Provider subjects and claims now live on aliases: phone aliases, email aliases, Google aliases, and passkey aliases.
+- Updated Google login to look up by Google `sub`, then by normalized email alias, creating a new user only when no alias exists.
+- Updated SMS OTP login and phone linking to resolve ownership through phone aliases, not `users.phone`.
+- Updated passkey registration/login to use alias-derived user names and email-specific passkey discovery through email aliases.
+- Updated the auth Alembic migration and README auth storage table.
+- Repaired local `st.db` non-destructively after creating `var/db_backups/st-before-account-alias-20260507.db`: made `users.phone` nullable, created `account_aliases`, copied existing `auth_identities`, created phone aliases for existing users, and added email aliases where previous identity rows had email.
+
+Result:
+- Backend auth focused verification passed: `uv run python -m unittest tests.test_auth -v` -> 32/32 pass.
+- Local SQLite schema now has `account_aliases` and nullable `users.phone`; existing aliases currently include phone aliases migrated from local users.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 106/106 pass.
+- Frontend verification passed: `cd web && pnpm test` -> 90/90 pass, `cd web && pnpm type-check`, and `cd web && pnpm build`.
+- Clean SQLite migration verification passed: `ST_DATABASE_URL=sqlite:////private/tmp/st_auth_migration_check_20260507.db uv run alembic upgrade head`.
+- Whitespace verification passed: `git diff --check`.
+
+## 2026-05-07 - Google Sign-In browser wiring
+
+Why: User provided the Google OAuth web client id and asked to adjust the app/env from that value. The backend Google endpoint already existed, but the login page still showed Google as an unavailable primary method and never loaded Google Identity Services.
+
+How:
+- Added `GOOGLE_CLIENT_ID` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` to local `.env`, and added `NEXT_PUBLIC_GOOGLE_CLIENT_ID` to `web/.env.local` so local Next.js runs can render the Google sign-in button. While editing local env, corrected the local `OPENAI_MODEL` key typo.
+- Added `GOOGLE_CLIENT_ID` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` placeholders to `.env.example` and documented why both are needed in README.
+- Updated `web/app/login/page.tsx` to load `https://accounts.google.com/gsi/client`, initialize Google Identity Services with `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, render the GIS button, POST the returned ID token to `/api/auth/google`, save the returned app token, and route to onboarding or dashboard based on `is_new_user`.
+- Updated the web Dockerfile and GitHub Actions Fly deploy command so the public Google client id is present during the production Next.js build.
+- Set `GOOGLE_CLIENT_ID` on Fly app `st-api` with `flyctl secrets set`, so the production API runtime can verify Google ID tokens after this auth branch is deployed.
+- Added login page regression coverage for a configured Google credential flow and for the missing-config fallback path.
+
+Result:
+- Frontend focused verification passed: `cd web && pnpm test __tests__/login.test.tsx` -> 13/13 pass.
+- Full frontend verification passed: `cd web && pnpm test` -> 90/90 pass. Existing non-fatal jsdom `--localstorage-file` and React `act(...)` warnings remain from prior onboarding tests.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Backend auth focused verification passed: `uv run python -m unittest tests.test_auth -v` -> 32/32 pass.
+- Fly secret update passed: `flyctl secrets set GOOGLE_CLIENT_ID=... --app st-api` rolled both machines and reported healthy checks.
+- Whitespace verification passed: `git diff --check`.
+
 ## 2026-05-07 - Auth modernization foundation
 
 Why: User called out that SMS OTP login is expensive and asked to prepare Google account login and passkey support, while keeping SMS as a fallback and allowing phone addition in personal settings with anti-abuse controls.

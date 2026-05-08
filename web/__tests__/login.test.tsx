@@ -2,9 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
 
+const routerMocks = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+}))
+
 // Mock next/navigation
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => routerMocks,
 }))
 
 // Mock fetch
@@ -23,7 +28,18 @@ import LoginPage from '@/app/login/page'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  routerMocks.push.mockClear()
+  routerMocks.replace.mockClear()
   Object.keys(store).forEach(k => delete store[k])
+  delete process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+  delete process.env.NEXT_PUBLIC_SMS_LOGIN_ENABLED
+  vi.unstubAllGlobals()
+  vi.stubGlobal('fetch', mockFetch)
+  vi.stubGlobal('localStorage', {
+    getItem: (k: string) => store[k] ?? null,
+    setItem: (k: string, v: string) => { store[k] = v },
+    removeItem: (k: string) => { delete store[k] },
+  })
 })
 
 describe('LoginPage', () => {
@@ -35,6 +51,62 @@ describe('LoginPage', () => {
     render(<LoginPage />)
     expect(screen.getByText(/Continue with Google/)).toBeInTheDocument()
     expect(screen.getByText(/Sign in with passkey/)).toBeInTheDocument()
+    expect(screen.getByText(/Use phone code instead/).closest('button')).toHaveAttribute('data-variant', 'text-link')
+    expect(screen.queryByPlaceholderText(/138 0013 8000/)).not.toBeInTheDocument()
+  })
+
+  it('posts Google credential token and follows the existing auth redirect', async () => {
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = 'test-google-client-id'
+    let googleCallback: ((response: { credential?: string }) => void) | undefined
+    const initialize = vi.fn((config: { client_id: string; callback: (response: { credential?: string }) => void }) => {
+      googleCallback = config.callback
+    })
+    const renderButton = vi.fn((parent: HTMLElement) => {
+      const button = document.createElement('button')
+      button.textContent = 'Continue with Google'
+      button.addEventListener('click', () => googleCallback?.({ credential: 'google-id-token' }))
+      parent.appendChild(button)
+    })
+    vi.stubGlobal('google', {
+      accounts: {
+        id: { initialize, renderButton },
+      },
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ access_token: 'google-app-token', token_type: 'bearer', user_id: 1, is_new_user: true }),
+    })
+
+    render(<LoginPage />)
+
+    await waitFor(() => {
+      expect(initialize).toHaveBeenCalledWith(expect.objectContaining({ client_id: 'test-google-client-id' }))
+      expect(renderButton).toHaveBeenCalled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Continue with Google/ }))
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/auth/google', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ id_token: 'google-id-token' }),
+      }))
+      expect(store.st_token).toBe('google-app-token')
+      expect(routerMocks.replace).toHaveBeenCalledWith('/onboarding')
+    })
+  })
+
+  it('keeps SMS fallback available when Google is not configured', () => {
+    render(<LoginPage />)
+    fireEvent.click(screen.getByText(/Continue with Google/))
+    expect(screen.getByText(/This sign-in method is not configured yet/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByText(/Use phone code instead/))
+    expect(screen.getByPlaceholderText(/138 0013 8000/)).toBeInTheDocument()
+  })
+
+  it('hides SMS fallback when it is disabled for production', () => {
+    process.env.NEXT_PUBLIC_SMS_LOGIN_ENABLED = 'false'
+    render(<LoginPage />)
+    expect(screen.queryByText(/Use phone code instead/)).not.toBeInTheDocument()
     expect(screen.queryByPlaceholderText(/138 0013 8000/)).not.toBeInTheDocument()
   })
 

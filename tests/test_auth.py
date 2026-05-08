@@ -9,7 +9,7 @@ import unittest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.db import Base, engine
-from app.models import AuthChallenge, AuthChallengePurpose, AuthIdentity, AuthProvider, OTPCode, User, WebAuthnCredential
+from app.models import AccountAlias, AuthChallenge, AuthChallengePurpose, AuthProvider, OTPCode, User, WebAuthnCredential
 
 
 class AuthSetup(unittest.TestCase):
@@ -165,7 +165,7 @@ class VerifyOTPTestCase(AuthSetup):
         try:
             user = db.query(User).one()
             self.assertEqual(user.phone, "+14155552671")
-            identity = db.query(AuthIdentity).one()
+            identity = db.query(AccountAlias).one()
             self.assertEqual(identity.provider, AuthProvider.PHONE)
             self.assertEqual(identity.provider_subject, "+14155552671")
         finally:
@@ -242,9 +242,15 @@ class GoogleLoginTestCase(AuthSetup):
             user = db.query(User).one()
             self.assertIsNone(user.phone)
             self.assertEqual(user.email, "runner@example.com")
-            identity = db.query(AuthIdentity).one()
-            self.assertEqual(identity.provider, AuthProvider.GOOGLE)
-            self.assertEqual(identity.provider_subject, "google-sub-1")
+            aliases = db.query(AccountAlias).order_by(AccountAlias.provider).all()
+            self.assertEqual(len(aliases), 2)
+            google_alias = next(alias for alias in aliases if alias.provider == AuthProvider.GOOGLE)
+            email_alias = next(alias for alias in aliases if alias.provider == AuthProvider.EMAIL)
+            self.assertEqual(google_alias.provider_subject, "google-sub-1")
+            self.assertEqual(google_alias.email, "runner@example.com")
+            self.assertEqual(google_alias.display_name, "Runner One")
+            self.assertEqual(google_alias.avatar_url, "https://example.com/avatar.png")
+            self.assertEqual(email_alias.provider_subject, "runner@example.com")
         finally:
             db.close()
 
@@ -292,9 +298,15 @@ class PasskeyAuthTestCase(AuthSetup):
 
         db = SessionLocal()
         try:
-            user = User(email="runner@example.com")
+            user = User()
             db.add(user)
             db.flush()
+            db.add(AccountAlias(
+                user_id=user.id,
+                provider=AuthProvider.EMAIL,
+                provider_subject="runner@example.com",
+                email="runner@example.com",
+            ))
             db.add(WebAuthnCredential(user_id=user.id, credential_id="YWJj", public_key=b"public", sign_count=0))
             db.commit()
         finally:

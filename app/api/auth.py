@@ -33,9 +33,9 @@ from app.core.config import (
 )
 from app.db import get_db
 from app.models import (
+    AccountAlias,
     AuthChallenge,
     AuthChallengePurpose,
-    AuthIdentity,
     AuthProvider,
     OTPCode,
     User,
@@ -143,14 +143,14 @@ def _ensure_identity(
     provider: AuthProvider,
     provider_subject: str,
     email: str | None = None,
-) -> AuthIdentity:
+) -> AccountAlias:
     identity = (
-        db.query(AuthIdentity)
-        .filter(AuthIdentity.provider == provider, AuthIdentity.provider_subject == provider_subject)
+        db.query(AccountAlias)
+        .filter(AccountAlias.provider == provider, AccountAlias.provider_subject == provider_subject)
         .first()
     )
     if identity is None:
-        identity = AuthIdentity(
+        identity = AccountAlias(
             user_id=user.id,
             provider=provider,
             provider_subject=provider_subject,
@@ -166,11 +166,18 @@ def _ensure_identity(
 
 def _user_from_identity(db: Session, provider: AuthProvider, provider_subject: str) -> User | None:
     identity = (
-        db.query(AuthIdentity)
-        .filter(AuthIdentity.provider == provider, AuthIdentity.provider_subject == provider_subject)
+        db.query(AccountAlias)
+        .filter(AccountAlias.provider == provider, AccountAlias.provider_subject == provider_subject)
         .first()
     )
     return identity.user if identity else None
+
+
+def _normalize_email(email: str | None) -> str | None:
+    if not email:
+        return None
+    normalized = email.strip().lower()
+    return normalized or None
 
 
 def _create_or_get_google_user(db: Session, claims: dict) -> tuple[User, bool]:
@@ -178,21 +185,21 @@ def _create_or_get_google_user(db: Session, claims: dict) -> tuple[User, bool]:
     user = _user_from_identity(db, AuthProvider.GOOGLE, subject)
     is_new = False
     if user is None:
-        email = claims.get("email")
-        user = db.query(User).filter(User.email == email).first() if email else None
+        email = _normalize_email(claims.get("email"))
+        user = _user_from_identity(db, AuthProvider.EMAIL, email) if email else None
         if user is None:
-            user = User(
-                email=email,
-                display_name=claims.get("name"),
-                avatar_url=claims.get("picture"),
-            )
+            user = User()
             db.add(user)
             db.flush()
             is_new = True
-    user.email = claims.get("email") or user.email
-    user.display_name = claims.get("name") or user.display_name
-    user.avatar_url = claims.get("picture") or user.avatar_url
-    _ensure_identity(db, user=user, provider=AuthProvider.GOOGLE, provider_subject=subject, email=user.email)
+    email = _normalize_email(claims.get("email"))
+    google_alias = _ensure_identity(db, user=user, provider=AuthProvider.GOOGLE, provider_subject=subject, email=email)
+    google_alias.display_name = claims.get("name") or google_alias.display_name
+    google_alias.avatar_url = claims.get("picture") or google_alias.avatar_url
+    if email:
+        email_alias = _ensure_identity(db, user=user, provider=AuthProvider.EMAIL, provider_subject=email, email=email)
+        email_alias.display_name = claims.get("name") or email_alias.display_name
+        email_alias.avatar_url = claims.get("picture") or email_alias.avatar_url
     return user, is_new
 
 
@@ -283,15 +290,14 @@ def verify_otp(body: VerifyOTPRequest, request: Request, db: Session = Depends(g
     phone = _verify_phone_otp(body, request, db)
 
     is_new_user = False
-    user = db.query(User).filter(User.phone == phone).first()
+    user = _user_from_identity(db, AuthProvider.PHONE, phone)
     if user is None:
-        user = _user_from_identity(db, AuthProvider.PHONE, phone)
+        user = db.query(User).filter(User._legacy_phone == phone).first()
     if user is None:
-        user = User(phone=phone)
+        user = User()
         db.add(user)
         db.flush()
         is_new_user = True
-    user.phone = phone
     _ensure_identity(db, user=user, provider=AuthProvider.PHONE, provider_subject=phone)
 
     db.commit()
@@ -327,12 +333,13 @@ def passkey_register_options(
 ):
     credentials = db.query(WebAuthnCredential).filter(WebAuthnCredential.user_id == current_user.id).all()
     user_name = current_user.email or current_user.phone or f"user-{current_user.id}"
+    user_display_name = current_user.display_name or user_name
     options = generate_registration_options(
         rp_id=webauthn_rp_id(),
         rp_name=webauthn_rp_name(),
         user_id=str(current_user.id).encode(),
         user_name=user_name,
-        user_display_name=current_user.display_name or user_name,
+        user_display_name=user_display_name,
         authenticator_selection=AuthenticatorSelectionCriteria(
             resident_key=ResidentKeyRequirement.PREFERRED,
             user_verification=UserVerificationRequirement.PREFERRED,
@@ -394,9 +401,10 @@ def passkey_login_options(body: PasskeyAuthenticationStartRequest, request: Requ
     credentials_query = db.query(WebAuthnCredential)
     subject = "discoverable"
     if body.email:
-        user = db.query(User).filter(User.email == body.email).first()
+        email = _normalize_email(body.email)
+        user = _user_from_identity(db, AuthProvider.EMAIL, email) if email else None
         credentials_query = credentials_query.filter(WebAuthnCredential.user_id == (user.id if user else -1))
-        subject = body.email
+        subject = email or "discoverable"
     credentials = credentials_query.all()
     options = generate_authentication_options(
         rp_id=webauthn_rp_id(),
@@ -468,10 +476,9 @@ def verify_phone_link(
     db: Session = Depends(get_db),
 ):
     phone = _verify_phone_otp(body, request, db)
-    owner = db.query(User).filter(User.phone == phone, User.id != current_user.id).first()
-    if owner is not None:
+    owner = _user_from_identity(db, AuthProvider.PHONE, phone)
+    if owner is not None and owner.id != current_user.id:
         raise HTTPException(status_code=409, detail="Phone is already linked")
-    current_user.phone = phone
     _ensure_identity(db, user=current_user, provider=AuthProvider.PHONE, provider_subject=phone)
     db.commit()
     db.refresh(current_user)

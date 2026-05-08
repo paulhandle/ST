@@ -54,3 +54,7 @@ These were validated by the user during the MVP+1 design discussion. Apply going
 ## 2026-05-07 — First-run onboarding must create the training plan
 
 - Do not treat onboarding as profile/COROS setup only. The product core is skill selection plus plan generation, so first-run onboarding must load available skills, let the user choose one, call the plan generation API with that `skill_slug`, confirm the generated plan, and route to the plan/dashboard only after a plan exists. A successful onboarding that leaves Plan empty is a broken core flow.
+
+## 2026-05-07 — SMS login is fallback-only visually
+
+- On login surfaces, Google and passkey are the primary actions. SMS should remain available but visually quiet: use a small one-line text link, not a full-width button or anything that competes with the primary auth methods.
