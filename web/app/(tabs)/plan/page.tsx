@@ -3,7 +3,7 @@
 import useSWR from 'swr'
 import { fetcher } from '@/lib/api/client'
 import { useDashboard } from '@/lib/hooks/useDashboard'
-import type { VolumeCurveWeek } from '@/lib/api/types'
+import type { VolumeCurveOut, VolumeCurveWeek } from '@/lib/api/types'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts'
 import PendingAdjustmentSection from '@/components/plan/PendingAdjustmentSection'
 import EmptyPlanState from '@/components/EmptyPlanState'
@@ -29,12 +29,13 @@ export default function PlanPage() {
     fetcher,
   )
 
-  const { data: curve } = useSWR<VolumeCurveWeek[]>(
+  const { data: curvePayload } = useSWR<VolumeCurveOut | VolumeCurveWeek[]>(
     planId ? `/api/plans/${planId}/volume-curve` : null,
     fetcher,
   )
 
   const currentWeek = dashboard?.this_week.week_index ?? 1
+  const curve = normalizeVolumeCurve(curvePayload)
 
   // No plan yet — show empty state
   if (!planId && dashboard) {
@@ -65,10 +66,10 @@ export default function PlanPage() {
       </div>
 
       {/* ── Phase strip ────────────────────────────────────── */}
-      {curve && <PhaseStrip curve={curve} currentWeek={currentWeek} />}
+      {curve.length > 0 && <PhaseStrip curve={curve} currentWeek={currentWeek} />}
 
       {/* ── Volume curve chart ─────────────────────────────── */}
-      {curve && curve.length > 0 && (
+      {curve.length > 0 && (
         <div style={{ padding: '16px' }}>
           <div className="section-title" style={{ marginBottom: 12 }}>{t.plan.trainingVolume}</div>
           <ResponsiveContainer width="100%" height={160}>
@@ -105,7 +106,7 @@ export default function PlanPage() {
       )}
 
       {/* ── Week list ──────────────────────────────────────── */}
-      {curve && (
+      {curve.length > 0 && (
         <div>
           <div className="section-header">
             <span className="section-title">{t.plan.weeklyPlan}</span>
@@ -122,6 +123,12 @@ export default function PlanPage() {
       )}
     </div>
   )
+}
+
+function normalizeVolumeCurve(payload: VolumeCurveOut | VolumeCurveWeek[] | undefined): VolumeCurveWeek[] {
+  if (!payload) return []
+  if (Array.isArray(payload)) return payload
+  return Array.isArray(payload.weeks) ? payload.weeks : []
 }
 
 function PhaseStrip({ curve, currentWeek }: { curve: VolumeCurveWeek[]; currentWeek: number }) {

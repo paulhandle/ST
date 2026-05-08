@@ -9,7 +9,7 @@ import unittest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.db import Base, engine
-from app.models import OTPCode, User
+from app.models import AccountAlias, AuthChallenge, AuthChallengePurpose, AuthProvider, OTPCode, User, WebAuthnCredential
 
 
 class AuthSetup(unittest.TestCase):
@@ -108,6 +108,13 @@ class SendOTPTestCase(AuthSetup):
         res = self.client.post("/auth/send-otp", json={})
         self.assertEqual(res.status_code, 422)
 
+    def test_send_otp_rate_limits_phone(self):
+        phone = "13800138998"
+        for _ in range(5):
+            self.assertEqual(self.client.post("/auth/send-otp", json={"phone": phone}).status_code, 200)
+        res = self.client.post("/auth/send-otp", json={"phone": phone})
+        self.assertEqual(res.status_code, 429)
+
 
 class VerifyOTPTestCase(AuthSetup):
     def _send(self, phone="13800138000"):
@@ -158,6 +165,9 @@ class VerifyOTPTestCase(AuthSetup):
         try:
             user = db.query(User).one()
             self.assertEqual(user.phone, "+14155552671")
+            identity = db.query(AccountAlias).one()
+            self.assertEqual(identity.provider, AuthProvider.PHONE)
+            self.assertEqual(identity.provider_subject, "+14155552671")
         finally:
             db.close()
 
@@ -190,6 +200,123 @@ class VerifyOTPTestCase(AuthSetup):
 
         res = self.client.post("/auth/verify-otp", json={"phone": phone, "code": str(code)})
         self.assertEqual(res.status_code, 401)
+
+    def test_verify_otp_rate_limits_failed_attempts(self):
+        phone = "13800138006"
+        self._send(phone)
+        for _ in range(5):
+            self.assertEqual(self.client.post("/auth/verify-otp", json={"phone": phone, "code": "000000"}).status_code, 401)
+        res = self.client.post("/auth/verify-otp", json={"phone": phone, "code": "000000"})
+        self.assertEqual(res.status_code, 429)
+
+
+class GoogleLoginTestCase(AuthSetup):
+    def test_google_login_creates_user_and_identity(self):
+        import app.api.auth as auth_module
+
+        original_client_id = auth_module.google_client_id
+        original_verify = auth_module.google_id_token.verify_oauth2_token
+        auth_module.google_client_id = lambda: "client-id"
+        auth_module.google_id_token.verify_oauth2_token = lambda token, request, audience: {
+            "iss": "https://accounts.google.com",
+            "sub": "google-sub-1",
+            "email": "runner@example.com",
+            "name": "Runner One",
+            "picture": "https://example.com/avatar.png",
+        }
+        try:
+            res = self.client.post("/auth/google", json={"id_token": "valid-google-token"})
+        finally:
+            auth_module.google_client_id = original_client_id
+            auth_module.google_id_token.verify_oauth2_token = original_verify
+
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data["is_new_user"])
+        self.assertIn("access_token", data)
+
+        from app.db import SessionLocal
+
+        db = SessionLocal()
+        try:
+            user = db.query(User).one()
+            self.assertIsNone(user.phone)
+            self.assertEqual(user.email, "runner@example.com")
+            aliases = db.query(AccountAlias).order_by(AccountAlias.provider).all()
+            self.assertEqual(len(aliases), 2)
+            google_alias = next(alias for alias in aliases if alias.provider == AuthProvider.GOOGLE)
+            email_alias = next(alias for alias in aliases if alias.provider == AuthProvider.EMAIL)
+            self.assertEqual(google_alias.provider_subject, "google-sub-1")
+            self.assertEqual(google_alias.email, "runner@example.com")
+            self.assertEqual(google_alias.display_name, "Runner One")
+            self.assertEqual(google_alias.avatar_url, "https://example.com/avatar.png")
+            self.assertEqual(email_alias.provider_subject, "runner@example.com")
+        finally:
+            db.close()
+
+    def test_google_login_requires_configuration(self):
+        import app.api.auth as auth_module
+
+        original_client_id = auth_module.google_client_id
+        auth_module.google_client_id = lambda: ""
+        try:
+            res = self.client.post("/auth/google", json={"id_token": "valid-google-token"})
+        finally:
+            auth_module.google_client_id = original_client_id
+        self.assertEqual(res.status_code, 503)
+
+
+class PasskeyAuthTestCase(AuthSetup):
+    def _token(self):
+        code = self.client.post("/auth/send-otp", json={"phone": "13800139999"}).json()["otp_code"]
+        return self.client.post("/auth/verify-otp", json={"phone": "13800139999", "code": str(code)}).json()["access_token"]
+
+    def test_register_options_requires_auth(self):
+        res = self.client.post("/auth/passkeys/register/options")
+        self.assertEqual(res.status_code, 401)
+
+    def test_register_options_returns_public_key_options_and_stores_challenge(self):
+        token = self._token()
+        res = self.client.post("/auth/passkeys/register/options", headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(res.status_code, 200)
+        options = res.json()["options"]
+        self.assertEqual(options["rp"]["name"], "PerformanceProtocol")
+        self.assertIn("challenge", options)
+
+        from app.db import SessionLocal
+
+        db = SessionLocal()
+        try:
+            challenge = db.query(AuthChallenge).filter(AuthChallenge.purpose == AuthChallengePurpose.PASSKEY_REGISTER).one()
+            self.assertFalse(challenge.consumed)
+            self.assertEqual(challenge.subject, "1")
+        finally:
+            db.close()
+
+    def test_login_options_returns_allow_credentials_when_email_known(self):
+        from app.db import SessionLocal
+
+        db = SessionLocal()
+        try:
+            user = User()
+            db.add(user)
+            db.flush()
+            db.add(AccountAlias(
+                user_id=user.id,
+                provider=AuthProvider.EMAIL,
+                provider_subject="runner@example.com",
+                email="runner@example.com",
+            ))
+            db.add(WebAuthnCredential(user_id=user.id, credential_id="YWJj", public_key=b"public", sign_count=0))
+            db.commit()
+        finally:
+            db.close()
+
+        res = self.client.post("/auth/passkeys/login/options", json={"email": "runner@example.com"})
+        self.assertEqual(res.status_code, 200)
+        options = res.json()["options"]
+        self.assertEqual(options["rpId"], "localhost")
+        self.assertEqual(options["allowCredentials"][0]["id"], "YWJj")
 
 
 class MeEndpointTestCase(AuthSetup):

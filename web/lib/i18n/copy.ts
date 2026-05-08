@@ -132,6 +132,8 @@ export const copy = {
       coros: 'COROS sync',
       corosSub: 'Manage device connection',
       account: 'Account',
+      security: 'Account security',
+      securitySub: 'Passkeys and phone fallback',
       logout: 'Log out',
       corosSettings: {
         title: 'COROS Sync',
@@ -460,6 +462,8 @@ export const copy = {
       coros: 'COROS 同步',
       corosSub: '管理设备连接',
       account: '账号',
+      security: '账号安全',
+      securitySub: 'Passkey 与短信备用登录',
       logout: '退出登录',
       corosSettings: {
         title: 'COROS 同步',

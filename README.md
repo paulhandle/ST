@@ -119,6 +119,12 @@ Important variables:
 | `SMS_PROVIDER` | `mock` by default. `dry_run` exercises provider wiring without returning OTP codes. |
 | `SMS_MOCK_RETURN_CODE` | `true` in local/test mock mode to include `otp_code` in responses; set `false` outside local development. |
 | `SMS_API_KEY` / `SMS_API_SECRET` / `SMS_SENDER_ID` | Reserved for the future real SMS vendor adapter. |
+| `GOOGLE_CLIENT_ID` | Google OAuth client id for `/auth/google` ID-token verification. If unset, Google login returns 503. |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Same Google OAuth client id exposed to the Next.js browser bundle so Google Identity Services can render the login button. Required at web build time. |
+| `NEXT_PUBLIC_SMS_LOGIN_ENABLED` | Controls whether the web login page shows the SMS fallback entry. Use `true` locally; production build currently sets `false` until an SMS vendor is ready. |
+| `WEBAUTHN_RP_ID` | WebAuthn relying-party id. Use `performanceprotocol.io` in production; defaults to `localhost` for local development. |
+| `WEBAUTHN_RP_NAME` | WebAuthn relying-party display name. Defaults to `PerformanceProtocol`. |
+| `WEBAUTHN_ALLOWED_ORIGINS` | Comma-separated origins accepted for passkey ceremonies. Defaults to localhost plus production domains. |
 | `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` | Optional LLM configuration for skill personalization and coach interpretation. |
 
 ## COROS Real Sync
@@ -178,7 +184,36 @@ The current full sync fetches all `/activity/query` pages, keeps all sport types
 
 ## Auth
 
-The app currently uses phone OTP login and a 30-day bearer token. Development/test mode can return a mock OTP code. Phone numbers are normalized to E.164. The preferred request shape is `country_code + national_number`; legacy mainland China `phone` requests are still accepted for compatibility.
+The app uses its own 30-day bearer token after any successful sign-in method. Google login and passkeys are the primary low-cost paths; SMS OTP remains as a fallback and for phone linking in Settings.
+
+Google login uses Google Identity Services in the browser with `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, then posts the returned Google ID token to `/auth/google`. The backend verifies the token against `GOOGLE_CLIENT_ID`, uses Google's stable `sub` as the identity subject, creates or links the user, then returns the same JWT response shape as OTP login. These two Google client-id variables should contain the same OAuth web client id; the `NEXT_PUBLIC_` value is public and compiled into the web bundle.
+
+Passkeys use WebAuthn server-side ceremonies:
+
+- `POST /auth/passkeys/register/options`
+- `POST /auth/passkeys/register/verify`
+- `POST /auth/passkeys/login/options`
+- `POST /auth/passkeys/login/verify`
+
+Production passkeys require HTTPS and domain-bound WebAuthn settings on the API runtime:
+
+```bash
+flyctl secrets set \
+  WEBAUTHN_RP_ID=performanceprotocol.io \
+  WEBAUTHN_RP_NAME=PerformanceProtocol \
+  WEBAUTHN_ALLOWED_ORIGINS=https://performanceprotocol.io,https://www.performanceprotocol.io \
+  --app st-api
+```
+
+Local passkey testing uses localhost defaults:
+
+```env
+WEBAUTHN_RP_ID=localhost
+WEBAUTHN_RP_NAME=PerformanceProtocol
+WEBAUTHN_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+```
+
+SMS fallback phone numbers are normalized to E.164. The preferred request shape is `country_code + national_number`; legacy mainland China `phone` requests are still accepted for compatibility. OTP sends are rate-limited per phone and per IP, and failed verification attempts are rate-limited per phone. Development/test mode can return a mock OTP code.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/auth/send-otp \
@@ -194,6 +229,15 @@ curl http://127.0.0.1:8000/auth/me \
 ```
 
 OTP codes expire after 10 minutes and can be used once. The initial country/region list in the web login selector covers China mainland, United States, United Kingdom, Singapore, Hong Kong SAR, Taiwan, China, Japan, and Australia.
+
+Account identity storage:
+
+| Table | What it stores |
+|---|---|
+| `users` | Product account, optional phone/email/profile fields, and related athletes. |
+| `account_aliases` | Login aliases by provider: `phone`, `email`, `google`, or `passkey`, keyed by provider subject. `users` is the account owner table; provider credentials and profile claims live here instead of on `users`. |
+| `webauthn_credentials` | Passkey credential id, public key, sign count, transports, display name, and last-used time. |
+| `auth_challenges` | Short-lived OTP/passkey challenges plus rate-limit audit rows. |
 
 ## First-Run Onboarding
 
@@ -227,6 +271,7 @@ COROS connection failure does not block onboarding because the athlete can recon
 | `/skills/[slug]` | Skill methodology detail |
 | `/adjustments/[id]` | Adjustment detail and apply/reject flow |
 | `/settings` | Training, data, and account settings |
+| `/settings/security` | Passkeys and SMS fallback phone linking |
 
 ## Key API Routes
 
@@ -236,6 +281,13 @@ COROS connection failure does not block onboarding because the athlete can recon
 - `GET /skills/{slug}`
 - `POST /auth/send-otp`
 - `POST /auth/verify-otp`
+- `POST /auth/google`
+- `POST /auth/passkeys/register/options`
+- `POST /auth/passkeys/register/verify`
+- `POST /auth/passkeys/login/options`
+- `POST /auth/passkeys/login/verify`
+- `POST /auth/phone/link/start`
+- `POST /auth/phone/link/verify`
 - `GET /auth/me`
 - `POST /athletes`
 - `GET /athletes/{id}/dashboard`

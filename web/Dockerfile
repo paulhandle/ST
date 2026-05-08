@@ -25,6 +25,12 @@ COPY . .
 ARG BACKEND_URL=https://api.performanceprotocol.io
 ENV BACKEND_URL=$BACKEND_URL
 
+# NEXT_PUBLIC_* values are compiled into the browser bundle at build time.
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
+ARG NEXT_PUBLIC_SMS_LOGIN_ENABLED=false
+ENV NEXT_PUBLIC_SMS_LOGIN_ENABLED=$NEXT_PUBLIC_SMS_LOGIN_ENABLED
+
 RUN pnpm build
 
 # ---------- runtime ----------

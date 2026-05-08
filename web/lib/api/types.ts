@@ -315,6 +315,13 @@ export interface VolumeCurveWeek {
   is_recovery: boolean
 }
 
+export interface VolumeCurveOut {
+  plan_id: number
+  weeks: VolumeCurveWeek[]
+  peak_planned_km: number
+  peak_executed_km: number
+}
+
 /* ── Regenerate preview ──────────────────────────────────── */
 
 export interface RegeneratePreviewOut {
