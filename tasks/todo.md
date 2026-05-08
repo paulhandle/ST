@@ -2,6 +2,41 @@
 
 **Branch:** `feat/coros-full-sync`
 
+## Bugfix: Athlete Ownership After Onboarding
+
+Objective: stop completed users from repeating onboarding on every login.
+
+Context:
+- Test environment symptom: the same Google user is sent through the new-user/onboarding flow every time.
+- Root cause found in backend: `/athletes` requires auth, but `create_athlete()` ignored the current user and created `AthleteProfile` without `user_id`.
+- Auth login checks `user.athletes` to decide `has_athlete`; orphan athlete rows make completed onboarding invisible to later logins.
+
+Plan:
+1. [x] Link created athletes to the current user:
+   - [x] Use `current_user.id` when creating `AthleteProfile`.
+   - [x] Preserve the existing response shape.
+2. [x] Add backend regression coverage:
+   - [x] Creating an athlete with a valid token stores `athlete_profiles.user_id`.
+   - [x] Re-login after athlete creation returns `has_athlete=true` and the created `athlete_id`.
+3. [x] Verification:
+   - [x] Run focused backend auth tests.
+   - [x] Run full backend tests if focused tests pass.
+   - [x] Run whitespace check.
+
+Acceptance criteria:
+- Finishing onboarding creates an athlete owned by the authenticated user.
+- The same Google account no longer returns to onboarding on future login after setup is complete.
+- Existing anonymous/protected-route behavior remains unchanged.
+
+Review:
+- `/athletes` now stores `user_id=current_user.id` on new `AthleteProfile` rows.
+- Added regression coverage for the exact loop: Google login with no athlete, authenticated athlete creation, then same Google login returning `has_athlete=true`.
+- Added a protected-route assertion that authenticated athlete creation persists ownership.
+- Verification passed so far:
+  - `uv run python -m unittest tests.test_auth -v` -> 35/35 pass.
+  - `uv run python -m unittest discover -s tests -v` -> 109/109 pass.
+  - `git diff --check` -> pass.
+
 ## Bugfix: Auth Onboarding Boundary
 
 Objective: prevent users who have an authenticated account but have not finished athlete/onboarding setup from reaching dashboard surfaces that require an athlete id.

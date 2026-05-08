@@ -63,3 +63,4 @@ These were validated by the user during the MVP+1 design discussion. Apply going
 
 - Do not use `is_new_user` as the dashboard routing gate. A repeated Google/passkey/SMS login can be an existing account with no `AthleteProfile` yet. Login responses must expose setup state (`has_athlete`, `athlete_id`), and the web app should route to dashboard only when a valid athlete id is present.
 - When auth state says onboarding is incomplete, clear stale local `pp_athlete_id` before routing. A previous account's athlete id in localStorage can otherwise cause `Athlete not found` errors under a different authenticated user.
+- Onboarding-created athletes must be owned by the authenticated `User`. Any endpoint that creates `AthleteProfile` during product setup should persist `user_id=current_user.id`; otherwise auth responses will keep reporting `has_athlete=false` and completed users will repeat onboarding forever.

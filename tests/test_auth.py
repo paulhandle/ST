@@ -324,6 +324,50 @@ class GoogleLoginTestCase(AuthSetup):
         self.assertTrue(data["has_athlete"])
         self.assertEqual(data["athlete_id"], athlete_id)
 
+    def test_google_user_returns_athlete_after_authenticated_onboarding(self):
+        import app.api.auth as auth_module
+
+        original_client_id = auth_module.google_client_id
+        original_verify = auth_module.google_id_token.verify_oauth2_token
+        auth_module.google_client_id = lambda: "client-id"
+        auth_module.google_id_token.verify_oauth2_token = lambda token, request, audience: {
+            "iss": "https://accounts.google.com",
+            "sub": "google-sub-onboarded",
+            "email": "onboarded@example.com",
+        }
+        try:
+            first = self.client.post("/auth/google", json={"id_token": "valid-google-token"})
+            token = first.json()["access_token"]
+            athlete_res = self.client.post(
+                "/athletes",
+                json={"name": "Me", "sport": "marathon"},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            second = self.client.post("/auth/google", json={"id_token": "valid-google-token"})
+        finally:
+            auth_module.google_client_id = original_client_id
+            auth_module.google_id_token.verify_oauth2_token = original_verify
+
+        self.assertEqual(first.status_code, 200)
+        self.assertFalse(first.json()["has_athlete"])
+        self.assertEqual(athlete_res.status_code, 200)
+        athlete_id = athlete_res.json()["id"]
+        self.assertEqual(second.status_code, 200)
+        data = second.json()
+        self.assertFalse(data["is_new_user"])
+        self.assertTrue(data["has_athlete"])
+        self.assertEqual(data["athlete_id"], athlete_id)
+
+        from app.db import SessionLocal
+
+        db = SessionLocal()
+        try:
+            athlete = db.query(AthleteProfile).filter(AthleteProfile.id == athlete_id).one()
+            user = db.query(User).join(AccountAlias).filter(AccountAlias.provider_subject == "google-sub-onboarded").one()
+            self.assertEqual(athlete.user_id, user.id)
+        finally:
+            db.close()
+
     def test_google_login_requires_configuration(self):
         import app.api.auth as auth_module
 
@@ -433,7 +477,17 @@ class ProtectedRoutesTestCase(AuthSetup):
             json={"name": "테스트", "sport": "marathon"},
             headers={"Authorization": f"Bearer {token}"},
         )
-        self.assertIn(res.status_code, (200, 201, 422))
+        self.assertEqual(res.status_code, 200)
+
+        from app.db import SessionLocal
+
+        db = SessionLocal()
+        try:
+            athlete = db.query(AthleteProfile).filter(AthleteProfile.id == res.json()["id"]).one()
+            user = db.query(User).one()
+            self.assertEqual(athlete.user_id, user.id)
+        finally:
+            db.close()
 
     def test_today_endpoint_requires_auth(self):
         res = self.client.get("/athletes/1/today")
