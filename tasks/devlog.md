@@ -1,5 +1,18 @@
 # Dev Log
 
+## 2026-05-08 - Athlete ownership after onboarding
+
+Why: User reported that the same test-environment user had to go through the new-user flow every time. Root cause: `/athletes` required authentication but ignored the current user when creating `AthleteProfile`, leaving onboarding-created athlete rows with `user_id=NULL`. Later Google login correctly looked at `user.athletes`, found no owned athlete, and routed the completed user back to onboarding.
+
+How:
+- Updated `create_athlete()` in `app/api/routes.py` to create `AthleteProfile(..., user_id=current_user.id)`.
+- Added backend regression coverage proving authenticated athlete creation stores ownership.
+- Added a Google login regression test for the exact flow: first Google login has no athlete, onboarding creates an athlete with the returned token, second Google login returns `has_athlete=true` and the created `athlete_id`.
+
+Result:
+- Focused auth verification passed: `uv run python -m unittest tests.test_auth -v` -> 35/35 pass.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 109/109 pass.
+
 ## 2026-05-08 - Google login first-click redirect reliability
 
 Why: User reported that production Google login required two clicks: after the first Google login the page stayed on `/login`, and a second click entered the app while also showing the Google authorization prompt again. The likely root cause is a client navigation timing issue after auth state changes: the login handler saved localStorage/cookie and then used Next `router.replace()`, which can leave the existing login page client state alive across Google popup and middleware/cookie synchronization.

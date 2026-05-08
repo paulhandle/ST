@@ -145,8 +145,8 @@ def sports() -> list[dict[str, str]]:
 
 
 @router.post("/athletes", response_model=AthleteOut)
-def create_athlete(request: AthleteCreate, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
-    athlete = AthleteProfile(**request.model_dump())
+def create_athlete(request: AthleteCreate, db: Session = Depends(get_db), current_user: "User" = Depends(get_current_user)):
+    athlete = AthleteProfile(**request.model_dump(), user_id=current_user.id)
     db.add(athlete)
     db.commit()
     db.refresh(athlete)
