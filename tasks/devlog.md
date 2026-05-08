@@ -1,5 +1,21 @@
 # Dev Log
 
+## 2026-05-08 - Google login first-click redirect reliability
+
+Why: User reported that production Google login required two clicks: after the first Google login the page stayed on `/login`, and a second click entered the app while also showing the Google authorization prompt again. The likely root cause is a client navigation timing issue after auth state changes: the login handler saved localStorage/cookie and then used Next `router.replace()`, which can leave the existing login page client state alive across Google popup and middleware/cookie synchronization.
+
+How:
+- Added a `navigateAfterAuth()` helper in `web/app/login/page.tsx`.
+- Successful Google/SMS login now saves token and athlete state first, then uses `window.location.assign()` for `/dashboard` or `/onboarding`.
+- Existing-token login-page migration uses the same hard navigation helper.
+- Kept the previous Google in-flight guard so duplicate credential callbacks still issue only one `/api/auth/google` request.
+- Updated `web/__tests__/login.test.tsx` to assert browser navigation with `window.location.assign()` for Google success, OTP success, existing-token migration, no-athlete routing, and with-athlete routing.
+
+Result:
+- Focused frontend verification passed: `cd web && pnpm test __tests__/login.test.tsx __tests__/auth.test.ts` -> 32/32 pass.
+- Frontend production build passed: `cd web && pnpm build`.
+- Initial parallel `pnpm type-check` hit a transient `.next/types` missing-file race while `next build` was regenerating build output; rerunning after build passed: `cd web && pnpm type-check`.
+
 ## 2026-05-08 - Auth onboarding boundary hardening
 
 Why: User reported `404 {"detail":"Athlete not found"}` after logging in, then clicking Google login again before the new-registration/onboarding flow had completed. Root cause: auth routing used `is_new_user` as a proxy for setup completion. A repeated Google login can correctly return `is_new_user=false` because the account alias already exists, while the account still has no `AthleteProfile`. The frontend then routed to `/dashboard`, where athlete-scoped endpoints failed.

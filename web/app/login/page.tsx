@@ -98,26 +98,34 @@ export default function LoginPage() {
   const selectedRegion = dialingRegionFor(countryCode)
   const canSend = phone.replace(/\D/g, '').length >= selectedRegion.minNationalDigits
 
+  const navigateAfterAuth = useCallback((path: '/dashboard' | '/onboarding') => {
+    if (typeof window !== 'undefined') {
+      window.location.assign(path)
+      return
+    }
+    router.replace(path)
+  }, [router])
+
   // Migrate pre-cookie sessions: if localStorage already has a valid token,
   // saveToken re-syncs it to the cookie and we skip the login flow entirely.
   useEffect(() => {
     const existing = getToken()
     if (existing) {
       saveToken(existing)
-      router.replace(getStoredAthleteId() ? '/dashboard' : '/onboarding')
+      navigateAfterAuth(getStoredAthleteId() ? '/dashboard' : '/onboarding')
     }
-  }, [router])
+  }, [navigateAfterAuth])
 
   const completeLogin = useCallback((data: AuthResponse) => {
     saveToken(data.access_token)
     if (data.has_athlete && data.athlete_id && data.athlete_id > 0) {
       saveAthleteId(data.athlete_id)
-      router.replace('/dashboard')
+      navigateAfterAuth('/dashboard')
       return
     }
     clearAthleteId()
-    router.replace('/onboarding')
-  }, [router])
+    navigateAfterAuth('/onboarding')
+  }, [navigateAfterAuth])
 
   const handleGoogleCredential = useCallback(async (response: GoogleCredentialResponse) => {
     if (loginInFlightRef.current) {

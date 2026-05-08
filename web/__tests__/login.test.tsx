@@ -18,6 +18,7 @@ vi.stubGlobal('fetch', mockFetch)
 
 // Mock localStorage
 const store: Record<string, string> = {}
+let assignedPath = ''
 vi.stubGlobal('localStorage', {
   getItem: (k: string) => store[k] ?? null,
   setItem: (k: string, v: string) => { store[k] = v },
@@ -31,6 +32,7 @@ beforeEach(() => {
   routerMocks.push.mockClear()
   routerMocks.replace.mockClear()
   Object.keys(store).forEach(k => delete store[k])
+  assignedPath = ''
   delete process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   delete process.env.NEXT_PUBLIC_SMS_LOGIN_ENABLED
   vi.unstubAllGlobals()
@@ -39,6 +41,10 @@ beforeEach(() => {
     getItem: (k: string) => store[k] ?? null,
     setItem: (k: string, v: string) => { store[k] = v },
     removeItem: (k: string) => { delete store[k] },
+  })
+  vi.stubGlobal('location', {
+    ...window.location,
+    assign: vi.fn((path: string) => { assignedPath = path }),
   })
 })
 
@@ -99,7 +105,8 @@ describe('LoginPage', () => {
       }))
       expect(store.st_token).toBe('google-app-token')
       expect(store.pp_athlete_id).toBeUndefined()
-      expect(routerMocks.replace).toHaveBeenCalledWith('/onboarding')
+      expect(window.location.assign).toHaveBeenCalledWith('/onboarding')
+      expect(assignedPath).toBe('/onboarding')
     })
   })
 
@@ -146,7 +153,7 @@ describe('LoginPage', () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledTimes(1)
-      expect(routerMocks.replace).toHaveBeenCalledWith('/onboarding')
+      expect(window.location.assign).toHaveBeenCalledWith('/onboarding')
     })
   })
 
@@ -186,7 +193,7 @@ describe('LoginPage', () => {
 
     await waitFor(() => {
       expect(store.pp_athlete_id).toBe('42')
-      expect(routerMocks.replace).toHaveBeenCalledWith('/dashboard')
+      expect(window.location.assign).toHaveBeenCalledWith('/dashboard')
     })
   })
 
@@ -196,7 +203,7 @@ describe('LoginPage', () => {
     render(<LoginPage />)
 
     await waitFor(() => {
-      expect(routerMocks.replace).toHaveBeenCalledWith('/onboarding')
+      expect(window.location.assign).toHaveBeenCalledWith('/onboarding')
     })
   })
 
@@ -207,7 +214,7 @@ describe('LoginPage', () => {
     render(<LoginPage />)
 
     await waitFor(() => {
-      expect(routerMocks.replace).toHaveBeenCalledWith('/dashboard')
+      expect(window.location.assign).toHaveBeenCalledWith('/dashboard')
     })
   })
 
@@ -363,7 +370,7 @@ describe('LoginPage', () => {
       expect(mockFetch).toHaveBeenLastCalledWith('/api/auth/verify-otp', expect.objectContaining({
         body: JSON.stringify({ country_code: '+86', national_number: '13800138000', code: '123456' }),
       }))
-      expect(routerMocks.replace).toHaveBeenCalledWith('/onboarding')
+      expect(window.location.assign).toHaveBeenCalledWith('/onboarding')
     })
   })
 
