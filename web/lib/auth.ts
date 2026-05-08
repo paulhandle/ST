@@ -34,9 +34,19 @@ export function saveAthleteId(athleteId: number): void {
   localStorage.setItem(ATHLETE_ID_KEY, String(athleteId))
 }
 
+export function clearAthleteId(): void {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(ATHLETE_ID_KEY)
+}
+
+export function getStoredAthleteId(): number | null {
+  if (typeof window === 'undefined') return null
+  const raw = localStorage.getItem(ATHLETE_ID_KEY)
+  const parsed = raw ? Number(raw) : NaN
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
 export function getAthleteId(): number {
   if (typeof window === 'undefined') return 1
-  const raw = localStorage.getItem(ATHLETE_ID_KEY)
-  const parsed = raw ? Number(raw) : 1
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
+  return getStoredAthleteId() ?? 1
 }

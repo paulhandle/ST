@@ -2,6 +2,51 @@
 
 **Branch:** `feat/coros-full-sync`
 
+## Bugfix: Auth Onboarding Boundary
+
+Objective: prevent users who have an authenticated account but have not finished athlete/onboarding setup from reaching dashboard surfaces that require an athlete id.
+
+Context:
+- A repeated Google login can return `is_new_user=false` because the account alias already exists, even when no `AthleteProfile` exists yet.
+- The frontend previously routed all non-new users to `/dashboard`, which can immediately hit `404 {"detail":"Athlete not found"}`.
+- Stale local `pp_athlete_id` values from another account/session must not survive an unfinished login.
+
+Plan:
+1. [x] Extend auth responses with explicit onboarding state:
+   - [x] Return `has_athlete` and `athlete_id` from SMS, Google, and passkey login responses.
+   - [x] Add backend regression coverage for repeat Google login without an athlete.
+   - [x] Add backend regression coverage for an account with an athlete returning the athlete id.
+2. [x] Harden frontend login routing:
+   - [x] Route to `/dashboard` only when the auth response includes a valid athlete id.
+   - [x] Clear stale `pp_athlete_id` and route to `/onboarding` when no athlete exists.
+   - [x] Guard duplicate Google callbacks/submissions during an in-flight login.
+   - [x] Avoid auto-redirecting an existing token to dashboard when no athlete id is stored.
+3. [x] Verification:
+   - [x] Run focused backend auth tests.
+   - [x] Run focused login/auth frontend tests.
+   - [x] Run frontend type-check.
+   - [x] Run whitespace check.
+
+Acceptance criteria:
+- Existing Google user without an athlete always lands on `/onboarding`, even when `is_new_user=false`.
+- Existing Google user with an athlete stores `pp_athlete_id` and lands on `/dashboard`.
+- Re-clicking Google while login is in progress does not send the user into an inconsistent state.
+- No stale athlete id survives an auth response that says onboarding is incomplete.
+
+Review:
+- Backend auth responses now include explicit athlete setup state.
+- Login routing ignores `is_new_user` for dashboard eligibility and requires `has_athlete=true` with a positive `athlete_id`.
+- Existing-token login-page migration now routes to onboarding when no stored athlete id exists.
+- Google credential callbacks are ignored while a login request is already in flight.
+- Verification passed so far:
+  - `uv run python -m unittest tests.test_auth -v` -> 34/34 pass.
+  - `uv run python -m unittest discover -s tests -v` -> 108/108 pass.
+  - `cd web && pnpm test __tests__/login.test.tsx __tests__/auth.test.ts` -> 32/32 pass.
+  - `cd web && pnpm test` -> 100/100 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check` -> pass.
+
 ## Auth Modernization: Google, Passkeys, SMS Fallback
 
 Objective: reduce paid SMS dependency by making Google account login and passkey the primary auth paths, while retaining SMS OTP as a fallback and adding abuse controls before users can add/use phone-based login.
