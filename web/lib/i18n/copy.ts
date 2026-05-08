@@ -53,6 +53,13 @@ export const copy = {
     activities: {
       title: 'Activities',
       empty: 'No activities yet',
+      timeline: 'Timeline',
+      calendar: 'Calendar',
+      monthJump: 'Jump to month',
+      summaryActivities: 'activities',
+      summaryDistance: 'distance',
+      summaryDuration: 'duration',
+      summaryPlanned: 'planned',
       filters: {
         all: 'All',
         run: 'Run',
@@ -383,6 +390,13 @@ export const copy = {
     activities: {
       title: '运动',
       empty: '暂无记录',
+      timeline: '时间线',
+      calendar: '日历',
+      monthJump: '月份',
+      summaryActivities: '活动',
+      summaryDistance: '距离',
+      summaryDuration: '时长',
+      summaryPlanned: '计划',
       filters: {
         all: '全部',
         run: '跑步',

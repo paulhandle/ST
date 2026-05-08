@@ -1,5 +1,24 @@
 # Dev Log
 
+## 2026-05-08 - Activities timeline-first review UX
+
+Why: User said the Activities tab calendar management felt inefficient and accepted moving toward a timeline-first interaction. The old page put MonthStrip in the primary position, which is useful for date picking but inefficient for reviewing recent real workouts.
+
+How:
+- Kept the existing `/calendar` API and `CalendarDay` data shape.
+- Changed `/activities` to default to a Timeline view with a segmented Timeline/Calendar switch.
+- Added summary metrics for the currently visible filtered rows: activity count, activity distance, activity duration, and planned count.
+- Added status filter chips alongside sport filters, with accessible labels to disambiguate duplicated filter/status text.
+- Added month jump chips in Timeline view so users can jump directly to a month without scanning the date strip.
+- Kept `MonthStrip` only in Calendar view as a secondary date locator.
+- Updated `web/__tests__/blockE.test.tsx` to cover default Timeline view, filter chips, link behavior, Calendar view MonthStrip, and status filtering.
+
+Result:
+- Focused Activities verification passed: `cd web && pnpm test __tests__/blockE.test.tsx` -> 15/15 pass.
+- Full frontend verification passed: `cd web && pnpm test` -> 94/94 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+
 ## 2026-05-08 - Runtime auth config and stale Next chunk cleanup
 
 Why: User reported `/workouts/2026-07-05` failing with `Cannot find module './vendor-chunks/swr@2.4.1_react@18.3.1.js'`, then asked how passkey should be configured and whether SMS can be hidden online until an SMS vendor is ready.
