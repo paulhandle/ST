@@ -22,6 +22,8 @@ function getDateRange() {
 const { fromDate, toDate } = getDateRange()
 
 const FILTER_KEYS = ['all', 'run', 'cycle', 'strength'] as const
+const STATUS_FILTER_KEYS = ['all', 'completed', 'unmatched', 'planned', 'miss'] as const
+type ActivitiesView = 'timeline' | 'calendar'
 
 const STATUS_COLOR: Record<string, string> = {
   completed: 'var(--ink)',
@@ -34,13 +36,21 @@ const STATUS_COLOR: Record<string, string> = {
 export default function ActivitiesPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [filter, setFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [view, setView] = useState<ActivitiesView>('timeline')
   const listRef = useRef<HTMLDivElement>(null)
   const { days, isLoading, error } = useCalendar(fromDate, toDate)
   const { language, t } = useI18n()
 
-  const filtered = filter === 'all'
-    ? days
-    : days.filter(d => d.sport === filter)
+  const filtered = days.filter((d) => {
+    const sportMatches = filter === 'all' || d.sport === filter
+    const statusMatches = statusFilter === 'all' || d.status === statusFilter
+    return sportMatches && statusMatches
+  })
+  const activityCount = filtered.filter((d) => d.activity_id != null).length
+  const plannedCount = filtered.filter((d) => d.status === 'planned').length
+  const totalDistance = filtered.reduce((sum, d) => sum + (d.activity_id != null ? d.distance_km ?? 0 : 0), 0)
+  const totalDuration = filtered.reduce((sum, d) => sum + (d.activity_id != null ? d.duration_min ?? 0 : 0), 0)
 
   const byMonth: Record<string, CalendarDay[]> = {}
   for (const d of filtered) {
@@ -69,21 +79,57 @@ export default function ActivitiesPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
       <div style={{ padding: '16px 16px 10px', flexShrink: 0,
                     borderBottom: '1px solid var(--rule-soft)' }}>
-        <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>{t.activities.title}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>{t.activities.title}</div>
+          <div style={{ display: 'flex', border: '1px solid var(--rule)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+            {(['timeline', 'calendar'] as const).map((key) => (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                className="hand"
+                style={{
+                  border: 'none',
+                  borderRight: key === 'timeline' ? '1px solid var(--rule)' : 'none',
+                  padding: '5px 9px',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  background: view === key ? 'var(--accent)' : 'var(--paper)',
+                  color: view === key ? '#050505' : 'var(--ink-faint)',
+                }}
+              >
+                {key === 'timeline' ? t.activities.timeline : t.activities.calendar}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+          gap: 8,
+          marginTop: 12,
+        }}>
+          <SummaryMetric label={t.activities.summaryActivities} value={`${activityCount}`} />
+          <SummaryMetric label={t.activities.summaryDistance} value={`${totalDistance.toFixed(1)} km`} />
+          <SummaryMetric label={t.activities.summaryDuration} value={`${Math.round(totalDuration)} ${t.common.minutes}`} />
+          <SummaryMetric label={t.activities.summaryPlanned} value={`${plannedCount}`} />
+        </div>
       </div>
 
-      <div style={{ flexShrink: 0 }}>
-        <MonthStrip days={days} selectedDate={selectedDate} onSelectDate={handleSelectDate} />
-      </div>
+      {view === 'calendar' && (
+        <div style={{ flexShrink: 0 }}>
+          <MonthStrip days={days} selectedDate={selectedDate} onSelectDate={handleSelectDate} />
+        </div>
+      )}
 
       <div style={{
-        display: 'flex', gap: 8, padding: '8px 16px', flexShrink: 0,
+        display: 'flex', gap: 8, padding: '8px 16px 4px', flexShrink: 0,
         borderBottom: '1px solid var(--rule-soft)', overflowX: 'auto',
         scrollbarWidth: 'none',
       }}>
         {FILTER_KEYS.map(key => (
           <button
             key={key}
+            aria-label={`Sport filter: ${t.activities.filters[key]}`}
             onClick={() => setFilter(key)}
             className="hand"
             style={{
@@ -98,6 +144,55 @@ export default function ActivitiesPage() {
           </button>
         ))}
       </div>
+      <div style={{
+        display: 'flex', gap: 8, padding: '4px 16px 8px', flexShrink: 0,
+        borderBottom: '1px solid var(--rule-soft)', overflowX: 'auto',
+        scrollbarWidth: 'none',
+      }}>
+        {STATUS_FILTER_KEYS.map(key => (
+          <button
+            key={key}
+            aria-label={`Status filter: ${key === 'all' ? t.activities.filters.all : (t.activities.status[key] ?? key)}`}
+            onClick={() => setStatusFilter(key)}
+            className="hand"
+            style={{
+              padding: '4px 10px', borderRadius: 'var(--radius)', fontSize: 12, cursor: 'pointer',
+              border: `1px solid ${statusFilter === key ? 'var(--accent)' : 'var(--rule)'}`,
+              background: statusFilter === key ? 'var(--accent)' : 'var(--paper)',
+              color: statusFilter === key ? '#050505' : 'var(--ink-faint)',
+              whiteSpace: 'nowrap', flexShrink: 0,
+            }}
+          >
+            {key === 'all' ? t.activities.filters.all : (t.activities.status[key] ?? key)}
+          </button>
+        ))}
+      </div>
+
+      {view === 'timeline' && monthKeys.length > 0 && (
+        <div style={{
+          display: 'flex', gap: 8, padding: '8px 16px', flexShrink: 0,
+          borderBottom: '1px solid var(--rule-soft)', overflowX: 'auto',
+          scrollbarWidth: 'none',
+        }}>
+          <span className="annot text-faint" style={{ fontSize: 11, alignSelf: 'center', whiteSpace: 'nowrap' }}>
+            {t.activities.monthJump}
+          </span>
+          {monthKeys.map(mk => (
+            <button key={mk} onClick={() => handleSelectDate(`${mk}-01`)} className="hand" style={{
+              border: '1px solid var(--rule)',
+              borderRadius: 'var(--radius)',
+              background: 'var(--paper)',
+              color: 'var(--ink)',
+              padding: '4px 10px',
+              fontSize: 12,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}>
+              {formatMonthLabel(mk, language)} · {byMonth[mk].length}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div ref={listRef} style={{ flex: 1, overflowY: 'auto' }}>
         {isLoading && (
@@ -120,7 +215,6 @@ export default function ActivitiesPage() {
         )}
 
         {monthKeys.map(mk => {
-          const [y, m] = mk.split('-')
           const monthDays = [...byMonth[mk]].sort((a, b) => b.date.localeCompare(a.date))
           return (
             <div key={mk} data-listmonth={mk}>
@@ -130,7 +224,7 @@ export default function ActivitiesPage() {
                 background: 'var(--paper)',
                 position: 'sticky', top: 0, zIndex: 1,
               }}>
-                {language === 'zh' ? `${y}年${parseInt(m)}月` : new Date(`${mk}-01T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                {formatMonthLabel(mk, language)}
               </div>
               {monthDays.map(day => (
                 <DayRow key={day.date} day={day} isSelected={day.date === selectedDate} />
@@ -141,6 +235,21 @@ export default function ActivitiesPage() {
       </div>
     </div>
   )
+}
+
+function SummaryMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ border: '1px solid var(--rule-soft)', padding: '7px 8px', borderRadius: 'var(--radius)' }}>
+      <div className="hand" style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
+      <div className="annot text-faint" style={{ fontSize: 10, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+    </div>
+  )
+}
+
+function formatMonthLabel(monthKey: string, language: string) {
+  const [year, month] = monthKey.split('-')
+  if (language === 'zh') return `${year}年${parseInt(month)}月`
+  return new Date(`${monthKey}-01T00:00:00`).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
 function DayRow({ day, isSelected }: { day: CalendarDay; isSelected: boolean }) {
