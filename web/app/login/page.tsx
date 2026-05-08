@@ -3,7 +3,7 @@
 import Script from 'next/script'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { saveToken, getToken } from '@/lib/auth'
+import { clearAthleteId, getStoredAthleteId, saveAthleteId, saveToken, getToken } from '@/lib/auth'
 import BrandLogo from '@/components/BrandLogo'
 import LanguageToggle from '@/components/LanguageToggle'
 import { DIALING_REGIONS, dialingRegionFor } from '@/lib/i18n/countryCodes'
@@ -11,7 +11,12 @@ import { useI18n } from '@/lib/i18n/I18nProvider'
 
 type Step = 'phone' | 'otp'
 type LoginMode = 'primary' | 'sms'
-type AuthResponse = { access_token: string; is_new_user?: boolean }
+type AuthResponse = {
+  access_token: string
+  is_new_user?: boolean
+  has_athlete?: boolean
+  athlete_id?: number | null
+}
 type GoogleCredentialResponse = { credential?: string }
 type GoogleIdentityApi = {
   initialize: (config: {
@@ -89,6 +94,7 @@ export default function LoginPage() {
   const [googleReady, setGoogleReady] = useState(false)
   const [googleScriptFailed, setGoogleScriptFailed] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const loginInFlightRef = useRef(false)
   const selectedRegion = dialingRegionFor(countryCode)
   const canSend = phone.replace(/\D/g, '').length >= selectedRegion.minNationalDigits
 
@@ -98,20 +104,30 @@ export default function LoginPage() {
     const existing = getToken()
     if (existing) {
       saveToken(existing)
-      router.replace('/dashboard')
+      router.replace(getStoredAthleteId() ? '/dashboard' : '/onboarding')
     }
   }, [router])
 
   const completeLogin = useCallback((data: AuthResponse) => {
     saveToken(data.access_token)
-    router.replace(data.is_new_user ? '/onboarding' : '/dashboard')
+    if (data.has_athlete && data.athlete_id && data.athlete_id > 0) {
+      saveAthleteId(data.athlete_id)
+      router.replace('/dashboard')
+      return
+    }
+    clearAthleteId()
+    router.replace('/onboarding')
   }, [router])
 
   const handleGoogleCredential = useCallback(async (response: GoogleCredentialResponse) => {
+    if (loginInFlightRef.current) {
+      return
+    }
     if (!response.credential) {
       setError(t.googleError)
       return
     }
+    loginInFlightRef.current = true
     setError(null)
     setLoading(true)
     try {
@@ -127,6 +143,7 @@ export default function LoginPage() {
       const data = await res.json()
       completeLogin(data)
     } finally {
+      loginInFlightRef.current = false
       setLoading(false)
     }
   }, [completeLogin, t.googleError])

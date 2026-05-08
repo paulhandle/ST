@@ -9,7 +9,7 @@ import unittest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.db import Base, engine
-from app.models import AccountAlias, AuthChallenge, AuthChallengePurpose, AuthProvider, OTPCode, User, WebAuthnCredential
+from app.models import AccountAlias, AthleteProfile, AuthChallenge, AuthChallengePurpose, AuthProvider, OTPCode, SportType, User, WebAuthnCredential
 
 
 class AuthSetup(unittest.TestCase):
@@ -234,6 +234,8 @@ class GoogleLoginTestCase(AuthSetup):
         data = res.json()
         self.assertTrue(data["is_new_user"])
         self.assertIn("access_token", data)
+        self.assertFalse(data["has_athlete"])
+        self.assertIsNone(data["athlete_id"])
 
         from app.db import SessionLocal
 
@@ -253,6 +255,74 @@ class GoogleLoginTestCase(AuthSetup):
             self.assertEqual(email_alias.provider_subject, "runner@example.com")
         finally:
             db.close()
+
+    def test_google_login_existing_user_without_athlete_still_requires_onboarding(self):
+        import app.api.auth as auth_module
+
+        original_client_id = auth_module.google_client_id
+        original_verify = auth_module.google_id_token.verify_oauth2_token
+        auth_module.google_client_id = lambda: "client-id"
+        auth_module.google_id_token.verify_oauth2_token = lambda token, request, audience: {
+            "iss": "https://accounts.google.com",
+            "sub": "google-sub-no-athlete",
+            "email": "unfinished@example.com",
+        }
+        try:
+            first = self.client.post("/auth/google", json={"id_token": "valid-google-token"})
+            second = self.client.post("/auth/google", json={"id_token": "valid-google-token"})
+        finally:
+            auth_module.google_client_id = original_client_id
+            auth_module.google_id_token.verify_oauth2_token = original_verify
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        data = second.json()
+        self.assertFalse(data["is_new_user"])
+        self.assertFalse(data["has_athlete"])
+        self.assertIsNone(data["athlete_id"])
+
+    def test_google_login_returns_default_athlete_when_onboarding_done(self):
+        import app.api.auth as auth_module
+
+        from app.db import SessionLocal
+
+        db = SessionLocal()
+        try:
+            user = User()
+            db.add(user)
+            db.flush()
+            db.add(AccountAlias(
+                user_id=user.id,
+                provider=AuthProvider.GOOGLE,
+                provider_subject="google-sub-with-athlete",
+                email="runner@example.com",
+            ))
+            athlete = AthleteProfile(user_id=user.id, name="Runner", sport=SportType.MARATHON)
+            db.add(athlete)
+            db.commit()
+            athlete_id = athlete.id
+        finally:
+            db.close()
+
+        original_client_id = auth_module.google_client_id
+        original_verify = auth_module.google_id_token.verify_oauth2_token
+        auth_module.google_client_id = lambda: "client-id"
+        auth_module.google_id_token.verify_oauth2_token = lambda token, request, audience: {
+            "iss": "https://accounts.google.com",
+            "sub": "google-sub-with-athlete",
+            "email": "runner@example.com",
+        }
+        try:
+            res = self.client.post("/auth/google", json={"id_token": "valid-google-token"})
+        finally:
+            auth_module.google_client_id = original_client_id
+            auth_module.google_id_token.verify_oauth2_token = original_verify
+
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertFalse(data["is_new_user"])
+        self.assertTrue(data["has_athlete"])
+        self.assertEqual(data["athlete_id"], athlete_id)
 
     def test_google_login_requires_configuration(self):
         import app.api.auth as auth_module

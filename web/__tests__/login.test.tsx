@@ -74,7 +74,14 @@ describe('LoginPage', () => {
     })
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ access_token: 'google-app-token', token_type: 'bearer', user_id: 1, is_new_user: true }),
+      json: async () => ({
+        access_token: 'google-app-token',
+        token_type: 'bearer',
+        user_id: 1,
+        is_new_user: false,
+        has_athlete: false,
+        athlete_id: null,
+      }),
     })
 
     render(<LoginPage />)
@@ -91,7 +98,116 @@ describe('LoginPage', () => {
         body: JSON.stringify({ id_token: 'google-id-token' }),
       }))
       expect(store.st_token).toBe('google-app-token')
+      expect(store.pp_athlete_id).toBeUndefined()
       expect(routerMocks.replace).toHaveBeenCalledWith('/onboarding')
+    })
+  })
+
+  it('ignores duplicate Google callbacks while login is already in progress', async () => {
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = 'test-google-client-id'
+    let googleCallback: ((response: { credential?: string }) => void) | undefined
+    vi.stubGlobal('google', {
+      accounts: {
+        id: {
+          initialize: vi.fn((config: { callback: (response: { credential?: string }) => void }) => {
+            googleCallback = config.callback
+          }),
+          renderButton: vi.fn((parent: HTMLElement) => {
+            const button = document.createElement('button')
+            button.textContent = 'Continue with Google'
+            button.addEventListener('click', () => {
+              googleCallback?.({ credential: 'google-id-token' })
+              googleCallback?.({ credential: 'google-id-token' })
+            })
+            parent.appendChild(button)
+          }),
+        },
+      },
+    })
+    mockFetch.mockImplementationOnce(() => new Promise(resolve => {
+      setTimeout(() => {
+        resolve({
+          ok: true,
+          json: async () => ({
+            access_token: 'google-app-token',
+            token_type: 'bearer',
+            user_id: 1,
+            is_new_user: false,
+            has_athlete: false,
+            athlete_id: null,
+          }),
+        })
+      }, 10)
+    }))
+
+    render(<LoginPage />)
+    await waitFor(() => expect(screen.getByRole('button', { name: /Continue with Google/ })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /Continue with Google/ }))
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(routerMocks.replace).toHaveBeenCalledWith('/onboarding')
+    })
+  })
+
+  it('routes returning Google users with an athlete to dashboard and stores athlete id', async () => {
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = 'test-google-client-id'
+    let googleCallback: ((response: { credential?: string }) => void) | undefined
+    vi.stubGlobal('google', {
+      accounts: {
+        id: {
+          initialize: vi.fn((config: { callback: (response: { credential?: string }) => void }) => {
+            googleCallback = config.callback
+          }),
+          renderButton: vi.fn((parent: HTMLElement) => {
+            const button = document.createElement('button')
+            button.textContent = 'Continue with Google'
+            button.addEventListener('click', () => googleCallback?.({ credential: 'google-id-token' }))
+            parent.appendChild(button)
+          }),
+        },
+      },
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        access_token: 'google-app-token',
+        token_type: 'bearer',
+        user_id: 1,
+        is_new_user: false,
+        has_athlete: true,
+        athlete_id: 42,
+      }),
+    })
+
+    render(<LoginPage />)
+    await waitFor(() => expect(screen.getByRole('button', { name: /Continue with Google/ })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /Continue with Google/ }))
+
+    await waitFor(() => {
+      expect(store.pp_athlete_id).toBe('42')
+      expect(routerMocks.replace).toHaveBeenCalledWith('/dashboard')
+    })
+  })
+
+  it('routes an existing token without stored athlete id back to onboarding', async () => {
+    store.st_token = 'existing-token'
+
+    render(<LoginPage />)
+
+    await waitFor(() => {
+      expect(routerMocks.replace).toHaveBeenCalledWith('/onboarding')
+    })
+  })
+
+  it('routes an existing token with stored athlete id to dashboard', async () => {
+    store.st_token = 'existing-token'
+    store.pp_athlete_id = '42'
+
+    render(<LoginPage />)
+
+    await waitFor(() => {
+      expect(routerMocks.replace).toHaveBeenCalledWith('/dashboard')
     })
   })
 
@@ -220,7 +336,14 @@ describe('LoginPage', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ message: 'sent', otp_code: 123456 }) })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ access_token: 'token', token_type: 'bearer', user_id: 1, is_new_user: false }),
+        json: async () => ({
+          access_token: 'token',
+          token_type: 'bearer',
+          user_id: 1,
+          is_new_user: false,
+          has_athlete: false,
+          athlete_id: null,
+        }),
       })
 
     render(<LoginPage />)
@@ -240,6 +363,7 @@ describe('LoginPage', () => {
       expect(mockFetch).toHaveBeenLastCalledWith('/api/auth/verify-otp', expect.objectContaining({
         body: JSON.stringify({ country_code: '+86', national_number: '13800138000', code: '123456' }),
       }))
+      expect(routerMocks.replace).toHaveBeenCalledWith('/onboarding')
     })
   })
 

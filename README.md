@@ -188,6 +188,8 @@ The app uses its own 30-day bearer token after any successful sign-in method. Go
 
 Google login uses Google Identity Services in the browser with `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, then posts the returned Google ID token to `/auth/google`. The backend verifies the token against `GOOGLE_CLIENT_ID`, uses Google's stable `sub` as the identity subject, creates or links the user, then returns the same JWT response shape as OTP login. These two Google client-id variables should contain the same OAuth web client id; the `NEXT_PUBLIC_` value is public and compiled into the web bundle.
 
+All successful login methods return account state as well as the app token: `is_new_user`, `has_athlete`, and `athlete_id`. `is_new_user` only means the account record was newly created. The web app routes to `/dashboard` only when `has_athlete=true` and a valid `athlete_id` is present; otherwise it clears any stale local athlete id and routes to `/onboarding`.
+
 Passkeys use WebAuthn server-side ceremonies:
 
 - `POST /auth/passkeys/register/options`
@@ -241,7 +243,7 @@ Account identity storage:
 
 ## First-Run Onboarding
 
-After OTP verification, new users complete `/onboarding`. The flow collects COROS credentials, target race information, weekly training availability, and the training skill for the first cycle. Finishing onboarding is intentionally blocking on plan generation: the web app creates the athlete, stores the returned athlete id in `pp_athlete_id`, optionally connects COROS, creates a marathon goal when target data is present, calls `/marathon/plans/generate` with the selected `skill_slug`, confirms the returned plan through `/plans/{id}/confirm`, then routes to `/plan`.
+After first authentication, users without an athlete profile complete `/onboarding`. The flow collects COROS credentials, target race information, weekly training availability, and the training skill for the first cycle. Finishing onboarding is intentionally blocking on plan generation: the web app creates the athlete, stores the returned athlete id in `pp_athlete_id`, optionally connects COROS, creates a marathon goal when target data is present, calls `/marathon/plans/generate` with the selected `skill_slug`, confirms the returned plan through `/plans/{id}/confirm`, then routes to `/plan`.
 
 COROS connection failure does not block onboarding because the athlete can reconnect later from Settings. Plan generation failure does block onboarding because an empty Plan tab means the core product flow did not complete.
 
