@@ -2,6 +2,46 @@
 
 **Branch:** `feat/coros-full-sync`
 
+## Bugfix: Google Login First Redirect
+
+Objective: make the first successful Google login navigate immediately instead of leaving the user on `/login` until they click Google again.
+
+Context:
+- Production symptom: first Google login returns the user to the login page; clicking Google a second time enters the app, and the Google authorization prompt can appear again.
+- The login handler saves the token cookie/localStorage and then calls Next client `router.replace()`.
+- A full page navigation after successful auth is more reliable for auth boundary transitions because the browser definitely carries the new cookie into the next document request and the login page cannot keep stale client state alive.
+
+Plan:
+1. [x] Replace successful login navigation with a hard browser redirect:
+   - [x] Save token and athlete id state first.
+   - [x] Use a single helper for dashboard/onboarding navigation.
+   - [x] Keep `router.replace()` only as a non-browser fallback.
+2. [x] Improve first-click UX:
+   - [x] Keep the in-flight guard so repeated Google callbacks do not issue duplicate auth requests.
+   - [x] Leave the user on an obvious loading state until navigation starts.
+3. [x] Tests:
+   - [x] Update login tests to assert `window.location.assign()` target for Google and OTP success.
+   - [x] Keep existing no-athlete/with-athlete/existing-token coverage.
+4. [x] Verification:
+   - [x] Run focused login/auth frontend tests.
+   - [x] Run frontend type-check.
+   - [x] Run whitespace check.
+
+Acceptance criteria:
+- First successful Google credential callback navigates to `/onboarding` or `/dashboard` without needing a second click.
+- The Google auth endpoint is called once for duplicate callbacks while login is pending.
+- Existing-token migration still routes according to stored athlete state.
+
+Review:
+- Login success now saves token/cookie and athlete state, then navigates with `window.location.assign()` to force a fresh document request.
+- Existing-token migration uses the same hard navigation helper.
+- Tests now assert browser navigation for Google login, OTP login, existing token migration, and with/without athlete routing.
+- Verification passed so far:
+  - `cd web && pnpm test __tests__/login.test.tsx __tests__/auth.test.ts` -> 32/32 pass.
+  - `cd web && pnpm build` -> pass.
+  - `cd web && pnpm type-check` -> pass after build regenerated `.next/types`.
+  - `git diff --check` -> pass.
+
 ## Bugfix: Auth Onboarding Boundary
 
 Objective: prevent users who have an authenticated account but have not finished athlete/onboarding setup from reaching dashboard surfaces that require an athlete id.
