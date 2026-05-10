@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { getToken } from '@/lib/auth'
 import { DIALING_REGIONS, dialingRegionFor } from '@/lib/i18n/countryCodes'
 import { useI18n } from '@/lib/i18n/I18nProvider'
+import { ArrowLeft } from 'lucide-react'
 
 export default function SecuritySettingsPage() {
-  const { language } = useI18n()
+  const { language, t } = useI18n()
   const [countryCode, setCountryCode] = useState('+86')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
@@ -65,10 +67,29 @@ export default function SecuritySettingsPage() {
 
   return (
     <div>
-      <div style={{ padding: '16px', borderBottom: '1px solid var(--rule-soft)' }}>
-        <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>Account security</div>
-        <div className="annot text-faint" style={{ fontSize: 12, marginTop: 4 }}>
-          Manage passkeys and SMS fallback.
+      <div style={{
+        padding: '16px',
+        borderBottom: '1px solid var(--rule-soft)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+      }}>
+        <Link
+          href="/settings"
+          aria-label={t.common.back}
+          className="settings-back-link"
+          style={{
+            color: 'var(--ink)',
+          }}
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
+          <span>{t.common.back}</span>
+        </Link>
+        <div>
+          <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>Account security</div>
+          <div className="annot text-faint" style={{ fontSize: 12, marginTop: 4 }}>
+            Manage passkeys and SMS fallback.
+          </div>
         </div>
       </div>
 

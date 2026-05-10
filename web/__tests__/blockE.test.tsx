@@ -130,6 +130,15 @@ vi.mock('@/lib/hooks/useCalendar', () => ({
       { date: '2026-05-04', status: 'completed', title: '跑步 8.0km', sport: 'run',
         workout_type: 'easy_run', activity_id: 1, workout_id: 10,
         distance_km: 8.0, duration_min: 48 },
+      { date: '2026-05-06', status: 'partial', title: 'Tempo partial', sport: 'run',
+        workout_type: 'tempo', activity_id: 2, workout_id: 11,
+        distance_km: 6.2, duration_min: 39 },
+      { date: '2026-05-07', status: 'unmatched', title: 'Free ride', sport: 'cycle',
+        workout_type: null, activity_id: 3, workout_id: null,
+        distance_km: 24.4, duration_min: 58 },
+      { date: '2026-05-08', status: 'miss', title: 'Missed intervals', sport: 'run',
+        workout_type: 'intervals', activity_id: null, workout_id: 12,
+        distance_km: 9.0, duration_min: 52 },
       { date: '2026-05-10', status: 'planned', title: 'Long Run', sport: 'run',
         workout_type: 'long_run', activity_id: null, workout_id: 20,
         distance_km: 18.0, duration_min: 110 },
@@ -174,33 +183,51 @@ describe('ActivitiesPage', () => {
     expect(screen.getByRole('button', { name: 'Sport filter: Ride' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sport filter: Strength' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Status filter: Done' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Status filter: Partial' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Status filter: Free' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Status filter: Missed' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Status filter: Planned' })).toBeInTheDocument()
   })
 
   it('renders list items from calendar data', () => {
     render(<ActivitiesPage />)
     expect(screen.getByText('跑步 8.0km')).toBeInTheDocument()
+    expect(screen.getByText('Tempo partial')).toBeInTheDocument()
+    expect(screen.getByText('Free ride')).toBeInTheDocument()
+    expect(screen.getByText('Missed intervals')).toBeInTheDocument()
     expect(screen.getByText('Long Run')).toBeInTheDocument()
   })
 
   it('links real activities to detail and planned rows to workouts', () => {
     render(<ActivitiesPage />)
     expect(screen.getByText('跑步 8.0km').closest('a')).toHaveAttribute('href', '/activities/1')
+    expect(screen.getByText('Free ride').closest('a')).toHaveAttribute('href', '/activities/3')
+    expect(screen.getByText('Missed intervals').closest('a')).toHaveAttribute('href', '/workouts/2026-05-08')
     expect(screen.getByText('Long Run').closest('a')).toHaveAttribute('href', '/workouts/2026-05-10')
   })
 
+  it('shows a legend and status-specific row classes', () => {
+    const { container } = render(<ActivitiesPage />)
+    expect(screen.getByText('Status')).toBeInTheDocument()
+    expect(container.querySelector('[data-status="completed"]')).toHaveClass('activity-row--completed')
+    expect(container.querySelector('[data-status="partial"]')).toHaveClass('activity-row--partial')
+    expect(container.querySelector('[data-status="unmatched"]')).toHaveClass('activity-row--unmatched')
+    expect(container.querySelector('[data-status="miss"]')).toHaveClass('activity-row--miss')
+    expect(container.querySelector('[data-status="planned"]')).toHaveClass('activity-row--planned')
+  })
+
   it('shows MonthStrip only in Calendar view', () => {
-    render(<ActivitiesPage />)
-    const today = new Date().getDate().toString()
-    expect(screen.queryAllByText(today).length).toBe(0)
+    const { container } = render(<ActivitiesPage />)
+    expect(container.querySelector('[data-date]')).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('Calendar'))
-    expect(screen.getAllByText(today).length).toBeGreaterThan(0)
+    expect(container.querySelector('[data-date]')).toBeInTheDocument()
   })
 
   it('filters by status', () => {
     render(<ActivitiesPage />)
     fireEvent.click(screen.getByRole('button', { name: 'Status filter: Done' }))
     expect(screen.getByText('跑步 8.0km')).toBeInTheDocument()
+    expect(screen.queryByText('Tempo partial')).not.toBeInTheDocument()
     expect(screen.queryByText('Long Run')).not.toBeInTheDocument()
   })
 })

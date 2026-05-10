@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import CoachButton from '@/components/CoachButton'
 import BrandLogo from '@/components/BrandLogo'
 import LanguageToggle from '@/components/LanguageToggle'
+import CorosNudge from '@/components/CorosNudge'
 import { useI18n } from '@/lib/i18n/I18nProvider'
 
 export default function TabsLayout({ children }: { children: React.ReactNode }) {
@@ -43,6 +44,7 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
         ))}
       </nav>
 
+      <CorosNudge />
       <CoachButton />
     </>
   )

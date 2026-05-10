@@ -1,16 +1,8 @@
 'use client'
 
 import { useRef, useEffect } from 'react'
-import type { CalendarDay, CalendarStatus } from '@/lib/api/types'
+import type { CalendarDay } from '@/lib/api/types'
 import { useI18n } from '@/lib/i18n/I18nProvider'
-
-const DOT_COLOR: Record<CalendarStatus, string> = {
-  completed: 'var(--ink)',
-  partial:   'var(--ink-mid)',
-  miss:      'var(--accent)',
-  unmatched: 'var(--ink-faint)',
-  planned:   'rgba(255,77,0,0.45)',
-}
 
 interface Props {
   days: CalendarDay[]
@@ -108,11 +100,10 @@ export default function MonthStrip({ days, selectedDate, onSelectDate }: Props) 
               </span>
             </div>
 
-            {/* Status dot */}
-            <div style={{
-              width: 5, height: 5, borderRadius: '50%',
-              background: info ? DOT_COLOR[info.status] : 'transparent',
-            }} />
+            <div
+              aria-label={info ? t.activities.status[info.status] : undefined}
+              className={info ? `month-status-mark month-status-mark--${info.status}` : 'month-status-mark'}
+            />
           </button>
         )
       })}

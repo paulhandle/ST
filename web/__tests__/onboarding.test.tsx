@@ -36,7 +36,9 @@ describe('OnboardingPage', () => {
 
   it('renders step 1 heading', () => {
     render(<OnboardingPage />)
-    expect(screen.getByText('Connect COROS')).toBeInTheDocument()
+    expect(screen.getByText('Build your training cycle')).toBeInTheDocument()
+    expect(screen.getByText(/connect COROS after setup/i)).toBeInTheDocument()
+    expect(screen.queryByText('Connect COROS')).not.toBeInTheDocument()
   })
 
   it('shows step indicator', () => {
@@ -98,6 +100,8 @@ describe('OnboardingPage', () => {
       expect(replaceMock).toHaveBeenCalledWith('/plan')
     })
     const generateCall = mockFetch.mock.calls.find(([url]) => url === '/api/marathon/plans/generate')
+    const athleteCall = mockFetch.mock.calls.find(([url]) => url === '/api/athletes')
+    expect(athleteCall?.[1]?.headers).toMatchObject({ Authorization: 'Bearer mock-token' })
     expect(generateCall).toBeTruthy()
     expect(JSON.parse(generateCall?.[1]?.body as string).skill_slug).toBe('running_beginner')
     expect(mockFetch).toHaveBeenCalledWith('/api/plans/21/confirm', expect.objectContaining({ method: 'POST' }))

@@ -4,11 +4,21 @@ const COOKIE_MAX_AGE = 60 * 60 * 24 * 30 // 30 days, matches JWT TTL
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null
-  const token = localStorage.getItem(TOKEN_KEY)
-  // Migrate pre-cookie sessions: if localStorage has a token but no cookie, sync it
-  if (token && !document.cookie.split('; ').find(p => p.startsWith(`${TOKEN_KEY}=`))) {
+  const localToken = getLocalStorageToken()
+  const cookieToken = getCookieToken()
+  const token = cookieToken ?? localToken
+
+  if (!token) return null
+
+  if (cookieToken && localToken !== cookieToken) {
+    localStorage.setItem(TOKEN_KEY, cookieToken)
+  }
+
+  // Migrate pre-cookie sessions: if localStorage has a token but no cookie, sync it.
+  if (!cookieToken) {
     document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`
   }
+
   return token
 }
 
@@ -49,4 +59,16 @@ export function getStoredAthleteId(): number | null {
 export function getAthleteId(): number {
   if (typeof window === 'undefined') return 1
   return getStoredAthleteId() ?? 1
+}
+
+function getLocalStorageToken(): string | null {
+  if (typeof window.localStorage?.getItem !== 'function') return null
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+function getCookieToken(): string | null {
+  const part = document.cookie.split('; ').find(p => p.startsWith(`${TOKEN_KEY}=`))
+  if (!part) return null
+  const value = part.slice(TOKEN_KEY.length + 1)
+  return value || null
 }

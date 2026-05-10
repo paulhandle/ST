@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
+import { SWRConfig } from 'swr'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ back: vi.fn(), replace: vi.fn(), push: vi.fn() }),
@@ -49,6 +50,28 @@ describe('Plan empty state i18n', () => {
 })
 
 describe('CorosSettingsPage', () => {
+  it('has explicit back and close links to Settings', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        athlete_id: 1,
+        connected: false,
+        auth_status: 'disconnected',
+        automation_mode: 'real',
+        username: null,
+        last_login_at: null,
+        last_import_at: null,
+        last_sync_at: null,
+        last_error: null,
+      }),
+    })
+
+    renderWithFreshSWR(<CorosSettingsPage />)
+
+    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/settings')
+    expect(screen.getByRole('link', { name: 'Close' })).toHaveAttribute('href', '/settings')
+  })
+
   it('loads status, connects COROS, and starts full sync with progress', async () => {
     let connected = false
     mockFetch.mockImplementation(async (url: string, init?: RequestInit) => {
@@ -157,7 +180,7 @@ describe('CorosSettingsPage', () => {
       throw new Error(`Unexpected request: ${url} ${init?.method ?? 'GET'}`)
     })
 
-    render(<CorosSettingsPage />)
+    renderWithFreshSWR(<CorosSettingsPage />)
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/coros/status?athlete_id=1', expect.any(Object))
@@ -199,3 +222,11 @@ describe('CorosSettingsPage', () => {
     expect(screen.getByText('raw records')).toBeInTheDocument()
   })
 })
+
+function renderWithFreshSWR(ui: React.ReactElement) {
+  return render(
+    <SWRConfig value={{ provider: () => new Map() }}>
+      {ui}
+    </SWRConfig>,
+  )
+}

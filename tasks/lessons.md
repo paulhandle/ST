@@ -65,3 +65,12 @@ These were validated by the user during the MVP+1 design discussion. Apply going
 - When auth state says onboarding is incomplete, clear stale local `pp_athlete_id` before routing. A previous account's athlete id in localStorage can otherwise cause `Athlete not found` errors under a different authenticated user.
 - After successful auth, prefer a full browser navigation over Next client `router.replace()` for the first transition out of `/login`. This guarantees the freshly written auth cookie is present on the next protected-route document request and prevents the login page client state from swallowing the first Google callback.
 - Onboarding-created athletes must be owned by the authenticated `User`. Any endpoint that creates `AthleteProfile` during product setup should persist `user_id=current_user.id`; otherwise auth responses will keep reporting `has_athlete=false` and completed users will repeat onboarding forever.
+
+## 2026-05-10 — Settings pages need deterministic exits
+
+- Settings and nested settings pages must include explicit visible navigation back to the containing surface. Do not rely on browser history, tiny unlabeled symbols, or the user guessing the app shell route. Root settings should link back to `/me`; nested settings pages should link back to `/settings`, with tests asserting the href.
+
+## 2026-05-10 — Auth token readers need cookie fallback
+
+- Protected pages can be entered because middleware sees the `st_token` cookie even when `localStorage` is empty or unavailable. Any client API helper that builds `Authorization` headers must read the cookie as a fallback, or onboarding/API requests can omit auth and fail with backend 401 after a seemingly successful login.
+- If both cookie and localStorage contain `st_token`, the cookie is the source of truth because it is what Next middleware used to admit the protected page. When the two values differ, prefer the cookie and resync localStorage before building API `Authorization` headers; otherwise stale localStorage can keep causing backend 401s.

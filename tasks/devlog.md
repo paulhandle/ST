@@ -1,5 +1,73 @@
 # Dev Log
 
+## 2026-05-10 - Cookie/localStorage token precedence fix
+
+Why: User still saw "创建运动档案失败" and backend `POST /athletes` returning 401 after the initial cookie fallback fix. The remaining root cause is a mismatched auth store: middleware can admit `/onboarding` using the current `st_token` cookie, while `getToken()` still preferred a stale `localStorage.st_token` and sent the stale bearer token to the backend.
+
+How:
+- Updated `web/lib/auth.ts` so `getToken()` reads both stores, prefers the cookie when present, and syncs localStorage to that cookie token.
+- Kept the legacy migration path where a localStorage-only token writes the cookie for older sessions.
+- Added a regression test for stale localStorage plus current cookie.
+- Added an onboarding assertion that `/api/athletes` receives the bearer token from the auth helper.
+
+Result:
+- Confirmed the new stale-token test failed before the fix: `pnpm test __tests__/auth.test.ts` failed expecting the cookie token but receiving the stale localStorage token.
+- Focused frontend verification passed after the fix: `cd web && pnpm test __tests__/auth.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx` -> 38/38 pass. Existing non-fatal jsdom localstorage-file and React `act(...)` warnings remain in onboarding tests.
+
+## 2026-05-10 - Cookie fallback for onboarding auth
+
+Why: User reported `POST /athletes` returning 401 during onboarding. Root cause: protected routing can allow `/onboarding` because middleware sees the `st_token` cookie, but the client-side `getToken()` helper only read localStorage. If localStorage was empty or unavailable, onboarding sent `/api/athletes` without `Authorization`.
+
+How:
+- Updated `web/lib/auth.ts` so `getToken()` reads localStorage first and falls back to the `st_token` cookie.
+- Kept the existing localStorage-to-cookie migration behavior for older sessions.
+- Added a frontend auth regression test for cookie-only token reads.
+- Recorded the cookie fallback lesson in `tasks/lessons.md`.
+
+Result:
+- Focused frontend verification passed: `cd web && pnpm test __tests__/auth.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx` -> 37/37 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check`.
+
+## 2026-05-10 - Environment reset tooling
+
+Why: User needs a reliable way to reset local data during development and reset the Fly environment before official launch. Existing cleanup tooling only removed fake COROS rows, which is not enough for a full pre-launch environment reset.
+
+How:
+- Added `scripts/reset_environment_data.py`, an environment-level reset command. It defaults to dry-run and requires both `--execute` and `--confirm-reset` before deleting rows.
+- The script uses SQLAlchemy metadata to target all known application tables except preserved global seed/config tables (`training_methods`). This avoids maintaining a brittle hand-written list of product tables.
+- Executed resets clear users, account aliases, passkeys, OTP/challenge rows, athletes, plans, structured workouts, activities, COROS accounts, raw provider records, sync jobs/events, coach messages, and related product data.
+- The script re-runs `seed_training_methods()` after deletion. SQLite resets `sqlite_sequence`; Postgres/Fly uses `TRUNCATE ... RESTART IDENTITY CASCADE`.
+- Updated `Dockerfile.api` to copy `scripts/` into the API runtime image so the reset command can be run with `flyctl ssh console`.
+- Updated README with local and Fly reset commands.
+- Added `tests/test_reset_environment_data.py` covering dry-run non-deletion, confirmation guard, execution deletion, preservation of `training_methods`, and SQLite id reset.
+
+Result:
+- Focused reset verification passed: `uv run python -m unittest tests.test_reset_environment_data -v` -> 3/3 pass.
+- Compile verification passed: `uv run python -m py_compile scripts/reset_environment_data.py tests/test_reset_environment_data.py`.
+- Local dry-run passed: `uv run python scripts/reset_environment_data.py` printed target counts for `st.db` and did not delete rows.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 112/112 pass.
+- Whitespace verification passed: `git diff --check`.
+
+## 2026-05-10 - Onboarding priority, COROS nudge, and Activities status design
+
+Why: User feedback made it clear that first-run setup should not block on COROS credentials. The core product flow is goal setup, coach skill selection, and plan generation. COROS should be introduced after entry as an optional data-sync improvement. The user also pointed out that Settings lacked an explicit way back, and the Activities tab needed clearer visual distinctions between historical execution and future plan states.
+
+How:
+- Reworked `web/app/onboarding/page.tsx` so step 1 is a product/setup intro. Removed COROS username/password state, the onboarding `/api/coros/connect` call, the skip-COROS action, and COROS from confirmation.
+- Added `web/components/CorosNudge.tsx` and mounted it from `web/app/(tabs)/layout.tsx`. The nudge links to `/settings/coros`, dismisses through `pp_coros_nudge_dismissed`, and handles unavailable `localStorage`.
+- Added explicit settings navigation in `web/app/settings/page.tsx`, `web/app/settings/security/page.tsx`, and `web/app/settings/coros/page.tsx` using deterministic links instead of browser-history assumptions.
+- Redesigned `web/app/(tabs)/activities/page.tsx` and `web/components/activities/MonthStrip.tsx` around the existing calendar statuses: `completed`, `partial`, `unmatched`, `miss`, and `planned`. Added status legend/help copy and stable CSS classes in `web/app/globals.css`.
+- Updated frontend tests for onboarding, Activities status states, COROS nudge behavior, and settings back links. Updated README first-run and route docs to match the new flow.
+
+Result:
+- Focused frontend verification passed: `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/blockE.test.tsx __tests__/settings.test.tsx __tests__/corosSettings.test.tsx __tests__/components.test.tsx` -> 35/35 pass.
+- Full frontend verification passed: `cd web && pnpm test` -> 105/105 pass. Existing non-fatal jsdom localstorage-file and React `act(...)` warnings remain in older onboarding tests.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check`.
+
 ## 2026-05-08 - Athlete ownership after onboarding
 
 Why: User reported that the same test-environment user had to go through the new-user flow every time. Root cause: `/athletes` required authentication but ignored the current user when creating `AthleteProfile`, leaving onboarding-created athlete rows with `user_id=NULL`. Later Google login correctly looked at `user.athletes`, found no owned athlete, and routed the completed user back to onboarding.

@@ -8,10 +8,10 @@ The product-facing brand is **PerformanceProtocol**. `ST` remains only as a lega
 
 ## Product Loop
 
-1. Sign in with phone OTP and complete first-run onboarding.
-2. Connect COROS and import historical training data, FIT detail exports, and performance metrics.
-3. Choose one training skill for the cycle.
-4. Generate and confirm a structured training cycle from that skill, goal, and weekly availability.
+1. Sign in and complete first-run onboarding.
+2. Set a training goal, weekly availability, and one coach skill for the cycle.
+3. Generate and confirm a structured training cycle from that skill, goal, and availability.
+4. Optionally connect COROS from Settings to import historical training data, FIT detail exports, and performance metrics.
 5. Sync confirmed future workouts to the COROS calendar.
 6. Track execution, inspect activity detail, and propose weekly adjustments.
 
@@ -126,6 +126,28 @@ Important variables:
 | `WEBAUTHN_RP_NAME` | WebAuthn relying-party display name. Defaults to `PerformanceProtocol`. |
 | `WEBAUTHN_ALLOWED_ORIGINS` | Comma-separated origins accepted for passkey ceremonies. Defaults to localhost plus production domains. |
 | `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` | Optional LLM configuration for skill personalization and coach interpretation. |
+
+## Environment Reset
+
+Use `scripts/reset_environment_data.py` to clear user-owned product/auth data before local testing or a pre-launch Fly reset. The command preserves global seed/config tables such as `training_methods`, then re-seeds training methods after execution. Executed resets also restart table identities where supported, so new user-owned rows start from clean ids.
+
+The reset is guarded: dry-run is the default, and deletion requires both `--execute` and `--confirm-reset`.
+
+Local:
+
+```bash
+uv run python scripts/reset_environment_data.py
+uv run python scripts/reset_environment_data.py --execute --confirm-reset
+```
+
+Fly API runtime after deploying an image that includes `scripts/`:
+
+```bash
+flyctl ssh console --app st-api -C "python scripts/reset_environment_data.py"
+flyctl ssh console --app st-api -C "python scripts/reset_environment_data.py --execute --confirm-reset"
+```
+
+The reset removes users, account aliases, passkeys, OTP/challenge rows, athlete profiles, plans, workouts, activities, COROS device accounts, raw provider records, sync jobs/events, coach messages, and related product data.
 
 ## COROS Real Sync
 
@@ -243,9 +265,9 @@ Account identity storage:
 
 ## First-Run Onboarding
 
-After first authentication, users without an athlete profile complete `/onboarding`. The flow collects COROS credentials, target race information, weekly training availability, and the training skill for the first cycle. Finishing onboarding is intentionally blocking on plan generation: the web app creates the athlete, stores the returned athlete id in `pp_athlete_id`, optionally connects COROS, creates a marathon goal when target data is present, calls `/marathon/plans/generate` with the selected `skill_slug`, confirms the returned plan through `/plans/{id}/confirm`, then routes to `/plan`.
+After first authentication, users without an athlete profile complete `/onboarding`. The flow introduces the setup, then collects target race information, weekly training availability, and the training skill for the first cycle. Finishing onboarding is intentionally blocking on plan generation: the web app creates the athlete, stores the returned athlete id in `pp_athlete_id`, creates a marathon goal when target data is present, calls `/marathon/plans/generate` with the selected `skill_slug`, confirms the returned plan through `/plans/{id}/confirm`, then routes to `/plan`.
 
-COROS connection failure does not block onboarding because the athlete can reconnect later from Settings. Plan generation failure does block onboarding because an empty Plan tab means the core product flow did not complete.
+COROS is not part of the blocking onboarding path. After entering the authenticated app, a dismissible COROS nudge links to **Settings -> COROS Sync** so the athlete can sync history and import/sync plans when ready. Plan generation failure does block onboarding because an empty Plan tab means the core product flow did not complete.
 
 ## Skills
 
@@ -259,14 +281,14 @@ COROS connection failure does not block onboarding because the athlete can recon
 
 | Route | Purpose |
 |---|---|
-| `/login` | Phone OTP sign-in |
-| `/onboarding` | First-run setup: COROS, goal, training days, skill selection, plan generation, confirmation |
+| `/login` | Google/passkey sign-in with quiet SMS fallback |
+| `/onboarding` | First-run setup: intro, goal, training days, skill selection, plan generation, confirmation |
 | `/dashboard` | Training overview |
 | `/today` | Redirects to today's workout detail |
 | `/week` | Legacy current-week training calendar route; not shown in primary navigation |
 | `/plan` | Plan overview and pending adjustment entry |
 | `/plan/generate` | Plan generation wizard |
-| `/activities` | Calendar strip and activity timeline |
+| `/activities` | Activity timeline and calendar strip with distinct states for completed, partial, plan-free history, missed planned work, and future planned work |
 | `/activities/[id]` | Activity detail with route, metric timelines, laps, interpretation, and FIT source metadata |
 | `/me` | Profile, device sync, language, account, and settings entry points |
 | `/skills` | Skill selection |

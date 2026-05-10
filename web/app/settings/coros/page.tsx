@@ -7,6 +7,7 @@ import { fetcher, postJson } from '@/lib/api/client'
 import type { CorosStatusOut, DeviceAccountOut, ProviderSyncEventOut, ProviderSyncJobOut } from '@/lib/api/types'
 import { useI18n } from '@/lib/i18n/I18nProvider'
 import { getAthleteId } from '@/lib/auth'
+import { ArrowLeft, X } from 'lucide-react'
 
 export default function CorosSettingsPage() {
   const { t, language } = useI18n()
@@ -106,18 +107,13 @@ export default function CorosSettingsPage() {
         <Link
           href="/settings"
           aria-label={t.common.back}
+          className="settings-back-link"
           style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: 22,
-            color: 'var(--ink-faint)',
-            padding: 0,
-            lineHeight: 1,
-            textDecoration: 'none',
+            color: 'var(--ink)',
           }}
         >
-          ‹
+          <ArrowLeft size={16} aria-hidden="true" />
+          <span>{t.common.back}</span>
         </Link>
         <div>
           <div className="hand" style={{ fontSize: 20, fontWeight: 700 }}>{c.title}</div>
@@ -130,11 +126,14 @@ export default function CorosSettingsPage() {
             marginLeft: 'auto',
             color: 'var(--ink-faint)',
             textDecoration: 'none',
-            fontSize: 22,
-            lineHeight: 1,
+            display: 'inline-flex',
+            width: 34,
+            height: 34,
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          ×
+          <X size={18} aria-hidden="true" />
         </Link>
       </div>
 

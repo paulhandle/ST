@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
 
 vi.mock('next/link', () => ({
@@ -10,8 +10,20 @@ import PaceRangeBar from '@/components/today/PaceRangeBar'
 import WorkoutSteps from '@/components/today/WorkoutSteps'
 import SkillChip from '@/components/SkillChip'
 import BrandLogo from '@/components/BrandLogo'
+import CorosNudge from '@/components/CorosNudge'
 import type { WorkoutStepOut } from '@/lib/api/types'
 import { formatPace } from '@/lib/api/types'
+
+const store: Record<string, string> = {}
+vi.stubGlobal('localStorage', {
+  getItem: (key: string) => store[key] ?? null,
+  setItem: (key: string, value: string) => { store[key] = value },
+  removeItem: (key: string) => { delete store[key] },
+})
+
+beforeEach(() => {
+  Object.keys(store).forEach(key => delete store[key])
+})
 
 describe('PaceRangeBar', () => {
   it('renders target zone labels with formatted pace values', () => {
@@ -104,5 +116,21 @@ describe('BrandLogo', () => {
   it('keeps href on compact linked mark', () => {
     render(<BrandLogo href="/dashboard" compact />)
     expect(screen.getByLabelText('PerformanceProtocol')).toHaveAttribute('href', '/dashboard')
+  })
+})
+
+describe('CorosNudge', () => {
+  it('links to COROS settings and can be dismissed', async () => {
+    render(<CorosNudge />)
+
+    expect(await screen.findByRole('dialog', { name: 'Connect COROS when ready' })).toBeInTheDocument()
+    expect(screen.getByText('Connect')).toHaveAttribute('href', '/settings/coros')
+
+    fireEvent.click(screen.getByText('Later'))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+    expect(store.pp_coros_nudge_dismissed).toBe('1')
   })
 })

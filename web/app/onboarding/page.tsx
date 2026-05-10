@@ -12,10 +12,6 @@ const TOTAL = 5
 /* ── Step data ──────────────────────────────────────────────────────── */
 
 interface OnboardingState {
-  // Step 1: COROS
-  corosUsername: string
-  corosPassword: string
-  corosSkipped: boolean
   // Step 2: Goal
   targetRaceDate: string
   targetTime: string          // "3:30" format, empty = finish only
@@ -29,9 +25,6 @@ interface OnboardingState {
 }
 
 const INIT: OnboardingState = {
-  corosUsername: '',
-  corosPassword: '',
-  corosSkipped: false,
   targetRaceDate: '',
   targetTime: '',
   experienceLevel: 'none',
@@ -125,24 +118,7 @@ export default function OnboardingPage() {
       const athlete = await athleteRes.json()
       saveAthleteId(athlete.id)
 
-      // 2. Connect COROS if credentials provided
-      if (!state.corosSkipped && state.corosUsername && state.corosPassword) {
-        await fetch('/api/coros/connect', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            athlete_id: athlete.id,
-            username: state.corosUsername,
-            password: state.corosPassword,
-          }),
-        })
-        // Don't block onboarding if COROS fails — user can connect later
-      }
-
-      // 3. Create a structured marathon goal when provided.
+      // 2. Create a structured marathon goal when provided.
       let raceGoalId: number | null = null
       if (state.targetRaceDate) {
         const goalRes = await fetch('/api/marathon/goals', {
@@ -166,7 +142,7 @@ export default function OnboardingPage() {
         }
       }
 
-      // 4. Generate and confirm the selected skill's plan. This is the core product flow.
+      // 3. Generate and confirm the selected skill's plan. This is the core product flow.
       const planRes = await fetch('/api/marathon/plans/generate', {
         method: 'POST',
         headers: {
@@ -232,7 +208,7 @@ export default function OnboardingPage() {
 
       {/* Content */}
       <div style={{ flex: 1, paddingTop: 32, maxWidth: 400, width: '100%', alignSelf: 'center' }}>
-        {step === 1 && <StepCoros state={state} update={update} />}
+        {step === 1 && <StepIntro />}
         {step === 2 && <StepGoal state={state} update={update} />}
         {step === 3 && <StepAvailability state={state} update={update} />}
         {step === 4 && <StepSkill state={state} update={update} skills={skills} loading={skillsLoading} />}
@@ -261,18 +237,6 @@ export default function OnboardingPage() {
             >
               {t.onboarding.next}
             </button>
-            {step === 1 && (
-              <button
-                onClick={() => { update({ corosSkipped: true }); next() }}
-                style={{
-                  background: 'none', border: 'none',
-                  fontFamily: 'var(--font-hand)', fontSize: 13,
-                  color: 'var(--ink-faint)', cursor: 'pointer',
-                }}
-              >
-                {t.onboarding.skipCoros}
-              </button>
-            )}
           </>
         ) : (
           <button
@@ -297,39 +261,33 @@ export default function OnboardingPage() {
 
 /* ── Step components ────────────────────────────────────────────────── */
 
-function StepCoros({ state, update }: { state: OnboardingState; update: (p: Partial<OnboardingState>) => void }) {
+function StepIntro() {
   const { t } = useI18n()
   return (
     <div>
-      <div className="hand" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>{t.onboarding.connectCoros}</div>
+      <div className="hand" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>{t.onboarding.introTitle}</div>
       <div className="hand text-faint" style={{ fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>
-        {t.onboarding.corosText}
+        {t.onboarding.introText}
       </div>
-
-      <Field label={t.onboarding.corosAccount}>
-        <input
-          type="text"
-          placeholder={t.onboarding.corosAccountPlaceholder}
-          value={state.corosUsername}
-          onChange={e => update({ corosUsername: e.target.value })}
-          style={inputStyle}
-          className="hand"
-        />
-      </Field>
-
-      <Field label={t.onboarding.corosPassword}>
-        <input
-          type="password"
-          placeholder={t.onboarding.passwordPlaceholder}
-          value={state.corosPassword}
-          onChange={e => update({ corosPassword: e.target.value })}
-          style={inputStyle}
-          className="hand"
-        />
-      </Field>
-
-      <div className="hand text-faint" style={{ fontSize: 11, marginTop: 8 }}>
-        {t.onboarding.passwordNote}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {t.onboarding.introSteps.map((item, index) => (
+          <div key={item} style={{
+            display: 'grid',
+            gridTemplateColumns: '32px 1fr',
+            gap: 10,
+            alignItems: 'center',
+            padding: '12px 0',
+            borderBottom: '1px solid var(--rule-soft)',
+          }}>
+            <span className="annot" style={{ color: 'var(--accent)', fontSize: 12, fontWeight: 800 }}>
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <span className="hand" style={{ fontSize: 14, lineHeight: 1.4 }}>{item}</span>
+          </div>
+        ))}
+      </div>
+      <div className="hand text-faint" style={{ fontSize: 12, lineHeight: 1.6, marginTop: 22 }}>
+        {t.onboarding.corosLaterText}
       </div>
     </div>
   )
@@ -527,7 +485,6 @@ function StepConfirm({ state, skills }: { state: OnboardingState; skills: SkillM
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <ConfirmRow label="COROS" value={state.corosSkipped ? t.onboarding.notConnected : (state.corosUsername || '—')} />
         <ConfirmRow label={t.onboarding.race} value={state.targetRaceDate || t.onboarding.unset} />
         <ConfirmRow label={t.onboarding.finishTarget} value={state.targetTime ? `sub-${state.targetTime}` : t.onboarding.finishOnly} />
         <ConfirmRow label={t.onboarding.trainingDays} value={weekdaySummary} />

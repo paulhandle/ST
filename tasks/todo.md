@@ -1,6 +1,194 @@
 # COROS Full Sync
 
-**Branch:** `feat/coros-full-sync`
+**Branch:** `feat/onboarding-coros-activities-ux`
+
+## Bugfix: Onboarding Athlete Creation 401
+
+Objective: fix `POST /athletes` returning 401 during onboarding when the protected page is reachable via auth cookie but the client-side auth helper cannot read a token from localStorage.
+
+Context:
+- User reported `INFO: ::1:0 - "POST /athletes HTTP/1.1" 401 Unauthorized` and "创建运动档案失败".
+- `/onboarding` sends `Authorization` from `getToken()`.
+- Middleware/protected routing can be satisfied by the `st_token` cookie, while `getToken()` previously read only localStorage.
+- If localStorage is empty/unavailable, onboarding enters the page but sends `/api/athletes` without auth.
+
+Plan:
+1. [x] Add cookie fallback to `getToken()`.
+2. [x] Add auth helper regression coverage.
+3. [x] Run focused frontend auth/onboarding tests.
+4. [x] Run frontend type-check/build if focused tests pass.
+5. [ ] Update PR branch.
+
+Acceptance criteria:
+- `getToken()` returns the `st_token` cookie when localStorage has no token.
+- Existing localStorage token behavior and cookie migration still work.
+- Onboarding can include `Authorization` after cookie-only protected navigation.
+
+Follow-up:
+- User still reports "创建运动档案失败" with backend `POST /athletes` returning 401.
+- The first cookie fallback fix only handled empty localStorage. It did not handle a stale/different `localStorage.st_token` left from a previous auth attempt while the current page access is authorized by the newer `st_token` cookie.
+- Because middleware uses the cookie, client API requests must prefer the same cookie token when both stores disagree, then sync localStorage to that cookie.
+
+Follow-up Plan:
+1. [x] Add a regression test where localStorage has a stale token and the cookie has the current token.
+2. [x] Change `getToken()` to prefer the cookie when both stores exist and differ.
+3. [x] Sync localStorage from cookie after choosing the cookie token.
+4. [x] Re-run focused auth/onboarding/login tests.
+5. [x] Re-run type-check, build, and whitespace verification.
+6. [x] Commit and push the PR branch.
+
+Follow-up Acceptance criteria:
+- `getToken()` returns the cookie token when localStorage and cookie differ.
+- `getToken()` updates localStorage to the cookie token so later API calls stay consistent.
+- Cookie-only and localStorage-only legacy sessions continue to work.
+
+Review:
+- `getToken()` now reads localStorage first and falls back to the `st_token` cookie.
+- Added a regression test proving cookie-only auth is returned by `getToken()`.
+- Verification passed:
+  - `cd web && pnpm test __tests__/auth.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx` -> 37/37 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check` -> pass.
+
+Follow-up Review:
+- Reproduced the remaining stale-token failure with a regression test: when localStorage had `stale.local.token` and the cookie had `current.cookie.token`, the old helper returned the stale localStorage token.
+- `getToken()` now prefers the cookie token when present and syncs localStorage to that value. LocalStorage-only legacy sessions still write the cookie.
+- Added onboarding coverage that `/api/athletes` receives `Authorization: Bearer mock-token`.
+- Focused frontend verification passed: `cd web && pnpm test __tests__/auth.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx` -> 38/38 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check`.
+
+## Tooling: Reset Local and Fly Environment Data
+
+Objective: add a repeatable, guarded reset tool for clearing app data before local testing or pre-launch Fly environment resets, while preserving global seed/configuration tables.
+
+Context:
+- User needs to reset local data during development and reset the Fly environment before official launch.
+- Existing tooling only cleans fake COROS rows; it does not reset users, account aliases, athletes, plans, activities, sync jobs, or auth challenges.
+- This is destructive tooling, so it must default to dry-run and require explicit confirmation.
+- Fly API images currently copy `app` and `alembic` only, so the API Docker image must include maintenance scripts before the reset tool can run in Fly containers.
+
+Design:
+- Add `scripts/reset_environment_data.py`.
+- Default mode is dry-run and prints counts by table.
+- Real deletion requires both `--execute` and `--confirm-reset`.
+- The script clears user-owned product data and transient auth data, but preserves global `training_methods` and code-defined skills.
+- Use ORM deletion where cascade relationships are defined; explicitly delete tables with nullable or non-cascading references such as `coach_messages`, `provider_sync_records`, `provider_sync_events`, and `auth_challenges`.
+- Re-run `seed_training_methods()` after reset so an empty local DB still has global training method seed data.
+- Add Dockerfile support so `scripts/` is present in the API runtime image for Fly.
+
+Implementation Plan:
+1. [x] Implement reset script:
+   - [x] Count affected rows by table.
+   - [x] Support dry-run by default.
+   - [x] Require `--execute --confirm-reset` for deletion.
+   - [x] Delete account/user/athlete/product/auth transient data in FK-safe order.
+   - [x] Preserve `training_methods`.
+   - [x] Seed `training_methods` after execution.
+2. [x] Add Fly/runtime support:
+   - [x] Copy `scripts/` into `Dockerfile.api`.
+   - [x] Document local command and Fly SSH command.
+3. [ ] Verification:
+   - [x] Add tests for dry-run and execute behavior on a temporary SQLite DB.
+   - [x] Run focused backend tests.
+   - [x] Run `py_compile` for the new script.
+   - [x] Run full backend tests.
+   - [x] Run `git diff --check`.
+
+Acceptance criteria:
+- Local dry-run shows what would be deleted without changing data.
+- Local execute clears user-owned product/auth data and leaves `training_methods` seeded.
+- The script is available inside the Fly API image after deploy.
+- There is no accidental reset path without explicit confirmation flags.
+
+Review:
+- Added `scripts/reset_environment_data.py`, an environment-level reset tool. Dry-run is the default; deletion requires `--execute --confirm-reset`.
+- The script counts affected rows by ORM table, preserves `training_methods`, clears user-owned product/auth data, and re-seeds training methods after execution.
+- SQLite execution resets `sqlite_sequence` for cleared tables. Postgres execution uses `TRUNCATE ... RESTART IDENTITY CASCADE` for a clean pre-launch reset.
+- `Dockerfile.api` now copies `scripts/` into the API image so the tool can run through `flyctl ssh console` after deployment.
+- README documents local and Fly commands.
+- Verification passed so far:
+  - `uv run python -m unittest tests.test_reset_environment_data -v` -> 3/3 pass.
+  - `uv run python -m py_compile scripts/reset_environment_data.py tests/test_reset_environment_data.py` -> pass.
+  - `uv run python scripts/reset_environment_data.py` -> dry-run only; no rows deleted.
+  - `uv run python -m unittest discover -s tests -v` -> 112/112 pass.
+  - `git diff --check` -> pass.
+
+## Feature: Onboarding Priority, COROS Nudge, Activity State Design
+
+Objective: reduce first-run friction by prioritizing product-core setup (intro, goal, skill, plan generation) over COROS credentials, then make COROS an in-app recommendation and redesign the Activities tab so past execution and future plans are visually distinct.
+
+Context:
+- User feedback: asking for COROS first is a large onboarding blocker. The first-run flow should explain the product, set a training goal, and choose a coach/skill before optional device linking.
+- COROS still matters, but as a later assist: history sync improves analysis and plan import/export can help execution.
+- Activities currently shows statuses with simple dots/colors. It needs a clearer state system for: past history, completed as planned, off-plan activity, missed planned workout, and future planned workout.
+
+Design:
+- Onboarding order:
+  - Step 1: short product intro and what will be created.
+  - Step 2: target goal.
+  - Step 3: training availability.
+  - Step 4: coach/skill selection.
+  - Step 5: confirmation and plan creation.
+  - COROS credentials are removed from the blocking onboarding path.
+- COROS nudge:
+  - Show a dismissible in-app overlay after entering the authenticated app.
+  - Copy frames COROS as optional: sync history and help import training plans.
+  - Primary action goes to `/settings/coros`; secondary action dismisses.
+  - Store dismissal in localStorage so it does not appear every navigation.
+- Activities status design:
+  - `completed`: completed as planned, solid light row with cyan plan rail.
+  - `partial`: did some planned work, muted/cyan partial rail.
+  - `unmatched`: historical activity without plan match, neutral gray rail.
+  - `miss`: planned workout not executed or strongly missed, orange outlined/alert treatment.
+  - `planned`: future training plan, muted dashed/ghost treatment.
+
+Implementation Plan:
+1. [x] Rework onboarding:
+   - [x] Replace COROS first step with an intro step.
+   - [x] Remove COROS credential fields and `/api/coros/connect` call from onboarding.
+   - [x] Keep goal, availability, skill, plan generation, confirm, and route to `/plan`.
+   - [x] Update onboarding tests and i18n copy.
+2. [x] Add COROS nudge overlay:
+   - [x] Add a small authenticated-layout overlay component.
+   - [x] Dismiss via localStorage.
+   - [x] Link primary action to `/settings/coros`.
+   - [x] Add component/layout tests.
+3. [x] Add explicit Settings back navigation:
+   - [x] Add a back link from `/settings` to `/me`.
+   - [x] Keep deterministic back/close links from nested settings pages to `/settings`.
+   - [x] Add tests for the back affordances.
+4. [x] Redesign Activities visual states:
+   - [x] Add status metadata for label, meaning, tone, and row treatment.
+   - [x] Update timeline rows and MonthStrip markers with distinct treatments.
+   - [x] Add a compact legend/status explainer.
+   - [x] Include `partial` in status filters.
+   - [x] Update activity tests for visual classes/copy.
+5. [x] Verification:
+   - [x] Run focused onboarding and activity tests.
+   - [x] Run full frontend tests.
+   - [x] Run frontend type-check and build.
+   - [x] Run `git diff --check`.
+
+Acceptance criteria:
+- A new user can create a plan without seeing or entering COROS credentials.
+- COROS is offered after entering the app, not as a blocking setup step.
+- Activities tab visually distinguishes executed history, planned-completed work, off-plan work, missed planned sessions, and future planned sessions.
+- Existing activity detail and workout links continue to route correctly.
+
+Review:
+- `/onboarding` now starts with product setup context, then goal, availability, skill selection, and confirmation. It no longer asks for COROS credentials or calls `/api/coros/connect`.
+- Added `CorosNudge` to the authenticated tab layout. It links to `/settings/coros`, dismisses through `pp_coros_nudge_dismissed`, and tolerates unavailable `localStorage`.
+- Settings root, security settings, and COROS settings now have deterministic back links. COROS settings also keeps an explicit close affordance to `/settings`.
+- `/activities` now includes `partial` in status filters, a compact legend, status help text, and distinct row/month markers for `completed`, `partial`, `unmatched`, `miss`, and `planned`.
+- Verification passed:
+  - `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/blockE.test.tsx __tests__/settings.test.tsx __tests__/corosSettings.test.tsx __tests__/components.test.tsx` -> 35/35 pass.
+  - `cd web && pnpm test` -> 105/105 pass. Existing non-fatal jsdom localstorage-file and React `act(...)` warnings remain in older onboarding tests.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check` -> pass.
 
 ## Bugfix: Athlete Ownership After Onboarding
 
