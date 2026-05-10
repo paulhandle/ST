@@ -364,7 +364,8 @@ def start_coros_full_sync(
         provider="coros",
         status="queued",
         phase="queued",
-        message="Queued COROS full sync",
+        message=_coros_sync_window_message(request.days_back),
+        sync_days_back=request.days_back,
     )
     db.add(job)
     db.commit()
@@ -402,6 +403,14 @@ def get_coros_sync_events(
 @router.post("/athletes/{athlete_id}/history/import", response_model=HistoryImportOut)
 def import_history(athlete_id: int, request: HistoryImportRequest, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     return _import_history(db=db, athlete_id=athlete_id, device_type=request.device_type)
+
+
+def _coros_sync_window_message(days_back: int | None) -> str:
+    if not days_back:
+        return "Queued COROS full sync"
+    if days_back >= 3650:
+        return "Queued COROS all-history sync"
+    return f"Queued COROS sync for the last {days_back} days"
 
 
 @router.get("/athletes/{athlete_id}/history", response_model=list[AthleteActivityOut])

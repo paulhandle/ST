@@ -2,6 +2,64 @@
 
 **Branch:** `feat/onboarding-coros-activities-ux`
 
+## Feature/Fix: COROS Connected Settings, Sync Period, FIT Robustness
+
+Objective: improve COROS settings after connection, let users select sync scope, and make malformed FIT exports non-blocking while preserving raw files.
+
+Context:
+- User feedback:
+  1. After COROS connection succeeds, Settings -> COROS should collapse the username/password form and simply show that login is successful. Sync UI should be device-agnostic enough for future device-specific sync methods.
+  2. Real sync reports `activity_fit_exports · Could not store COROS FIT export 474764401017127018: Invalid field size 1 for type 'uint32' (expected a multiple of 4)`.
+  3. History sync needs a period selector instead of always syncing all history.
+- Current UI always displays the credential form and starts `/coros/sync/start` with only `athlete_id`.
+- Current full sync discovers all pages and downloads one FIT export per activity.
+
+Plan:
+1. [x] Backend sync scope:
+   - [x] Add `days_back` to `/coros/sync/start` request.
+   - [x] Store selected period on `provider_sync_jobs`.
+   - [x] Pass selected period to the COROS client.
+   - [x] Stop activity discovery once the selected cutoff is reached.
+   - [x] Include sync-window/progress copy in job messages.
+2. [x] FIT robustness:
+   - [x] Preserve raw FIT export bytes even when parsing fails.
+   - [x] Store parser warnings on the export row.
+   - [x] Continue syncing other activities and count the failed parse as a warning/failure.
+3. [x] Settings UI:
+   - [x] Collapse credentials after a successful connection.
+   - [x] Show connected summary and an explicit update-login action.
+   - [x] Add sync-period selector.
+   - [x] Send selected `days_back` in the sync start request.
+   - [x] Show job message such as the completed-through date.
+4. [x] Verification:
+   - [x] Add/update backend COROS sync tests.
+   - [x] Add/update frontend COROS settings tests.
+   - [x] Run focused and broader verification.
+   - [x] Validate Alembic has one head and upgrades a clean database to head.
+5. [ ] Commit and push to PR #14 branch.
+
+Acceptance criteria:
+- Connected COROS settings do not keep showing username/password inputs by default.
+- User can choose 30 days, 90 days, 1 year, or all history before starting sync.
+- Sync jobs record the selected period and progress/completion copy indicates the sync window or completed-through date.
+- Malformed FIT exports are archived with warnings and do not fail the whole sync.
+
+Review:
+- Connected COROS settings now show a compact success state by default and reveal credentials only through "Update login".
+- Sync jobs now record the selected `sync_days_back` window and use progress/completion messages that identify the selected period or oldest synced date.
+- Malformed FIT files are archived before parsing. Parser failures are stored as export warnings, logged as sync warning events, and do not abort the remaining activity sync.
+- Fixed the new migration to chain after the current Alembic head so deploys can run `alembic upgrade head`.
+- Verification passed:
+  - `uv run python -m unittest tests.test_coros_full_sync tests.test_real_coros_client -v` -> 24/24 pass.
+  - `cd web && pnpm test __tests__/corosSettings.test.tsx` -> 3/3 pass.
+  - `cd web && pnpm test __tests__/corosSettings.test.tsx __tests__/settings.test.tsx __tests__/protectedAuthGate.test.tsx` -> 11/11 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `uv run python -m unittest discover -s tests -v` -> 118/118 pass.
+  - `cd web && pnpm build` -> pass.
+  - `uv run alembic heads` -> one head, `d1c9a8f4e2b7`.
+  - `ST_DATABASE_URL=sqlite:////private/tmp/st_coros_sync_days_back_check.db uv run alembic upgrade head` -> pass.
+  - `git diff --check origin/main` -> pass.
+
 ## Bugfix: Onboarding Default Plan Generation
 
 Objective: fix new-user onboarding when all default values are accepted and the final training plan generation fails.

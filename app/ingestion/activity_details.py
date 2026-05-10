@@ -25,7 +25,6 @@ def upsert_fit_activity_detail(
     file_url: str | None = None,
     downloaded_at: datetime | None = None,
 ) -> ActivityDetailExport:
-    detail = parse_fit_activity(data)
     now = datetime.now(UTC)
     source_format = "fit"
     payload_hash = hashlib.sha256(data).hexdigest()
@@ -56,12 +55,23 @@ def upsert_fit_activity_detail(
     export.payload_hash = payload_hash
     export.file_url_host = _host(file_url)
     export.downloaded_at = _naive_utc(downloaded_at or now)
+    export.raw_file_bytes = data
+    export.updated_at = now
+
+    try:
+        detail = parse_fit_activity(data)
+    except Exception as exc:
+        export.parsed_at = None
+        export.sample_count = 0
+        export.lap_count = 0
+        export.warnings_json = json.dumps([f"FIT parse failed: {exc}"], ensure_ascii=False)
+        db.flush()
+        return export
+
     export.parsed_at = _naive_utc(now)
     export.sample_count = len(detail.samples)
     export.lap_count = len(detail.laps)
     export.warnings_json = json.dumps(detail.warnings, ensure_ascii=False)
-    export.raw_file_bytes = data
-    export.updated_at = now
 
     db.query(ActivityDetailSample).filter(ActivityDetailSample.activity_id == activity.id).delete()
     db.query(ActivityDetailLap).filter(ActivityDetailLap.activity_id == activity.id).delete()

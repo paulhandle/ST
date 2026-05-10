@@ -87,11 +87,12 @@ def run_coros_full_sync_job(job_id: int) -> None:
             )
 
         try:
-            _update_job(db, job, status="running", phase="activity_list", message="Reading COROS history")
+            days_back = job.sync_days_back
+            _update_job(db, job, status="running", phase="activity_list", message=_sync_window_message(days_back))
             if hasattr(client, "fetch_full_history"):
-                history = client.fetch_full_history(username, progress=progress)
+                history = client.fetch_full_history(username, progress=progress, days_back=days_back)
             else:
-                history = client.fetch_history(username)
+                history = client.fetch_history(username, days_back=days_back or 365)
 
             _update_job(db, job, status="running", phase="save", message="Saving imported records")
             result = import_provider_history(
@@ -109,6 +110,7 @@ def run_coros_full_sync_job(job_id: int) -> None:
                 sync_job_id=job.id,
             )
             failed_count = int(history.get("stats", {}).get("failed_count", 0) or 0)
+            synced_until = history.get("stats", {}).get("synced_until")
             if hasattr(client, "download_activity_fit_export"):
                 failed_count += _download_and_store_fit_exports(
                     db=db,
@@ -119,7 +121,7 @@ def run_coros_full_sync_job(job_id: int) -> None:
             now = datetime.now(UTC)
             job.status = "succeeded"
             job.phase = "complete"
-            job.message = "COROS full sync completed"
+            job.message = _complete_message(synced_until)
             job.imported_count = int(result["imported_count"])
             job.updated_count = int(result["updated_count"])
             job.metric_count = int(result["metric_count"])
@@ -134,7 +136,7 @@ def run_coros_full_sync_job(job_id: int) -> None:
                 job,
                 level="info",
                 phase="complete",
-                message="COROS full sync completed",
+                message=job.message,
                 processed_count=job.processed_count,
                 total_count=job.total_count,
                 commit=False,
@@ -171,22 +173,37 @@ def _download_and_store_fit_exports(db, job: ProviderSyncJob, client, activities
                     AthleteActivity.provider_activity_id == provider_activity_id,
                 )
             ).scalar_one()
-            upsert_fit_activity_detail(
+            detail_export = upsert_fit_activity_detail(
                 db,
                 activity=activity,
                 data=export["data"],
                 file_url=export.get("file_url"),
             )
-            _add_event(
-                db,
-                job,
-                level="info",
-                phase="activity_fit_exports",
-                message=f"Stored COROS FIT export {provider_activity_id}",
-                processed_count=index,
-                total_count=total,
-                commit=False,
-            )
+            if detail_export.parsed_at is None:
+                failed_count += 1
+                warnings = _warnings_for_export(detail_export)
+                warning = warnings[0] if warnings else "FIT export could not be parsed"
+                _add_event(
+                    db,
+                    job,
+                    level="warning",
+                    phase="activity_fit_exports",
+                    message=f"Stored raw COROS FIT export {provider_activity_id}, but parsing failed: {warning}",
+                    processed_count=index,
+                    total_count=total,
+                    commit=False,
+                )
+            else:
+                _add_event(
+                    db,
+                    job,
+                    level="info",
+                    phase="activity_fit_exports",
+                    message=f"Stored COROS FIT export {provider_activity_id}",
+                    processed_count=index,
+                    total_count=total,
+                    commit=False,
+                )
             db.commit()
         except Exception as exc:
             failed_count += 1
@@ -210,6 +227,34 @@ def _download_and_store_fit_exports(db, job: ProviderSyncJob, client, activities
             total_count=total,
         )
     return failed_count
+
+
+def _sync_window_message(days_back: int | None) -> str:
+    if not days_back:
+        return "Reading COROS history"
+    if days_back >= 3650:
+        return "Reading all available COROS history"
+    return f"Reading COROS history for the last {days_back} days"
+
+
+def _complete_message(synced_until: object) -> str:
+    if synced_until:
+        text = str(synced_until)
+        day = text[:10]
+        return f"COROS sync completed through {day}"
+    return "COROS sync completed"
+
+
+def _warnings_for_export(export) -> list[str]:
+    import json
+
+    if not export.warnings_json:
+        return []
+    try:
+        data = json.loads(export.warnings_json)
+    except Exception:
+        return [str(export.warnings_json)]
+    return [str(item) for item in data] if isinstance(data, list) else [str(data)]
 
 
 def _sport_type_from_payload(item: dict) -> int:

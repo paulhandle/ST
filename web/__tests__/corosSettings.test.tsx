@@ -127,6 +127,7 @@ describe('CorosSettingsPage', () => {
             metric_count: 3,
             failed_count: 0,
             raw_record_count: 8,
+            sync_days_back: 90,
             started_at: '2026-05-05T04:01:00Z',
             completed_at: null,
             error_message: null,
@@ -144,7 +145,7 @@ describe('CorosSettingsPage', () => {
             athlete_id: 1,
             status: 'succeeded',
             phase: 'complete',
-            message: 'COROS full sync completed',
+            message: 'COROS sync completed through 2026-05-01',
             total_count: 10,
             processed_count: 10,
             imported_count: 4,
@@ -152,6 +153,7 @@ describe('CorosSettingsPage', () => {
             metric_count: 3,
             failed_count: 0,
             raw_record_count: 8,
+            sync_days_back: 90,
             started_at: '2026-05-05T04:01:00Z',
             completed_at: '2026-05-05T04:03:00Z',
             error_message: null,
@@ -208,17 +210,21 @@ describe('CorosSettingsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('COROS connected.')).toBeInTheDocument()
     })
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
+    expect(screen.getByText('COROS is logged in. Credentials are stored securely for history sync.')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Start full sync'))
+    fireEvent.change(screen.getByLabelText('Sync period'), { target: { value: '90' } })
+    fireEvent.click(screen.getByText('Start sync'))
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/coros/sync/start', expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ athlete_id: 1 }),
+        body: JSON.stringify({ athlete_id: 1, days_back: 90 }),
       }))
     })
-    expect(await screen.findByText('Full sync started.')).toBeInTheDocument()
+    expect(await screen.findByText('Sync started.')).toBeInTheDocument()
     expect(await screen.findByText('Sync complete')).toBeInTheDocument()
+    expect(await screen.findByText('COROS sync completed through 2026-05-01')).toBeInTheDocument()
     expect(screen.getByText('raw records')).toBeInTheDocument()
   })
 })

@@ -165,7 +165,7 @@ uv run python scripts/coros_import_fit_export.py var/coros_real_sync/exports/477
 
 `coros_real_fetch_probe.py` first tries the encrypted DB credential for that athlete. If none exists, it prompts for the COROS username/password without echoing the password. Probe output is written under ignored `var/coros_real_sync/`.
 
-`coros_export_file_probe.py` uses the same encrypted DB credential to call the Training Hub export path (`POST /activity/detail/download`) and downloads real `.fit`, `.tcx`, `.gpx`, `.kml`, or `.csv` files under ignored `var/coros_real_sync/exports/`. For production ingestion, the app downloads only `.fit` (`fileType=4`) per activity, archives the raw FIT bytes, and parses GPS, per-sample metrics, and laps from that single file. TCX/GPX/CSV exports are debugging/reference tools only.
+`coros_export_file_probe.py` uses the same encrypted DB credential to call the Training Hub export path (`POST /activity/detail/download`) and downloads real `.fit`, `.tcx`, `.gpx`, `.kml`, or `.csv` files under ignored `var/coros_real_sync/exports/`. For production ingestion, the app downloads only `.fit` (`fileType=4`) per activity, archives the raw FIT bytes, and parses GPS, per-sample metrics, and laps from that single file. TCX/GPX/CSV exports are debugging/reference tools only. If one FIT file cannot be parsed, the raw FIT archive is still stored with parser warnings and the sync continues with the remaining activities.
 
 `coros_import_fit_export.py` imports a downloaded `.fit` file into the activity detail tables for local review. For example, the current real sample `477263761401479169` imports as 4092 samples and 11 laps.
 
@@ -192,7 +192,7 @@ COROS data storage:
 | Table | What it stores |
 |---|---|
 | `device_accounts` | COROS account state, username, encrypted password, last login/import/sync timestamps, last error. |
-| `provider_sync_jobs` | Full-sync job status, phase, progress counters, imported/updated/metric/raw/failed counts. |
+| `provider_sync_jobs` | Sync job status, selected history period (`sync_days_back`), phase, progress counters, imported/updated/metric/raw/failed counts. |
 | `provider_sync_events` | Progress/event log for each sync job, including warnings when a detail endpoint fails. |
 | `provider_raw_records` | Raw COROS endpoint/page/detail payloads, keyed by provider, record type, and provider record id. |
 | `athlete_activities` | Normalized activity rows used by dashboard/history/assessment, with the activity raw payload also stored in `raw_payload_json`. |
@@ -202,7 +202,7 @@ COROS data storage:
 | `activity_detail_laps` | Parsed FIT lap records: duration, distance, heart rate, cadence, speed, power, ascent/descent, calories, temperature, and raw field JSON. |
 | `athlete_metric_snapshots` | Normalized metrics such as LTHR, threshold pace, fatigue, marathon prediction, and related dashboard metrics. |
 
-The current full sync fetches all `/activity/query` pages, keeps all sport types, captures dashboard/profile/team/schedule/plan raw payloads where COROS returns them, then downloads one FIT export per discovered activity through `POST /activity/detail/download?labelId=...&sportType=...&fileType=4`. The older `/activity/detail/filter` variants are not used for production detail ingestion because they returned COROS service/parameter errors during real testing.
+The current history sync can be scoped to a period such as 30 days, 90 days, one year, or all available history. It fetches `/activity/query` pages until the selected cutoff is reached, keeps all sport types in the selected window, captures dashboard/profile/team/schedule/plan raw payloads where COROS returns them, then downloads one FIT export per discovered activity through `POST /activity/detail/download?labelId=...&sportType=...&fileType=4`. The older `/activity/detail/filter` variants are not used for production detail ingestion because they returned COROS service/parameter errors during real testing.
 
 ## Auth
 
@@ -322,7 +322,7 @@ COROS is not part of the blocking onboarding path. After entering the authentica
 - `GET /athletes/{id}/activities/{activity_id}`
 - `POST /coros/connect`
 - `POST /coros/import`
-- `POST /coros/sync/start`
+- `POST /coros/sync/start` with `{ "athlete_id": 1, "days_back": 30 | 90 | 365 | 3650 }`
 - `GET /coros/sync/jobs/{id}`
 - `GET /coros/sync/jobs/{id}/events`
 - `POST /athletes/{id}/assessment/run`

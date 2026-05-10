@@ -51,12 +51,14 @@ class CapturingFullSyncClient:
     def __init__(self) -> None:
         self.login_calls: list[tuple[str, str]] = []
         self.fit_export_calls: list[tuple[str, int]] = []
+        self.history_days_back: int | None = None
 
     def login(self, username: str, password: str) -> CorosLoginResult:
         self.login_calls.append((username, password))
         return CorosLoginResult(ok=True, message="ok")
 
-    def fetch_full_history(self, username: str, progress=None) -> dict:
+    def fetch_full_history(self, username: str, progress=None, days_back: int | None = None) -> dict:
+        self.history_days_back = days_back
         if progress:
             progress("activity_list", "Read activity list", processed=1, total=1)
             progress("activity_details", "Read activity detail", processed=1, total=1)
@@ -107,12 +109,21 @@ class CapturingFullSyncClient:
                     "payload": {"labelId": "act-1", "samples": [1, 2, 3]},
                 },
             ],
-            "stats": {"failed_count": 0},
+            "stats": {"failed_count": 0, "days_back": days_back, "synced_until": "2026-05-01T08:00:00+00:00"},
         }
 
     def download_activity_fit_export(self, label_id: str, sport_type: int) -> dict:
         self.fit_export_calls.append((label_id, sport_type))
         raise RuntimeError("sample FIT unavailable")
+
+
+class InvalidFitFullSyncClient(CapturingFullSyncClient):
+    def download_activity_fit_export(self, label_id: str, sport_type: int) -> dict:
+        self.fit_export_calls.append((label_id, sport_type))
+        return {
+            "data": b"not-a-valid-fit",
+            "file_url": "https://example.com/bad.fit",
+        }
 
 
 class CorosFullSyncTestCase(unittest.TestCase):
@@ -172,6 +183,31 @@ class CorosFullSyncTestCase(unittest.TestCase):
         self.assertEqual(expected_job_id, response.json()["id"])
         self.assertEqual("running", response.json()["status"])
 
+    def test_start_sync_records_selected_period(self) -> None:
+        athlete_id = _create_athlete()
+        with SessionLocal() as db:
+            db.add(
+                DeviceAccount(
+                    athlete_id=athlete_id,
+                    device_type=DeviceType.COROS,
+                    external_user_id="runner@example.com",
+                    username="runner@example.com",
+                    encrypted_password=encrypt_secret("db-password"),
+                    auth_status="connected",
+                )
+            )
+            db.commit()
+
+        response = self.client.post(
+            "/coros/sync/start",
+            json={"athlete_id": athlete_id, "days_back": 30},
+            headers=auth(self.token),
+        )
+
+        self.assertEqual(200, response.status_code, response.text)
+        self.assertEqual(30, response.json()["sync_days_back"])
+        self.assertIn("30 days", response.json()["message"])
+
     def test_run_full_sync_uses_db_credentials_and_stores_raw_records(self) -> None:
         athlete_id = _create_athlete()
         with SessionLocal() as db:
@@ -201,6 +237,7 @@ class CorosFullSyncTestCase(unittest.TestCase):
             run_coros_full_sync_job(job_id)
 
         self.assertEqual([("runner@example.com", "db-password")], sync_client.login_calls)
+        self.assertIsNone(sync_client.history_days_back)
         self.assertEqual([("act-1", 100)], sync_client.fit_export_calls)
         with SessionLocal() as db:
             job = db.get(ProviderSyncJob, job_id)
@@ -209,6 +246,7 @@ class CorosFullSyncTestCase(unittest.TestCase):
             self.assertEqual(1, job.metric_count)
             self.assertEqual(2, job.raw_record_count)
             self.assertEqual(1, job.failed_count)
+            self.assertEqual("COROS sync completed through 2026-05-01", job.message)
             raw_records = db.query(ProviderRawRecord).order_by(ProviderRawRecord.id.asc()).all()
             self.assertEqual(2, len(raw_records))
             detail = next(record for record in raw_records if record.record_type == "activity_detail")
@@ -216,6 +254,50 @@ class CorosFullSyncTestCase(unittest.TestCase):
             self.assertEqual([1, 2, 3], json.loads(detail.payload_json)["samples"])
             events = db.query(ProviderSyncEvent).filter(ProviderSyncEvent.job_id == job_id).all()
             self.assertGreaterEqual(len(events), 3)
+
+    def test_run_full_sync_passes_selected_period_and_stores_unparsed_fit_export(self) -> None:
+        athlete_id = _create_athlete()
+        with SessionLocal() as db:
+            db.add(
+                DeviceAccount(
+                    athlete_id=athlete_id,
+                    device_type=DeviceType.COROS,
+                    external_user_id="runner@example.com",
+                    username="runner@example.com",
+                    encrypted_password=encrypt_secret("db-password"),
+                    auth_status="connected",
+                )
+            )
+            job = ProviderSyncJob(
+                athlete_id=athlete_id,
+                provider="coros",
+                status="queued",
+                phase="queued",
+                message="Queued",
+                sync_days_back=30,
+            )
+            db.add(job)
+            db.commit()
+            job_id = job.id
+
+        sync_client = InvalidFitFullSyncClient()
+        with patch("app.tools.coros.full_sync.coros_automation_client", return_value=sync_client):
+            run_coros_full_sync_job(job_id)
+
+        self.assertEqual(30, sync_client.history_days_back)
+        with SessionLocal() as db:
+            job = db.get(ProviderSyncJob, job_id)
+            self.assertEqual("succeeded", job.status)
+            self.assertEqual(1, job.failed_count)
+            export = db.query(ActivityDetailExport).one()
+            self.assertEqual(b"not-a-valid-fit", export.raw_file_bytes)
+            self.assertIsNone(export.parsed_at)
+            self.assertIn("FIT parse failed", export.warnings_json)
+            warning_events = db.query(ProviderSyncEvent).filter(
+                ProviderSyncEvent.job_id == job_id,
+                ProviderSyncEvent.level == "warning",
+            ).all()
+            self.assertTrue(any("parsing failed" in event.message for event in warning_events))
 
     def test_activity_detail_api_returns_source_gps_laps_and_interpretation(self) -> None:
         athlete_id = _create_athlete()

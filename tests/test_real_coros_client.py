@@ -272,6 +272,37 @@ class TestRealCorosActivityMapping(unittest.TestCase):
         self.assertEqual(2, raw_types.count("activity_list_page"))
         self.assertNotIn("activity_detail", raw_types)
 
+    def test_fetch_full_history_respects_days_back_cutoff(self):
+        client = self._logged_in_client()
+        old_ts = int((datetime.now(UTC) - timedelta(days=45)).timestamp())
+        recent_ts = int((datetime.now(UTC) - timedelta(days=5)).timestamp())
+        recent_item = {
+            **_ACTIVITY_PAGE["data"]["dataList"][0],
+            "labelId": "recent-run",
+            "startTime": recent_ts,
+        }
+        old_item = {
+            **_ACTIVITY_PAGE["data"]["dataList"][0],
+            "labelId": "old-run",
+            "startTime": old_ts,
+        }
+        page_1 = {"result": "0000", "data": {"dataList": [recent_item, old_item], "totalPage": 1}}
+
+        def fake_urlopen(req, timeout=None):
+            url = req.full_url
+            if "activity/query" in url:
+                return _resp(page_1)
+            if "dashboard/query" in url:
+                return _resp(_DASHBOARD)
+            return _resp({"result": "0000", "data": {}})
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            result = client.fetch_full_history("user@example.com", days_back=30)
+
+        ids = [activity["provider_activity_id"] for activity in result["activities"]]
+        self.assertEqual(["recent-run"], ids)
+        self.assertEqual(30, result["stats"]["days_back"])
+
     def test_fetch_full_history_uses_list_discovery_without_detail_endpoint(self):
         client = self._logged_in_client()
         page_1 = {"result": "0000", "data": {"dataList": [_ACTIVITY_PAGE["data"]["dataList"][0]], "totalPage": 1}}
