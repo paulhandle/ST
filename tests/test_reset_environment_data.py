@@ -23,7 +23,7 @@ from app.models import (
     User,
 )
 from app.training.knowledge_base import TRAINING_METHOD_DEFINITIONS
-from scripts.reset_environment_data import reset_environment_data
+from scripts.reset_environment_data import _create_engine, normalize_database_url, reset_environment_data
 
 
 class ResetEnvironmentDataTestCase(unittest.TestCase):
@@ -75,6 +75,23 @@ class ResetEnvironmentDataTestCase(unittest.TestCase):
             db.add(next_user)
             db.commit()
             self.assertEqual(next_user.id, 1)
+
+    def test_normalizes_fly_postgres_urls_to_psycopg_driver(self):
+        self.assertEqual(
+            "postgresql+psycopg://user:pass@host:5432/db",
+            normalize_database_url("postgres://user:pass@host:5432/db"),
+        )
+        self.assertEqual(
+            "postgresql+psycopg://user:pass@host:5432/db",
+            normalize_database_url("postgresql://user:pass@host:5432/db"),
+        )
+        self.assertEqual(self.database_url, normalize_database_url(self.database_url))
+
+    def test_create_engine_accepts_fly_postgres_url_without_connecting(self):
+        engine = _create_engine("postgres://user:pass@localhost:5432/db")
+
+        self.assertEqual("postgresql", engine.dialect.name)
+        self.assertIn("psycopg", engine.driver)
 
     def _seed_rows(self):
         from datetime import UTC, datetime, timedelta
