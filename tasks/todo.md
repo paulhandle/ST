@@ -2,6 +2,48 @@
 
 **Branch:** `feat/onboarding-coros-activities-ux`
 
+## Bugfix: Reset Leaves Browser Session Pointing At Deleted User
+
+Objective: make reset-induced stale browser sessions recover automatically after the database is cleared.
+
+Context:
+- New auth diagnostics identified the exact failure: `创建运动档案失败: Token user not found (user_not_found)`.
+- User confirmed the database had been cleared while the browser cache/session remained.
+- The reset script intentionally deletes users/account aliases as part of environment reset, but browser cookie/localStorage still contain a JWT for a now-deleted user.
+- Middleware only checks token presence, so the old browser session can still reach `/onboarding`; backend then rejects `POST /athletes` because the token subject no longer exists.
+
+Plan:
+1. [x] Add frontend auth-error helpers:
+   - [x] Parse structured backend auth detail.
+   - [x] Detect `auth_unauthorized` + `user_not_found`.
+   - [x] Clear token and athlete id on stale-session detection.
+   - [x] Redirect to `/login` once in the browser.
+2. [x] Wire stale-session handling into API clients and onboarding hand-written fetch errors.
+3. [x] Document reset behavior:
+   - [x] Reset deletes server users and invalidates existing browser sessions.
+   - [x] After this fix, the browser should be redirected to login when a stale token is used.
+4. [x] Add frontend regression tests for generic API client and onboarding stale-session cleanup.
+5. [x] Run focused frontend/backend verification plus type-check/build/diff-check.
+6. [ ] Commit and push the PR branch.
+
+Acceptance criteria:
+- A browser with an old token for a deleted user is automatically logged out when an API returns `user_not_found`.
+- Onboarding no longer leaves the user stuck at "create athlete failed" after an environment reset.
+- Reset script documentation explains that server data reset invalidates browser sessions.
+
+Review:
+- Reset itself still deletes server-side users/account aliases as intended; the bug was stale browser JWT state after the server reset.
+- Added frontend stale-session handling for backend `auth_unauthorized/user_not_found` details. It clears token/cookie/athlete id and redirects to `/login`.
+- Wired the handler into the shared API client and onboarding's hand-written `/api/athletes` error path.
+- README now documents that reset invalidates existing browser sessions and that the app clears stale tokens on `user_not_found`.
+- Verification passed:
+  - `cd web && pnpm test __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx` -> 43/43 pass.
+  - `uv run python -m unittest tests.test_auth tests.test_reset_environment_data -v` -> 40/40 pass.
+  - `uv run python -m unittest discover -s tests -v` -> 114/114 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check` -> pass.
+
 ## Bugfix: Auth 401 Diagnostics Before Next Fix
 
 Objective: make `POST /athletes` 401 failures diagnosable before applying another auth fix.

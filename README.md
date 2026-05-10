@@ -147,7 +147,7 @@ flyctl ssh console --app st-api -C "python scripts/reset_environment_data.py"
 flyctl ssh console --app st-api -C "python scripts/reset_environment_data.py --execute --confirm-reset"
 ```
 
-The reset removes users, account aliases, passkeys, OTP/challenge rows, athlete profiles, plans, workouts, activities, COROS device accounts, raw provider records, sync jobs/events, coach messages, and related product data.
+The reset removes users, account aliases, passkeys, OTP/challenge rows, athlete profiles, plans, workouts, activities, COROS device accounts, raw provider records, sync jobs/events, coach messages, and related product data. Existing browser sessions become stale because their JWT subject no longer exists in the database; the web app treats the resulting `user_not_found` auth response as a reset boundary, clears local auth state, and redirects to `/login`.
 
 ## COROS Real Sync
 

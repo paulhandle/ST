@@ -11,9 +11,15 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/auth', () => ({
   getAthleteId: () => 1,
   getToken: () => 'mock-token',
+  handleStaleSession: vi.fn(),
+  readApiErrorDetail: vi.fn(async (res: Response) => {
+    const payload = await res.json()
+    return payload.detail ?? null
+  }),
   saveAthleteId: vi.fn(),
 }))
 
+import { handleStaleSession } from '@/lib/auth'
 import OnboardingPage from '@/app/onboarding/page'
 
 describe('OnboardingPage', () => {
@@ -143,5 +149,47 @@ describe('OnboardingPage', () => {
 
     expect(await screen.findByText(/Missing bearer token \(missing_credentials\)/)).toBeInTheDocument()
     expect(replaceMock).not.toHaveBeenCalled()
+  })
+
+  it('clears stale sessions when athlete creation reports a deleted token user', async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          slug: 'marathon_st_default',
+          name: 'PerformanceProtocol Marathon Plan',
+          version: '1.0.0',
+          sport: 'marathon',
+          author: null,
+          tags: ['default'],
+          description: 'Default plan',
+          is_active: true,
+        }]),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          detail: {
+            code: 'auth_unauthorized',
+            reason: 'user_not_found',
+            message: 'Token user not found',
+          },
+        }),
+      })
+    vi.stubGlobal('fetch', mockFetch)
+
+    render(<OnboardingPage />)
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText(/Start training/))
+
+    expect(await screen.findByText(/Token user not found \(user_not_found\)/)).toBeInTheDocument()
+    expect(handleStaleSession).toHaveBeenCalledWith({
+      code: 'auth_unauthorized',
+      reason: 'user_not_found',
+      message: 'Token user not found',
+    })
   })
 })

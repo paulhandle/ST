@@ -14,6 +14,7 @@ import {
   getAthleteId,
   getStoredAthleteId,
   getToken,
+  handleStaleSession,
   isAuthenticated,
   saveAthleteId,
   saveToken,
@@ -83,6 +84,43 @@ describe('clearToken', () => {
     store.pp_athlete_id = '42'
     clearToken()
     expect(store.pp_athlete_id).toBeUndefined()
+  })
+})
+
+describe('handleStaleSession', () => {
+  it('clears token state and redirects to login for deleted-user tokens', () => {
+    const assign = vi.fn()
+    vi.stubGlobal('location', { pathname: '/onboarding', assign })
+    saveToken('deleted.user.token')
+    saveAthleteId(42)
+
+    const handled = handleStaleSession({
+      code: 'auth_unauthorized',
+      reason: 'user_not_found',
+      message: 'Token user not found',
+    })
+
+    expect(handled).toBe(true)
+    expect(store.st_token).toBeUndefined()
+    expect(store.pp_athlete_id).toBeUndefined()
+    expect(getCookieValue('st_token')).toBeNull()
+    expect(assign).toHaveBeenCalledWith('/login')
+  })
+
+  it('ignores other auth failures', () => {
+    const assign = vi.fn()
+    vi.stubGlobal('location', { pathname: '/onboarding', assign })
+    saveToken('expired.token')
+
+    const handled = handleStaleSession({
+      code: 'auth_unauthorized',
+      reason: 'expired',
+      message: 'Token expired',
+    })
+
+    expect(handled).toBe(false)
+    expect(store.st_token).toBe('expired.token')
+    expect(assign).not.toHaveBeenCalled()
   })
 })
 

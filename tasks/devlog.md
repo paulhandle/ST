@@ -1,5 +1,30 @@
 # Dev Log
 
+## 2026-05-10 - Reset stale browser session recovery
+
+Why: The new diagnostics showed the exact failure after environment reset: `Token user not found (user_not_found)`. The reset script correctly deletes users and account aliases, but the browser can still have an old JWT in cookie/localStorage. Middleware only checks token presence, so the stale session reaches `/onboarding`; backend then rejects athlete creation because the token subject no longer exists.
+
+How:
+- Added structured auth error helpers to `web/lib/auth.ts`:
+  - Parse backend `{detail: {code, reason, message}}` payloads.
+  - Detect `auth_unauthorized` + `user_not_found`.
+  - Clear `st_token`, `pp_athlete_id`, and the auth cookie.
+  - Redirect to `/login` when running in the browser.
+- Updated `web/lib/api/client.ts` so `fetcher`, `postJson`, and `apiFetch` all handle stale reset sessions on 401 responses before throwing.
+- Updated `web/app/onboarding/page.tsx` so its hand-written `/api/athletes` fetch uses the same stale-session handling while still showing diagnostic detail.
+- Added `web/__tests__/apiClient.test.ts` plus auth/onboarding test coverage for reset-stale sessions.
+- Updated README reset docs to state that reset invalidates browser sessions and the web app clears stale tokens on `user_not_found`.
+- Recorded the reset/session lesson in `tasks/lessons.md`.
+
+Result:
+- Focused frontend verification passed: `cd web && pnpm test __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/onboarding.test.tsx` -> 25/25 pass. Existing non-fatal jsdom localstorage-file and React `act(...)` warnings remain in onboarding tests.
+- Broader frontend verification passed: `cd web && pnpm test __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx` -> 43/43 pass.
+- Focused backend auth/reset verification passed: `uv run python -m unittest tests.test_auth tests.test_reset_environment_data -v` -> 40/40 pass.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 114/114 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check`.
+
 ## 2026-05-10 - Auth 401 diagnostics before next onboarding fix
 
 Why: User reported that athlete creation still failed after previous token-store fixes, and correctly pointed out that the backend only logged `INFO: ::1:0 - "POST /athletes HTTP/1.1" 401 Unauthorized`, which is not enough to identify the precise cause. The next change needed to improve observability before making another behavioral guess.
