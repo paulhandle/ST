@@ -24,7 +24,7 @@ Plan:
    - [x] After this fix, the browser should be redirected to login when a stale token is used.
 4. [x] Add frontend regression tests for generic API client and onboarding stale-session cleanup.
 5. [x] Run focused frontend/backend verification plus type-check/build/diff-check.
-6. [ ] Commit and push the PR branch.
+6. [x] Commit and push the PR branch.
 
 Acceptance criteria:
 - A browser with an old token for a deleted user is automatically logged out when an API returns `user_not_found`.
