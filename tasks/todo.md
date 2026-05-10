@@ -21,6 +21,35 @@ Acceptance criteria:
 - API Dockerfile can resolve `COPY scripts ./scripts`.
 - Dev/probe scripts remain excluded from the API image.
 
+## Bugfix: Reset Script PostgreSQL URL Handling
+
+Objective: make the environment reset script safe to run against Fly PostgreSQL URLs.
+
+Context:
+- User correctly questioned whether `python scripts/reset_environment_data.py` accounts for PostgreSQL.
+- The script has a PostgreSQL deletion branch using `TRUNCATE ... RESTART IDENTITY CASCADE`.
+- However, the CLI default reads raw `DATABASE_URL` before falling back to app config. Fly commonly provides `postgres://...`, while SQLAlchemy expects `postgresql+psycopg://...` in this app.
+- Without script-local normalization, the command can fail before reaching the PostgreSQL branch.
+
+Plan:
+1. [x] Normalize raw `postgres://` and `postgresql://` URLs inside the reset script.
+2. [x] Apply normalization to CLI env defaults and explicit `--database-url`.
+3. [x] Add tests for Fly-style Postgres URL normalization and engine dialect creation.
+4. [x] Run reset tests and compile check.
+
+Acceptance criteria:
+- `DATABASE_URL=postgres://... python scripts/reset_environment_data.py` uses a SQLAlchemy-compatible Postgres driver URL.
+- Explicit `--database-url postgres://...` is normalized too.
+- SQLite behavior remains unchanged.
+
+Review:
+- Added script-local `normalize_database_url()` and applied it to CLI defaults, explicit reset calls, and `_create_engine()`.
+- Fly-style `postgres://...` and generic `postgresql://...` now become `postgresql+psycopg://...`, matching `app.core.config`.
+- SQLite URLs remain unchanged.
+- Verification passed:
+  - `uv run python -m unittest tests.test_reset_environment_data -v` -> 5/5 pass.
+  - `uv run python -m py_compile scripts/reset_environment_data.py tests/test_reset_environment_data.py` -> pass.
+
 ## Feature: Enter App Without Initial Plan
 
 Objective: let first-time users enter the authenticated app without selecting a training skill or generating a plan.
