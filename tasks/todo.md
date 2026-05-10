@@ -35,7 +35,7 @@ Follow-up Plan:
 3. [x] Sync localStorage from cookie after choosing the cookie token.
 4. [x] Re-run focused auth/onboarding/login tests.
 5. [x] Re-run type-check, build, and whitespace verification.
-6. [ ] Commit and push the PR branch.
+6. [x] Commit and push the PR branch.
 
 Follow-up Acceptance criteria:
 - `getToken()` returns the cookie token when localStorage and cookie differ.
