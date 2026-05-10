@@ -36,13 +36,14 @@ Plan:
    - [x] Add/update frontend COROS settings tests.
    - [x] Run focused and broader verification.
    - [x] Validate Alembic has one head and upgrades a clean database to head.
-5. [ ] Commit and push to PR #14 branch.
+5. [x] Commit and push to PR branch.
 
 Acceptance criteria:
 - Connected COROS settings do not keep showing username/password inputs by default.
 - User can choose 30 days, 90 days, 1 year, or all history before starting sync.
 - Sync jobs record the selected period and progress/completion copy indicates the sync window or completed-through date.
 - Malformed FIT exports are archived with warnings and do not fail the whole sync.
+- PR: https://github.com/paulhandle/ST/pull/15
 
 Review:
 - Connected COROS settings now show a compact success state by default and reveal credentials only through "Update login".

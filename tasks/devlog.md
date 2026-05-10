@@ -22,6 +22,7 @@ Result:
 - Full backend unittest discovery passed: `uv run python -m unittest discover -s tests -v` -> 118/118 pass.
 - Migration verification initially exposed multiple Alembic heads because the new migration pointed at `b9c2e41a6f0d` while `c2a9d8e1b4f3` was already the current head. Updated `d1c9a8f4e2b7_provider_sync_days_back.py` to revise `c2a9d8e1b4f3`; `uv run alembic heads` now reports only `d1c9a8f4e2b7`, and `ST_DATABASE_URL=sqlite:////private/tmp/st_coros_sync_days_back_check.db uv run alembic upgrade head` succeeds on a clean SQLite database.
 - Whitespace check passed: `git diff --check origin/main`.
+- Opened PR #15: https://github.com/paulhandle/ST/pull/15.
 
 ## 2026-05-10 - Onboarding default plan generation uses rules by default
 
