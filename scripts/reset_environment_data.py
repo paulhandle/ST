@@ -52,7 +52,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--database-url",
-        default=os.environ.get("DATABASE_URL") or os.environ.get("ST_DATABASE_URL") or DATABASE_URL,
+        default=_default_database_url(),
         help="Database URL to reset. Defaults to DATABASE_URL/ST_DATABASE_URL/app default.",
     )
     parser.add_argument(
@@ -88,6 +88,7 @@ def reset_environment_data(database_url: str, *, execute: bool, confirm_reset: b
     if execute and not confirm_reset:
         raise ValueError("execute requires confirm_reset=True")
 
+    database_url = normalize_database_url(database_url)
     engine = _create_engine(database_url)
     session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     existing_tables = set(inspect(engine).get_table_names())
@@ -160,12 +161,25 @@ def _count_rows(engine: Engine, table: Any) -> int:
 
 
 def _create_engine(database_url: str) -> Engine:
+    database_url = normalize_database_url(database_url)
     engine_kwargs: dict[str, Any] = {}
     if database_url.startswith("sqlite"):
         engine_kwargs["connect_args"] = {"check_same_thread": False}
     else:
         engine_kwargs["pool_pre_ping"] = True
     return create_engine(database_url, **engine_kwargs)
+
+
+def _default_database_url() -> str:
+    return normalize_database_url(os.environ.get("DATABASE_URL") or os.environ.get("ST_DATABASE_URL") or DATABASE_URL)
+
+
+def normalize_database_url(database_url: str) -> str:
+    if database_url.startswith("postgres://"):
+        return "postgresql+psycopg://" + database_url[len("postgres://"):]
+    if database_url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + database_url[len("postgresql://"):]
+    return database_url
 
 
 def redact_database_url(database_url: str) -> str:

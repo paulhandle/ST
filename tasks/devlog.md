@@ -12,6 +12,20 @@ Result:
 - `git diff --check` passed.
 - The previous failed remote builder path is addressed because `scripts/reset_environment_data.py` is no longer excluded from the Docker build context.
 
+## 2026-05-10 - Reset script normalizes Fly PostgreSQL URLs
+
+Why: User pointed out that the reset command might not properly consider PostgreSQL. The script did have a PostgreSQL deletion branch using `TRUNCATE ... RESTART IDENTITY CASCADE`, but its CLI default read raw `DATABASE_URL` first. Fly commonly provides `postgres://...`, while the app normalizes that to `postgresql+psycopg://...` before creating SQLAlchemy engines. Without doing the same inside the script, the reset command could fail before reaching the PostgreSQL branch.
+
+How:
+- Added `normalize_database_url()` to `scripts/reset_environment_data.py`.
+- Applied it to CLI default database URLs, direct `reset_environment_data()` calls, and `_create_engine()`.
+- Added tests that verify `postgres://...` and `postgresql://...` normalize to `postgresql+psycopg://...`, sqlite URLs stay unchanged, and a Fly-style Postgres URL creates a PostgreSQL psycopg engine without connecting.
+- Recorded the maintenance-script URL normalization lesson.
+
+Result:
+- `uv run python -m unittest tests.test_reset_environment_data -v` passed 5/5.
+- `uv run python -m py_compile scripts/reset_environment_data.py tests/test_reset_environment_data.py` passed.
+
 ## 2026-05-10 - Onboarding can enter app without initial plan
 
 Why: User wants first-time login to support entering the product before selecting a training plan. The previous onboarding path always created an athlete, generated a marathon plan, confirmed it, and routed to `/plan`, which made plan selection a hard gate.
