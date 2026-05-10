@@ -1,5 +1,17 @@
 # Dev Log
 
+## 2026-05-10 - API Docker build includes reset script
+
+Why: Production API deploy failed in Fly remote build with `failed to calculate checksum ... "/scripts": not found`. The API Dockerfile now copies `scripts ./scripts` so the environment reset tool can run inside Fly, but `.dockerignore` still excluded the entire `scripts/` directory from the build context.
+
+How:
+- Updated root `.dockerignore` from excluding all `scripts/` to excluding `scripts/*` with exceptions for `scripts/__init__.py` and `scripts/reset_environment_data.py`.
+- This keeps the production reset tool available in the API image without shipping the unrelated COROS probe/dev scripts.
+
+Result:
+- `git diff --check` passed.
+- The previous failed remote builder path is addressed because `scripts/reset_environment_data.py` is no longer excluded from the Docker build context.
+
 ## 2026-05-10 - Onboarding can enter app without initial plan
 
 Why: User wants first-time login to support entering the product before selecting a training plan. The previous onboarding path always created an athlete, generated a marathon plan, confirmed it, and routed to `/plan`, which made plan selection a hard gate.

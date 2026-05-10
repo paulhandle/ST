@@ -2,6 +2,25 @@
 
 **Branch:** `feat/onboarding-coros-activities-ux`
 
+## Bugfix: API Docker Build Missing Reset Script
+
+Objective: fix production API deploy failure where Fly remote builder cannot find `/scripts`.
+
+Context:
+- Deploy failed with `failed to calculate checksum ... "/scripts": not found`.
+- `Dockerfile.api` copies `scripts ./scripts` so the reset command is available inside the API runtime image.
+- Root `.dockerignore` still excluded `scripts/`, so the remote build context did not contain that directory.
+
+Plan:
+1. [x] Update `.dockerignore` to keep only the reset script files needed by the API image.
+2. [x] Preserve exclusion of unrelated dev/probe scripts from the API image.
+3. [x] Run lightweight verification and push the PR branch.
+
+Acceptance criteria:
+- Fly API remote build context includes `scripts/reset_environment_data.py`.
+- API Dockerfile can resolve `COPY scripts ./scripts`.
+- Dev/probe scripts remain excluded from the API image.
+
 ## Feature: Enter App Without Initial Plan
 
 Objective: let first-time users enter the authenticated app without selecting a training skill or generating a plan.
