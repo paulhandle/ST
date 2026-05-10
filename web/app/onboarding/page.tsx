@@ -113,7 +113,9 @@ export default function OnboardingPage() {
           weekly_training_days: state.weeklyDays,
         }),
       })
-      if (!athleteRes.ok) throw new Error(t.onboarding.createAthleteFailed)
+      if (!athleteRes.ok) {
+        throw new Error(await responseErrorMessage(athleteRes, t.onboarding.createAthleteFailed))
+      }
 
       const athlete = await athleteRes.json()
       saveAthleteId(athlete.id)
@@ -537,6 +539,27 @@ function parseTargetTimeSec(value: string): number | null {
   const minutes = Number(m)
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
   return hours * 3600 + minutes * 60
+}
+
+async function responseErrorMessage(res: Response, fallback: string): Promise<string> {
+  const detail = await readResponseDetail(res)
+  return detail ? `${fallback}: ${detail}` : fallback
+}
+
+async function readResponseDetail(res: Response): Promise<string | null> {
+  try {
+    const payload = await res.json()
+    const detail = payload?.detail
+    if (typeof detail === 'string') return detail
+    if (detail && typeof detail.message === 'string' && typeof detail.reason === 'string') {
+      return `${detail.message} (${detail.reason})`
+    }
+    if (detail && typeof detail.message === 'string') return detail.message
+    if (detail && typeof detail.reason === 'string') return detail.reason
+  } catch {
+    // Keep the localized fallback when the response body is empty or not JSON.
+  }
+  return null
 }
 
 function availabilityPayload(state: OnboardingState) {

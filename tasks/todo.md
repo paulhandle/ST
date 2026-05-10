@@ -2,6 +2,48 @@
 
 **Branch:** `feat/onboarding-coros-activities-ux`
 
+## Bugfix: Auth 401 Diagnostics Before Next Fix
+
+Objective: make `POST /athletes` 401 failures diagnosable before applying another auth fix.
+
+Context:
+- User still sees "创建运动档案失败" after previous token-store fixes.
+- Backend access logs only show `INFO: ::1:0 - "POST /athletes HTTP/1.1" 401 Unauthorized`, which does not identify whether the request has no bearer token, a malformed/expired token, a signature mismatch, or a token for a missing user.
+- Previous fixes guessed likely client token causes. The next step must improve observability first, then use the precise failure reason for the next behavioral fix.
+
+Plan:
+1. [x] Add safe backend auth diagnostics:
+   - [x] Split token decode failures into reason codes.
+   - [x] Log auth failures with route, method, reason, scheme presence, token fingerprint, and user id when available.
+   - [x] Do not log raw tokens or credentials.
+2. [x] Return structured 401 details for local/product debugging:
+   - [x] Missing credentials.
+   - [x] Invalid token format/signature/payload/expiry.
+   - [x] User not found.
+3. [x] Surface backend 401 detail in onboarding:
+   - [x] Parse non-OK JSON error details from `/api/athletes`.
+   - [x] Show the exact backend reason alongside the localized failure message.
+4. [x] Add regression tests for auth failure details and onboarding error display.
+5. [x] Run focused backend and frontend tests plus type-check/build/diff-check.
+6. [ ] Commit and push the PR branch.
+
+Acceptance criteria:
+- A future local repro of `POST /athletes` 401 produces a backend warning log with a safe reason code.
+- The browser onboarding error shows the backend auth reason instead of only a generic "create athlete failed".
+- Existing valid-token protected routes still pass.
+
+Review:
+- `get_current_user()` now logs safe `auth_failure` warning lines with method, path, reason, bearer scheme, token fingerprint, and decoded user id when available.
+- 401 responses now include structured detail payloads with `code`, `reason`, and `message`.
+- `/onboarding` now appends backend error details from `/api/athletes` to the visible create-athlete failure.
+- Verification passed:
+  - `uv run python -m unittest tests.test_auth -v` -> 37/37 pass.
+  - `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/auth.test.ts __tests__/login.test.tsx` -> 39/39 pass.
+  - `uv run python -m unittest discover -s tests -v` -> 114/114 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check` -> pass.
+
 ## Bugfix: Onboarding Athlete Creation 401
 
 Objective: fix `POST /athletes` returning 401 during onboarding when the protected page is reachable via auth cookie but the client-side auth helper cannot read a token from localStorage.

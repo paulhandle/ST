@@ -1,5 +1,26 @@
 # Dev Log
 
+## 2026-05-10 - Auth 401 diagnostics before next onboarding fix
+
+Why: User reported that athlete creation still failed after previous token-store fixes, and correctly pointed out that the backend only logged `INFO: ::1:0 - "POST /athletes HTTP/1.1" 401 Unauthorized`, which is not enough to identify the precise cause. The next change needed to improve observability before making another behavioral guess.
+
+How:
+- Updated `app/core/auth.py` with `decode_token_details()` so auth failures now have reason codes: `missing_credentials`, `invalid_format`, `invalid_signature`, `expired`, `invalid_payload`, `decode_error`, and `user_not_found`.
+- Added safe auth warning logs through logger `app.auth`. Logs include method, path, reason, bearer scheme presence, a 12-character sha256 token fingerprint, and user id when decoded. Raw tokens are never logged.
+- Changed `get_current_user()` 401 details to structured payloads: `{code, reason, message}`.
+- Updated `web/app/onboarding/page.tsx` so failed `/api/athletes` responses parse backend JSON detail and show the reason next to the localized "create athlete failed" message.
+- Added backend tests for missing token, invalid token signature, and token user missing on `POST /athletes`.
+- Added frontend onboarding coverage proving backend auth details are visible in the error state.
+- Recorded the diagnostic-first lesson in `tasks/lessons.md`.
+
+Result:
+- Focused backend verification passed: `uv run python -m unittest tests.test_auth -v` -> 37/37 pass, with diagnostic `auth_failure` logs visible for protected-route failures.
+- Focused frontend verification passed: `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/auth.test.ts __tests__/login.test.tsx` -> 39/39 pass. Existing non-fatal jsdom localstorage-file and React `act(...)` warnings remain.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 114/114 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check`.
+
 ## 2026-05-10 - Cookie/localStorage token precedence fix
 
 Why: User still saw "创建运动档案失败" and backend `POST /athletes` returning 401 after the initial cookie fallback fix. The remaining root cause is a mismatched auth store: middleware can admit `/onboarding` using the current `st_token` cookie, while `getToken()` still preferred a stale `localStorage.st_token` and sent the stale bearer token to the backend.
