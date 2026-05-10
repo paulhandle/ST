@@ -73,3 +73,4 @@ These were validated by the user during the MVP+1 design discussion. Apply going
 ## 2026-05-10 — Auth token readers need cookie fallback
 
 - Protected pages can be entered because middleware sees the `st_token` cookie even when `localStorage` is empty or unavailable. Any client API helper that builds `Authorization` headers must read the cookie as a fallback, or onboarding/API requests can omit auth and fail with backend 401 after a seemingly successful login.
+- If both cookie and localStorage contain `st_token`, the cookie is the source of truth because it is what Next middleware used to admit the protected page. When the two values differ, prefer the cookie and resync localStorage before building API `Authorization` headers; otherwise stale localStorage can keep causing backend 401s.

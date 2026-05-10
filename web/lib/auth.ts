@@ -4,11 +4,21 @@ const COOKIE_MAX_AGE = 60 * 60 * 24 * 30 // 30 days, matches JWT TTL
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null
-  const token = getLocalStorageToken() ?? getCookieToken()
-  // Migrate pre-cookie sessions: if localStorage has a token but no cookie, sync it
-  if (token && !document.cookie.split('; ').find(p => p.startsWith(`${TOKEN_KEY}=`))) {
+  const localToken = getLocalStorageToken()
+  const cookieToken = getCookieToken()
+  const token = cookieToken ?? localToken
+
+  if (!token) return null
+
+  if (cookieToken && localToken !== cookieToken) {
+    localStorage.setItem(TOKEN_KEY, cookieToken)
+  }
+
+  // Migrate pre-cookie sessions: if localStorage has a token but no cookie, sync it.
+  if (!cookieToken) {
     document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`
   }
+
   return token
 }
 

@@ -1,5 +1,19 @@
 # Dev Log
 
+## 2026-05-10 - Cookie/localStorage token precedence fix
+
+Why: User still saw "创建运动档案失败" and backend `POST /athletes` returning 401 after the initial cookie fallback fix. The remaining root cause is a mismatched auth store: middleware can admit `/onboarding` using the current `st_token` cookie, while `getToken()` still preferred a stale `localStorage.st_token` and sent the stale bearer token to the backend.
+
+How:
+- Updated `web/lib/auth.ts` so `getToken()` reads both stores, prefers the cookie when present, and syncs localStorage to that cookie token.
+- Kept the legacy migration path where a localStorage-only token writes the cookie for older sessions.
+- Added a regression test for stale localStorage plus current cookie.
+- Added an onboarding assertion that `/api/athletes` receives the bearer token from the auth helper.
+
+Result:
+- Confirmed the new stale-token test failed before the fix: `pnpm test __tests__/auth.test.ts` failed expecting the cookie token but receiving the stale localStorage token.
+- Focused frontend verification passed after the fix: `cd web && pnpm test __tests__/auth.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx` -> 38/38 pass. Existing non-fatal jsdom localstorage-file and React `act(...)` warnings remain in onboarding tests.
+
 ## 2026-05-10 - Cookie fallback for onboarding auth
 
 Why: User reported `POST /athletes` returning 401 during onboarding. Root cause: protected routing can allow `/onboarding` because middleware sees the `st_token` cookie, but the client-side `getToken()` helper only read localStorage. If localStorage was empty or unavailable, onboarding sent `/api/athletes` without `Authorization`.

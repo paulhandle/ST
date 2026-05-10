@@ -24,6 +24,24 @@ Acceptance criteria:
 - Existing localStorage token behavior and cookie migration still work.
 - Onboarding can include `Authorization` after cookie-only protected navigation.
 
+Follow-up:
+- User still reports "创建运动档案失败" with backend `POST /athletes` returning 401.
+- The first cookie fallback fix only handled empty localStorage. It did not handle a stale/different `localStorage.st_token` left from a previous auth attempt while the current page access is authorized by the newer `st_token` cookie.
+- Because middleware uses the cookie, client API requests must prefer the same cookie token when both stores disagree, then sync localStorage to that cookie.
+
+Follow-up Plan:
+1. [x] Add a regression test where localStorage has a stale token and the cookie has the current token.
+2. [x] Change `getToken()` to prefer the cookie when both stores exist and differ.
+3. [x] Sync localStorage from cookie after choosing the cookie token.
+4. [x] Re-run focused auth/onboarding/login tests.
+5. [x] Re-run type-check, build, and whitespace verification.
+6. [ ] Commit and push the PR branch.
+
+Follow-up Acceptance criteria:
+- `getToken()` returns the cookie token when localStorage and cookie differ.
+- `getToken()` updates localStorage to the cookie token so later API calls stay consistent.
+- Cookie-only and localStorage-only legacy sessions continue to work.
+
 Review:
 - `getToken()` now reads localStorage first and falls back to the `st_token` cookie.
 - Added a regression test proving cookie-only auth is returned by `getToken()`.
@@ -32,6 +50,15 @@ Review:
   - `cd web && pnpm type-check` -> pass.
   - `cd web && pnpm build` -> pass.
   - `git diff --check` -> pass.
+
+Follow-up Review:
+- Reproduced the remaining stale-token failure with a regression test: when localStorage had `stale.local.token` and the cookie had `current.cookie.token`, the old helper returned the stale localStorage token.
+- `getToken()` now prefers the cookie token when present and syncs localStorage to that value. LocalStorage-only legacy sessions still write the cookie.
+- Added onboarding coverage that `/api/athletes` receives `Authorization: Bearer mock-token`.
+- Focused frontend verification passed: `cd web && pnpm test __tests__/auth.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx` -> 38/38 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check`.
 
 ## Tooling: Reset Local and Fly Environment Data
 

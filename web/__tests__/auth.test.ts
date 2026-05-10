@@ -44,6 +44,14 @@ describe('getToken', () => {
     document.cookie = 'st_token=cookie.token.here; path=/'
     expect(getToken()).toBe('cookie.token.here')
   })
+
+  it('prefers the auth cookie when localStorage has a stale token', () => {
+    store['st_token'] = 'stale.local.token'
+    document.cookie = 'st_token=current.cookie.token; path=/'
+
+    expect(getToken()).toBe('current.cookie.token')
+    expect(store['st_token']).toBe('current.cookie.token')
+  })
 })
 
 describe('saveToken', () => {
