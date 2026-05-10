@@ -159,9 +159,12 @@ export default function OnboardingPage() {
           plan_weeks: state.planWeeks,
           availability: availabilityPayload(state),
           skill_slug: state.selectedSkill,
+          use_llm: false,
         }),
       })
-      if (!planRes.ok) throw new Error(t.onboarding.planFailed)
+      if (!planRes.ok) {
+        throw new Error(await responseErrorMessage(planRes, t.onboarding.planFailed))
+      }
       const plan = await planRes.json()
 
       const confirmRes = await fetch(`/api/plans/${plan.id}/confirm`, {

@@ -113,6 +113,52 @@ describe('OnboardingPage', () => {
     expect(mockFetch).toHaveBeenCalledWith('/api/plans/21/confirm', expect.objectContaining({ method: 'POST' }))
   })
 
+  it('generates a plan with default onboarding values without LLM', async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          slug: 'marathon_st_default',
+          name: 'PerformanceProtocol Marathon Plan',
+          version: '1.0.0',
+          sport: 'marathon',
+          author: null,
+          tags: ['default'],
+          description: 'Default plan',
+          is_active: true,
+        }]),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 11 }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 21 }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ plan_id: 21, confirmed: true, confirmed_workout_count: 48 }) })
+    vi.stubGlobal('fetch', mockFetch)
+
+    render(<OnboardingPage />)
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText(/Start training/))
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith('/plan')
+    })
+    const generateCall = mockFetch.mock.calls.find(([url]) => url === '/api/marathon/plans/generate')
+    expect(JSON.parse(generateCall?.[1]?.body as string)).toMatchObject({
+      race_goal_id: null,
+      target_time_sec: null,
+      race_date: null,
+      plan_weeks: 16,
+      skill_slug: 'marathon_st_default',
+      use_llm: false,
+      availability: {
+        weekly_training_days: 3,
+        preferred_long_run_weekday: 6,
+        unavailable_weekdays: [0, 2, 4, 5],
+      },
+    })
+  })
+
   it('shows backend auth details when athlete creation fails', async () => {
     const mockFetch = vi.fn()
       .mockResolvedValueOnce({

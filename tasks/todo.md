@@ -2,6 +2,50 @@
 
 **Branch:** `feat/onboarding-coros-activities-ux`
 
+## Bugfix: Onboarding Default Plan Generation
+
+Objective: fix new-user onboarding when all default values are accepted and the final training plan generation fails.
+
+Context:
+- User reports that a new user enters plan setup, keeps default values, and the final generate step errors.
+- Current onboarding defaults produce a finish-focused marathon request with no race date and no target time:
+  - `target_time_sec: null`
+  - `race_date: null`
+  - `plan_weeks: 16`
+  - `weekly_training_days: 3`
+  - `skill_slug: marathon_st_default`
+- Existing tests cover selecting a non-default skill but do not directly cover the all-default finish-goal payload.
+
+Plan:
+1. [x] Add backend regression coverage for the exact default onboarding payload.
+2. [x] Add frontend onboarding coverage that accepts every default and inspects the generated payload.
+3. [x] Use the failing test/error detail to identify the root cause.
+4. [x] Fix the root cause with minimal scope.
+5. [x] Run focused frontend/backend verification plus type-check/build/diff-check.
+6. [ ] Commit and push to PR #14 branch.
+
+Acceptance criteria:
+- Default onboarding creates an athlete, generates a plan, confirms it, and routes to `/plan`.
+- Backend accepts the default finish-goal payload for a new user without COROS/history.
+- If the backend rejects generation, onboarding surfaces the backend detail rather than only a generic plan failure.
+
+Review:
+- Root cause: default first-run onboarding used `marathon_st_default`, and when `OPENAI_API_KEY` existed the skill attempted LLM generation before falling back. A backend reproduction of the default payload took 51.292s before this fix, which is too slow for first-run UX and can surface as a generate failure.
+- Added `use_llm` to `MarathonPlanGenerateRequest`, defaulting to `false`.
+- Backend now calls the skill LLM path only when both environment config exists and the request explicitly sets `use_llm=true`.
+- Onboarding sends `use_llm: false` for first-run plan creation and now shows backend detail when plan generation fails.
+- Added backend coverage for the exact all-default onboarding payload and asserts LLM is not called.
+- Added frontend coverage for clicking through all default onboarding values and inspecting the generated payload.
+- Verification passed:
+  - `uv run python -m unittest tests.test_auth.ProtectedRoutesTestCase.test_onboarding_default_finish_goal_generates_plan -v` -> 1/1 pass in 0.210s after the fix.
+  - `cd web && pnpm test __tests__/onboarding.test.tsx` -> 7/7 pass.
+  - `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/protectedAuthGate.test.tsx __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/login.test.tsx` -> 49/49 pass.
+  - `uv run python -m unittest tests.test_auth -v` -> 38/38 pass.
+  - `uv run python -m unittest discover -s tests -v` -> 115/115 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check origin/main` -> pass.
+
 ## Bugfix: Protected Route Entry Auth Gate
 
 Objective: validate real login state at the protected route boundary, before page content or page-specific API calls run.

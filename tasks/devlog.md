@@ -1,5 +1,28 @@
 # Dev Log
 
+## 2026-05-10 - Onboarding default plan generation uses rules by default
+
+Why: User reported that a new user accepting all default onboarding values hit an error on the final generate step. The backend accepted the default finish-goal payload, but with `OPENAI_API_KEY` configured the default marathon skill tried the LLM path first. A focused backend reproduction took 51 seconds before falling back successfully, which is too slow and likely causes browser/proxy timeouts or a generic frontend plan-generation failure in the real onboarding flow.
+
+How:
+- Added `use_llm: bool = False` to `MarathonPlanGenerateRequest`.
+- Updated `generate_plan_via_skill()` so LLM generation runs only when the environment is configured and the request explicitly opts in with `use_llm=true`.
+- Updated onboarding plan generation to send `use_llm: false` for the first-run default plan.
+- Changed onboarding plan-generation errors to parse and display backend detail, matching the athlete-creation error path.
+- Added backend regression coverage for the exact default onboarding payload: new user, new athlete, finish goal, no race date, no target time, 16 weeks, 3 training days, default skill. The test asserts LLM is not called.
+- Added frontend onboarding coverage that clicks through with all defaults and asserts the generated payload includes `use_llm: false`.
+
+Result:
+- Confirmed the pre-fix backend default-payload reproduction succeeded only after 51.292s, indicating the LLM path was being attempted before fallback.
+- After the fix, focused backend verification passed quickly: `uv run python -m unittest tests.test_auth.ProtectedRoutesTestCase.test_onboarding_default_finish_goal_generates_plan -v` -> 1/1 pass in 0.210s.
+- Focused frontend onboarding verification passed: `cd web && pnpm test __tests__/onboarding.test.tsx` -> 7/7 pass. Existing non-fatal jsdom localstorage-file and React `act(...)` warnings remain.
+- Broader focused frontend verification passed: `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/protectedAuthGate.test.tsx __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/login.test.tsx` -> 49/49 pass.
+- Backend auth verification passed: `uv run python -m unittest tests.test_auth -v` -> 38/38 pass.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 115/115 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check origin/main`.
+
 ## 2026-05-10 - Protected route entry auth gate
 
 Why: User pointed out that authenticated pages should validate real login state at route entry, not let each page or API call discover invalid state independently. The prior stale-session cleanup was useful, but it still allowed protected page code to start before the app knew the token represented a real current user.

@@ -6,6 +6,7 @@ import os
 os.environ.setdefault("ST_DATABASE_URL", "sqlite:///st_test.db")
 
 import unittest
+from unittest import mock
 from fastapi.testclient import TestClient
 from app.main import app
 from app.db import Base, engine
@@ -510,6 +511,45 @@ class ProtectedRoutesTestCase(AuthSetup):
             self.assertEqual(athlete.user_id, user.id)
         finally:
             db.close()
+
+    def test_onboarding_default_finish_goal_generates_plan(self):
+        import app.skills.marathon_st_default.code.llm as llm_mod
+
+        llm_mod.generate_weeks = mock.Mock(side_effect=AssertionError("LLM should be disabled by default"))
+        token = self._get_token()
+        athlete_res = self.client.post(
+            "/athletes",
+            json={
+                "name": "Me",
+                "sport": "marathon",
+                "level": "beginner",
+                "weekly_training_days": 3,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(athlete_res.status_code, 200, athlete_res.text)
+        athlete_id = athlete_res.json()["id"]
+
+        plan_res = self.client.post(
+            "/marathon/plans/generate",
+            json={
+                "athlete_id": athlete_id,
+                "race_goal_id": None,
+                "target_time_sec": None,
+                "race_date": None,
+                "plan_weeks": 16,
+                "availability": {
+                    "weekly_training_days": 3,
+                    "preferred_long_run_weekday": 6,
+                    "unavailable_weekdays": [0, 2, 4, 5],
+                },
+                "skill_slug": "marathon_st_default",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(plan_res.status_code, 200, plan_res.text)
+        self.assertEqual(plan_res.json()["athlete_id"], athlete_id)
+        llm_mod.generate_weeks.assert_not_called()
 
     def test_today_endpoint_requires_auth(self):
         res = self.client.get("/athletes/1/today")
