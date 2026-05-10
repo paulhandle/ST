@@ -25,7 +25,7 @@ Plan:
    - [x] Show the exact backend reason alongside the localized failure message.
 4. [x] Add regression tests for auth failure details and onboarding error display.
 5. [x] Run focused backend and frontend tests plus type-check/build/diff-check.
-6. [ ] Commit and push the PR branch.
+6. [x] Commit and push the PR branch.
 
 Acceptance criteria:
 - A future local repro of `POST /athletes` 401 produces a backend warning log with a safe reason code.
