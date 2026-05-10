@@ -1,5 +1,27 @@
 # Dev Log
 
+## 2026-05-10 - Protected route entry auth gate
+
+Why: User pointed out that authenticated pages should validate real login state at route entry, not let each page or API call discover invalid state independently. The prior stale-session cleanup was useful, but it still allowed protected page code to start before the app knew the token represented a real current user.
+
+How:
+- Added `web/components/ProtectedAuthGate.tsx` and mounted it in `web/app/layout.tsx` around all routes.
+- The gate treats public paths (`/`, `/login`, `/api`, `/icons`, Next assets, and static files) as public.
+- For protected paths, it requires a local token, then calls `/api/auth/me` with the bearer token before rendering children.
+- If `/auth/me` succeeds, protected page content renders. If it fails, the gate clears local auth state and redirects to `/login`. Structured `user_not_found` responses reuse the stale-session cleanup path.
+- Kept API-client stale-session cleanup as a fallback for post-entry auth failures.
+- Added `web/__tests__/protectedAuthGate.test.tsx` covering public route pass-through, protected route validation before rendering, and deleted-user-token cleanup before rendering protected content.
+- Recorded the route-entry auth-gate lesson in `tasks/lessons.md`.
+
+Result:
+- Focused frontend verification passed: `cd web && pnpm test __tests__/protectedAuthGate.test.tsx __tests__/auth.test.ts __tests__/apiClient.test.ts` -> 24/24 pass.
+- Broader frontend verification passed: `cd web && pnpm test __tests__/protectedAuthGate.test.tsx __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx __tests__/settings.test.tsx __tests__/middleware.test.ts` -> 54/54 pass.
+- Focused backend auth verification passed: `uv run python -m unittest tests.test_auth -v` -> 37/37 pass.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 114/114 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check`.
+
 ## 2026-05-10 - Reset stale browser session recovery
 
 Why: The new diagnostics showed the exact failure after environment reset: `Token user not found (user_not_found)`. The reset script correctly deletes users and account aliases, but the browser can still have an old JWT in cookie/localStorage. Middleware only checks token presence, so the stale session reaches `/onboarding`; backend then rejects athlete creation because the token subject no longer exists.

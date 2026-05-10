@@ -2,6 +2,49 @@
 
 **Branch:** `feat/onboarding-coros-activities-ux`
 
+## Bugfix: Protected Route Entry Auth Gate
+
+Objective: validate real login state at the protected route boundary, before page content or page-specific API calls run.
+
+Context:
+- User feedback: authenticated pages should not each discover invalid login state individually. The app should intercept at route entry.
+- Middleware can only cheaply check that a token exists. It cannot trust the token's DB subject after reset unless it calls the backend/database, so the browser-side protected route shell must validate `/auth/me` before rendering protected content.
+- Existing stale-session handling in API clients remains useful as a fallback, but it should not be the primary UX path for protected pages.
+
+Plan:
+1. [x] Add a `ProtectedAuthGate` mounted in the root layout:
+   - [x] Treat `/`, `/login`, `/api`, `/icons`, and static/browser assets as public.
+   - [x] For protected routes, require a local token before rendering.
+   - [x] Call `/api/auth/me` at route entry.
+   - [x] Render children only after `/auth/me` succeeds.
+   - [x] Clear local auth and redirect to `/login` on stale/invalid auth.
+2. [x] Keep API-client stale-session cleanup as a fallback for post-entry failures.
+3. [x] Add tests for:
+   - [x] Public routes render without `/auth/me`.
+   - [x] Protected routes validate `/auth/me` before showing children.
+   - [x] `user_not_found` clears token and redirects before children render.
+4. [x] Run focused frontend tests, backend auth tests, type-check/build/diff-check.
+5. [ ] Update devlog/lessons and commit/push.
+
+Acceptance criteria:
+- A protected page with a deleted-user token redirects to `/login` before page content renders.
+- Valid protected sessions render after `/auth/me` succeeds.
+- Public pages are not blocked by the route-entry auth gate.
+
+Review:
+- Added `ProtectedAuthGate` at the root layout. Protected paths now call `/api/auth/me` before rendering children.
+- Public routes and assets continue to render without validation.
+- Deleted-user/reset-stale tokens are cleared and redirected to `/login` before protected page content renders.
+- API-client stale-session cleanup remains as a fallback after route entry.
+- Verification passed:
+  - `cd web && pnpm test __tests__/protectedAuthGate.test.tsx __tests__/auth.test.ts __tests__/apiClient.test.ts` -> 24/24 pass.
+  - `cd web && pnpm test __tests__/protectedAuthGate.test.tsx __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx __tests__/settings.test.tsx __tests__/middleware.test.ts` -> 54/54 pass.
+  - `uv run python -m unittest tests.test_auth -v` -> 37/37 pass.
+  - `uv run python -m unittest discover -s tests -v` -> 114/114 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check` -> pass.
+
 ## Bugfix: Reset Leaves Browser Session Pointing At Deleted User
 
 Objective: make reset-induced stale browser sessions recover automatically after the database is cleared.
