@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getToken, saveAthleteId } from '@/lib/auth'
+import { getToken, handleStaleSession, readApiErrorDetail, saveAthleteId } from '@/lib/auth'
 import { useI18n } from '@/lib/i18n/I18nProvider'
 import type { SkillManifestOut } from '@/lib/api/types'
 
@@ -542,24 +542,14 @@ function parseTargetTimeSec(value: string): number | null {
 }
 
 async function responseErrorMessage(res: Response, fallback: string): Promise<string> {
-  const detail = await readResponseDetail(res)
-  return detail ? `${fallback}: ${detail}` : fallback
-}
-
-async function readResponseDetail(res: Response): Promise<string | null> {
-  try {
-    const payload = await res.json()
-    const detail = payload?.detail
-    if (typeof detail === 'string') return detail
-    if (detail && typeof detail.message === 'string' && typeof detail.reason === 'string') {
-      return `${detail.message} (${detail.reason})`
-    }
-    if (detail && typeof detail.message === 'string') return detail.message
-    if (detail && typeof detail.reason === 'string') return detail.reason
-  } catch {
-    // Keep the localized fallback when the response body is empty or not JSON.
+  const detail = await readApiErrorDetail(res)
+  handleStaleSession(detail)
+  if (detail?.message && detail.reason) {
+    return `${fallback}: ${detail.message} (${detail.reason})`
   }
-  return null
+  if (detail?.message) return `${fallback}: ${detail.message}`
+  if (detail?.reason) return `${fallback}: ${detail.reason}`
+  return fallback
 }
 
 function availabilityPayload(state: OnboardingState) {

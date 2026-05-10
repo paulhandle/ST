@@ -1,6 +1,7 @@
 const TOKEN_KEY = 'st_token'
 const ATHLETE_ID_KEY = 'pp_athlete_id'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30 // 30 days, matches JWT TTL
+const STALE_SESSION_REASON = 'user_not_found'
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null
@@ -32,6 +33,46 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(ATHLETE_ID_KEY)
   document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`
+}
+
+export type ApiErrorDetail = {
+  code?: string
+  reason?: string
+  message?: string
+}
+
+export function parseApiErrorDetail(payload: unknown): ApiErrorDetail | null {
+  if (!payload || typeof payload !== 'object') return null
+  const detail = (payload as { detail?: unknown }).detail
+  if (typeof detail === 'string') return { message: detail }
+  if (!detail || typeof detail !== 'object') return null
+  const value = detail as Record<string, unknown>
+  return {
+    code: typeof value.code === 'string' ? value.code : undefined,
+    reason: typeof value.reason === 'string' ? value.reason : undefined,
+    message: typeof value.message === 'string' ? value.message : undefined,
+  }
+}
+
+export async function readApiErrorDetail(res: Response): Promise<ApiErrorDetail | null> {
+  try {
+    return parseApiErrorDetail(await res.clone().json())
+  } catch {
+    return null
+  }
+}
+
+export function isStaleSessionError(detail: ApiErrorDetail | null): boolean {
+  return detail?.code === 'auth_unauthorized' && detail.reason === STALE_SESSION_REASON
+}
+
+export function handleStaleSession(detail: ApiErrorDetail | null): boolean {
+  if (!isStaleSessionError(detail)) return false
+  clearToken()
+  if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+    window.location.assign('/login')
+  }
+  return true
 }
 
 export function isAuthenticated(): boolean {
