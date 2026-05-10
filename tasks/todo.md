@@ -24,7 +24,7 @@ Plan:
    - [x] Protected routes validate `/auth/me` before showing children.
    - [x] `user_not_found` clears token and redirects before children render.
 4. [x] Run focused frontend tests, backend auth tests, type-check/build/diff-check.
-5. [ ] Update devlog/lessons and commit/push.
+5. [x] Update devlog/lessons and commit/push.
 
 Acceptance criteria:
 - A protected page with a deleted-user token redirects to `/login` before page content renders.
