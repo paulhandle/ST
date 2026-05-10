@@ -1,5 +1,21 @@
 # Dev Log
 
+## 2026-05-10 - Cookie fallback for onboarding auth
+
+Why: User reported `POST /athletes` returning 401 during onboarding. Root cause: protected routing can allow `/onboarding` because middleware sees the `st_token` cookie, but the client-side `getToken()` helper only read localStorage. If localStorage was empty or unavailable, onboarding sent `/api/athletes` without `Authorization`.
+
+How:
+- Updated `web/lib/auth.ts` so `getToken()` reads localStorage first and falls back to the `st_token` cookie.
+- Kept the existing localStorage-to-cookie migration behavior for older sessions.
+- Added a frontend auth regression test for cookie-only token reads.
+- Recorded the cookie fallback lesson in `tasks/lessons.md`.
+
+Result:
+- Focused frontend verification passed: `cd web && pnpm test __tests__/auth.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx` -> 37/37 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check`.
+
 ## 2026-05-10 - Environment reset tooling
 
 Why: User needs a reliable way to reset local data during development and reset the Fly environment before official launch. Existing cleanup tooling only removed fake COROS rows, which is not enough for a full pre-launch environment reset.

@@ -69,3 +69,7 @@ These were validated by the user during the MVP+1 design discussion. Apply going
 ## 2026-05-10 — Settings pages need deterministic exits
 
 - Settings and nested settings pages must include explicit visible navigation back to the containing surface. Do not rely on browser history, tiny unlabeled symbols, or the user guessing the app shell route. Root settings should link back to `/me`; nested settings pages should link back to `/settings`, with tests asserting the href.
+
+## 2026-05-10 — Auth token readers need cookie fallback
+
+- Protected pages can be entered because middleware sees the `st_token` cookie even when `localStorage` is empty or unavailable. Any client API helper that builds `Authorization` headers must read the cookie as a fallback, or onboarding/API requests can omit auth and fail with backend 401 after a seemingly successful login.

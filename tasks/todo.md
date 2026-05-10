@@ -2,6 +2,37 @@
 
 **Branch:** `feat/onboarding-coros-activities-ux`
 
+## Bugfix: Onboarding Athlete Creation 401
+
+Objective: fix `POST /athletes` returning 401 during onboarding when the protected page is reachable via auth cookie but the client-side auth helper cannot read a token from localStorage.
+
+Context:
+- User reported `INFO: ::1:0 - "POST /athletes HTTP/1.1" 401 Unauthorized` and "创建运动档案失败".
+- `/onboarding` sends `Authorization` from `getToken()`.
+- Middleware/protected routing can be satisfied by the `st_token` cookie, while `getToken()` previously read only localStorage.
+- If localStorage is empty/unavailable, onboarding enters the page but sends `/api/athletes` without auth.
+
+Plan:
+1. [x] Add cookie fallback to `getToken()`.
+2. [x] Add auth helper regression coverage.
+3. [x] Run focused frontend auth/onboarding tests.
+4. [x] Run frontend type-check/build if focused tests pass.
+5. [ ] Update PR branch.
+
+Acceptance criteria:
+- `getToken()` returns the `st_token` cookie when localStorage has no token.
+- Existing localStorage token behavior and cookie migration still work.
+- Onboarding can include `Authorization` after cookie-only protected navigation.
+
+Review:
+- `getToken()` now reads localStorage first and falls back to the `st_token` cookie.
+- Added a regression test proving cookie-only auth is returned by `getToken()`.
+- Verification passed:
+  - `cd web && pnpm test __tests__/auth.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx` -> 37/37 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check` -> pass.
+
 ## Tooling: Reset Local and Fly Environment Data
 
 Objective: add a repeatable, guarded reset tool for clearing app data before local testing or pre-launch Fly environment resets, while preserving global seed/configuration tables.
