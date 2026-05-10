@@ -20,6 +20,7 @@ RUN uv sync --frozen --no-install-project --no-dev
 
 # Copy application code and sync the project itself
 COPY app ./app
+COPY scripts ./scripts
 COPY alembic.ini ./
 COPY alembic ./alembic
 RUN uv sync --frozen --no-dev

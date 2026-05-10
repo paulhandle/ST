@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { useCalendar } from '@/lib/hooks/useCalendar'
 import MonthStrip from '@/components/activities/MonthStrip'
-import type { CalendarDay } from '@/lib/api/types'
+import type { CalendarDay, CalendarStatus } from '@/lib/api/types'
 import { useI18n } from '@/lib/i18n/I18nProvider'
 
 function getDateRange() {
@@ -22,15 +22,32 @@ function getDateRange() {
 const { fromDate, toDate } = getDateRange()
 
 const FILTER_KEYS = ['all', 'run', 'cycle', 'strength'] as const
-const STATUS_FILTER_KEYS = ['all', 'completed', 'unmatched', 'planned', 'miss'] as const
+const STATUS_FILTER_KEYS = ['all', 'completed', 'partial', 'unmatched', 'miss', 'planned'] as const
 type ActivitiesView = 'timeline' | 'calendar'
 
-const STATUS_COLOR: Record<string, string> = {
-  completed: 'var(--ink)',
-  partial: 'var(--ink-mid)',
-  miss: 'var(--accent)',
-  unmatched: 'var(--ink-faint)',
-  planned: 'rgba(255,77,0,0.55)',
+type StatusTone = 'completed' | 'partial' | 'unmatched' | 'miss' | 'planned'
+
+const STATUS_META: Record<CalendarStatus, { tone: StatusTone; color: string }> = {
+  completed: {
+    tone: 'completed',
+    color: 'var(--data-blue)',
+  },
+  partial: {
+    tone: 'partial',
+    color: 'var(--data-blue)',
+  },
+  unmatched: {
+    tone: 'unmatched',
+    color: 'var(--ink-faint)',
+  },
+  miss: {
+    tone: 'miss',
+    color: 'var(--accent)',
+  },
+  planned: {
+    tone: 'planned',
+    color: 'var(--ink-faint)',
+  },
 }
 
 export default function ActivitiesPage() {
@@ -152,7 +169,7 @@ export default function ActivitiesPage() {
         {STATUS_FILTER_KEYS.map(key => (
           <button
             key={key}
-            aria-label={`Status filter: ${key === 'all' ? t.activities.filters.all : (t.activities.status[key] ?? key)}`}
+            aria-label={`Status filter: ${key === 'all' ? t.activities.filters.all : (key === 'partial' ? t.activities.status.partial : t.activities.status[key] ?? key)}`}
             onClick={() => setStatusFilter(key)}
             className="hand"
             style={{
@@ -163,10 +180,12 @@ export default function ActivitiesPage() {
               whiteSpace: 'nowrap', flexShrink: 0,
             }}
           >
-            {key === 'all' ? t.activities.filters.all : (t.activities.status[key] ?? key)}
+            {key === 'all' ? t.activities.filters.all : (key === 'partial' ? t.activities.status.partial : t.activities.status[key] ?? key)}
           </button>
         ))}
       </div>
+
+      <StatusLegend />
 
       {view === 'timeline' && monthKeys.length > 0 && (
         <div style={{
@@ -254,10 +273,8 @@ function formatMonthLabel(monthKey: string, language: string) {
 
 function DayRow({ day, isSelected }: { day: CalendarDay; isSelected: boolean }) {
   const { t } = useI18n()
-  const meta = {
-    color: STATUS_COLOR[day.status] ?? 'var(--ink-faint)',
-    label: t.activities.status[day.status] ?? day.status,
-  }
+  const meta = STATUS_META[day.status]
+  const label = t.activities.status[day.status] ?? day.status
   const [, m, d] = day.date.split('-')
   const href = day.activity_id != null ? `/activities/${day.activity_id}` : `/workouts/${day.date}`
 
@@ -267,12 +284,10 @@ function DayRow({ day, isSelected }: { day: CalendarDay; isSelected: boolean }) 
       data-listdate={day.date}
       style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
     >
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '11px 16px',
-        borderBottom: '1px solid var(--rule-soft)',
-        background: isSelected ? 'var(--accent-light)' : undefined,
-      }}>
+      <div
+        data-status={day.status}
+        className={`activity-row activity-row--${meta.tone}${isSelected ? ' activity-row--selected' : ''}`}
+      >
         <div style={{ width: 30, textAlign: 'center', flexShrink: 0 }}>
           <div className="hand" style={{ fontSize: 16, fontWeight: 600, lineHeight: 1 }}>
             {parseInt(d)}
@@ -282,10 +297,7 @@ function DayRow({ day, isSelected }: { day: CalendarDay; isSelected: boolean }) 
           </div>
         </div>
 
-        <span style={{
-          width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-          background: meta.color,
-        }} />
+        <span className={`activity-status-mark activity-status-mark--${meta.tone}`} />
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="hand" style={{
@@ -304,11 +316,44 @@ function DayRow({ day, isSelected }: { day: CalendarDay; isSelected: boolean }) 
           )}
         </div>
 
-        <span className="hand" style={{ fontSize: 11, color: meta.color, flexShrink: 0 }}>
-          {meta.label}
+        <span
+          className="hand"
+          title={t.activities.statusHelp[day.status]}
+          style={{ fontSize: 11, color: meta.color, flexShrink: 0 }}
+        >
+          {label}
         </span>
         <span style={{ color: 'var(--ink-faint)', fontSize: 14 }}>›</span>
       </div>
     </Link>
+  )
+}
+
+function StatusLegend() {
+  const { t } = useI18n()
+  const statuses: CalendarStatus[] = ['completed', 'partial', 'unmatched', 'miss', 'planned']
+  return (
+    <div style={{
+      display: 'flex',
+      gap: 8,
+      padding: '8px 16px',
+      borderBottom: '1px solid var(--rule-soft)',
+      overflowX: 'auto',
+      scrollbarWidth: 'none',
+      flexShrink: 0,
+    }}>
+      <span className="annot text-faint" style={{ fontSize: 11, alignSelf: 'center', whiteSpace: 'nowrap' }}>
+        {t.activities.legendTitle}
+      </span>
+      {statuses.map(status => {
+        const meta = STATUS_META[status]
+        return (
+          <span key={status} className="activity-legend-item">
+            <span className={`activity-status-mark activity-status-mark--${meta.tone}`} />
+            <span title={t.activities.statusHelp[status]}>{t.activities.status[status]}</span>
+          </span>
+        )
+      })}
+    </div>
   )
 }

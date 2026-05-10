@@ -304,6 +304,180 @@ html, body {
 
 .coach-fab:active { transform: scale(0.95); }
 
+/* ── COROS nudge ─────────────────────────────────────────────────────── */
+.coros-nudge {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 82px);
+  z-index: 98;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--data-blue);
+  border-radius: var(--radius);
+  background: rgba(15, 15, 15, 0.98);
+}
+
+.coros-nudge__primary,
+.coros-nudge__secondary {
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font-hand);
+  font-size: 12px;
+  line-height: 30px;
+  text-decoration: none;
+}
+
+.coros-nudge__primary {
+  border: 1px solid var(--data-blue);
+  background: var(--data-blue);
+  color: #050505;
+}
+
+.coros-nudge__secondary {
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-faint);
+}
+
+/* ── Settings navigation ────────────────────────────────────────────── */
+.settings-back-link {
+  display: inline-flex;
+  min-width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius);
+  background: var(--surface-low);
+  text-decoration: none;
+  font-family: var(--font-hand);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ── Activities status system ───────────────────────────────────────── */
+.activity-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--rule-soft);
+  background: var(--paper);
+}
+
+.activity-row::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--activity-rail, var(--rule));
+}
+
+.activity-row--completed {
+  --activity-rail: var(--data-blue);
+  background: rgba(0, 229, 255, 0.045);
+}
+
+.activity-row--partial {
+  --activity-rail: linear-gradient(180deg, var(--data-blue) 0 52%, var(--rule) 52% 100%);
+  background: rgba(213, 176, 163, 0.045);
+}
+
+.activity-row--unmatched {
+  --activity-rail: var(--ink-faint);
+}
+
+.activity-row--miss {
+  --activity-rail: var(--accent);
+  background: rgba(255, 77, 0, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 77, 0, 0.32);
+}
+
+.activity-row--planned {
+  --activity-rail: repeating-linear-gradient(180deg, var(--ink-faint) 0 4px, transparent 4px 8px);
+  background: rgba(244, 241, 239, 0.025);
+}
+
+.activity-row--selected {
+  background: var(--accent-light);
+}
+
+.activity-status-mark,
+.month-status-mark {
+  display: inline-block;
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+
+.activity-status-mark {
+  width: 8px;
+  height: 28px;
+  border: 1px solid transparent;
+  background: var(--activity-mark, var(--rule));
+}
+
+.activity-status-mark--completed,
+.month-status-mark--completed {
+  --activity-mark: var(--data-blue);
+  background: var(--data-blue);
+}
+
+.activity-status-mark--partial,
+.month-status-mark--partial {
+  --activity-mark: linear-gradient(180deg, var(--data-blue) 0 52%, var(--rule) 52% 100%);
+  background: linear-gradient(180deg, var(--data-blue) 0 52%, var(--rule) 52% 100%);
+}
+
+.activity-status-mark--unmatched,
+.month-status-mark--unmatched {
+  --activity-mark: var(--ink-faint);
+  background: var(--ink-faint);
+}
+
+.activity-status-mark--miss,
+.month-status-mark--miss {
+  --activity-mark: var(--accent);
+  background: var(--accent);
+}
+
+.activity-status-mark--planned,
+.month-status-mark--planned {
+  --activity-mark: transparent;
+  border: 1px dashed var(--ink-faint);
+  background: transparent;
+}
+
+.month-status-mark {
+  width: 6px;
+  height: 6px;
+}
+
+.activity-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  font-family: var(--font-hand);
+  font-size: 11px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.activity-legend-item .activity-status-mark {
+  width: 7px;
+  height: 18px;
+}
+
 /* ── Page shell ──────────────────────────────────────────────────────── */
 .page-shell {
   min-height: 100dvh;

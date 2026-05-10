@@ -36,7 +36,9 @@ describe('OnboardingPage', () => {
 
   it('renders step 1 heading', () => {
     render(<OnboardingPage />)
-    expect(screen.getByText('Connect COROS')).toBeInTheDocument()
+    expect(screen.getByText('Build your training cycle')).toBeInTheDocument()
+    expect(screen.getByText(/connect COROS after setup/i)).toBeInTheDocument()
+    expect(screen.queryByText('Connect COROS')).not.toBeInTheDocument()
   })
 
   it('shows step indicator', () => {
