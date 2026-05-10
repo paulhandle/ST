@@ -23,7 +23,9 @@ web/
 tests/
 docs/
 tasks/
-scripts/
+scripts/*
+!scripts/__init__.py
+!scripts/reset_environment_data.py
 rules.md
 
 # Secrets / local config
