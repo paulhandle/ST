@@ -123,7 +123,7 @@ def generate_plan_via_skill(
         race_goal=race_goal,
         start_date=start_date,
         profile_block=getattr(request, "profile_block", "") or "",
-        llm_enabled=_llm_enabled(),
+        llm_enabled=_llm_enabled() and bool(getattr(request, "use_llm", False)),
     )
 
     ok, why = skill.applicable(ctx)

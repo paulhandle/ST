@@ -1,4 +1,4 @@
-import { getToken } from '@/lib/auth'
+import { getToken, handleStaleSession, readApiErrorDetail } from '@/lib/auth'
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? '/api'
 
@@ -16,6 +16,7 @@ export async function fetcher<T>(url: string): Promise<T> {
     headers: _authHeaders(),
   })
   if (!res.ok) {
+    await handleApiAuthFailure(res)
     const err = await res.text().catch(() => res.statusText)
     throw new Error(`${res.status}: ${err}`)
   }
@@ -29,6 +30,7 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
+    await handleApiAuthFailure(res)
     const err = await res.text().catch(() => res.statusText)
     throw new Error(`${res.status}: ${err}`)
   }
@@ -41,8 +43,14 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     headers: { ..._authHeaders(), ...(init?.headers ?? {}) },
   })
   if (!res.ok) {
+    await handleApiAuthFailure(res)
     const err = await res.text().catch(() => res.statusText)
     throw new Error(`${res.status}: ${err}`)
   }
   return res.json()
+}
+
+async function handleApiAuthFailure(res: Response): Promise<void> {
+  if (res.status !== 401) return
+  handleStaleSession(await readApiErrorDetail(res))
 }

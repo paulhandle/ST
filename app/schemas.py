@@ -423,6 +423,7 @@ class MarathonPlanGenerateRequest(BaseModel):
     plan_weeks: int = Field(default=16, ge=4, le=30)
     availability: TrainingAvailabilityIn = Field(default_factory=TrainingAvailabilityIn)
     skill_slug: str = Field(default="marathon_st_default", min_length=1, max_length=120)
+    use_llm: bool = False
 
 
 class MarathonPlanOut(BaseModel):

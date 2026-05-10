@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getToken, saveAthleteId } from '@/lib/auth'
+import { getToken, handleStaleSession, readApiErrorDetail, saveAthleteId } from '@/lib/auth'
 import { useI18n } from '@/lib/i18n/I18nProvider'
 import type { SkillManifestOut } from '@/lib/api/types'
 
@@ -113,7 +113,9 @@ export default function OnboardingPage() {
           weekly_training_days: state.weeklyDays,
         }),
       })
-      if (!athleteRes.ok) throw new Error(t.onboarding.createAthleteFailed)
+      if (!athleteRes.ok) {
+        throw new Error(await responseErrorMessage(athleteRes, t.onboarding.createAthleteFailed))
+      }
 
       const athlete = await athleteRes.json()
       saveAthleteId(athlete.id)
@@ -157,9 +159,12 @@ export default function OnboardingPage() {
           plan_weeks: state.planWeeks,
           availability: availabilityPayload(state),
           skill_slug: state.selectedSkill,
+          use_llm: false,
         }),
       })
-      if (!planRes.ok) throw new Error(t.onboarding.planFailed)
+      if (!planRes.ok) {
+        throw new Error(await responseErrorMessage(planRes, t.onboarding.planFailed))
+      }
       const plan = await planRes.json()
 
       const confirmRes = await fetch(`/api/plans/${plan.id}/confirm`, {
@@ -537,6 +542,17 @@ function parseTargetTimeSec(value: string): number | null {
   const minutes = Number(m)
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
   return hours * 3600 + minutes * 60
+}
+
+async function responseErrorMessage(res: Response, fallback: string): Promise<string> {
+  const detail = await readApiErrorDetail(res)
+  handleStaleSession(detail)
+  if (detail?.message && detail.reason) {
+    return `${fallback}: ${detail.message} (${detail.reason})`
+  }
+  if (detail?.message) return `${fallback}: ${detail.message}`
+  if (detail?.reason) return `${fallback}: ${detail.reason}`
+  return fallback
 }
 
 function availabilityPayload(state: OnboardingState) {

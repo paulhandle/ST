@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Space_Grotesk } from 'next/font/google'
 import { I18nProvider } from '@/lib/i18n/I18nProvider'
+import ProtectedAuthGate from '@/components/ProtectedAuthGate'
 import './globals.css'
 
 const inter = Inter({
@@ -40,7 +41,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <body>
-        <I18nProvider>{children}</I18nProvider>
+        <I18nProvider>
+          <ProtectedAuthGate>{children}</ProtectedAuthGate>
+        </I18nProvider>
       </body>
     </html>
   )

@@ -2,6 +2,177 @@
 
 **Branch:** `feat/onboarding-coros-activities-ux`
 
+## Bugfix: Onboarding Default Plan Generation
+
+Objective: fix new-user onboarding when all default values are accepted and the final training plan generation fails.
+
+Context:
+- User reports that a new user enters plan setup, keeps default values, and the final generate step errors.
+- Current onboarding defaults produce a finish-focused marathon request with no race date and no target time:
+  - `target_time_sec: null`
+  - `race_date: null`
+  - `plan_weeks: 16`
+  - `weekly_training_days: 3`
+  - `skill_slug: marathon_st_default`
+- Existing tests cover selecting a non-default skill but do not directly cover the all-default finish-goal payload.
+
+Plan:
+1. [x] Add backend regression coverage for the exact default onboarding payload.
+2. [x] Add frontend onboarding coverage that accepts every default and inspects the generated payload.
+3. [x] Use the failing test/error detail to identify the root cause.
+4. [x] Fix the root cause with minimal scope.
+5. [x] Run focused frontend/backend verification plus type-check/build/diff-check.
+6. [x] Commit and push to PR #14 branch.
+
+Acceptance criteria:
+- Default onboarding creates an athlete, generates a plan, confirms it, and routes to `/plan`.
+- Backend accepts the default finish-goal payload for a new user without COROS/history.
+- If the backend rejects generation, onboarding surfaces the backend detail rather than only a generic plan failure.
+
+Review:
+- Root cause: default first-run onboarding used `marathon_st_default`, and when `OPENAI_API_KEY` existed the skill attempted LLM generation before falling back. A backend reproduction of the default payload took 51.292s before this fix, which is too slow for first-run UX and can surface as a generate failure.
+- Added `use_llm` to `MarathonPlanGenerateRequest`, defaulting to `false`.
+- Backend now calls the skill LLM path only when both environment config exists and the request explicitly sets `use_llm=true`.
+- Onboarding sends `use_llm: false` for first-run plan creation and now shows backend detail when plan generation fails.
+- Added backend coverage for the exact all-default onboarding payload and asserts LLM is not called.
+- Added frontend coverage for clicking through all default onboarding values and inspecting the generated payload.
+- Verification passed:
+  - `uv run python -m unittest tests.test_auth.ProtectedRoutesTestCase.test_onboarding_default_finish_goal_generates_plan -v` -> 1/1 pass in 0.210s after the fix.
+  - `cd web && pnpm test __tests__/onboarding.test.tsx` -> 7/7 pass.
+  - `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/protectedAuthGate.test.tsx __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/login.test.tsx` -> 49/49 pass.
+  - `uv run python -m unittest tests.test_auth -v` -> 38/38 pass.
+  - `uv run python -m unittest discover -s tests -v` -> 115/115 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check origin/main` -> pass.
+
+## Bugfix: Protected Route Entry Auth Gate
+
+Objective: validate real login state at the protected route boundary, before page content or page-specific API calls run.
+
+Context:
+- User feedback: authenticated pages should not each discover invalid login state individually. The app should intercept at route entry.
+- Middleware can only cheaply check that a token exists. It cannot trust the token's DB subject after reset unless it calls the backend/database, so the browser-side protected route shell must validate `/auth/me` before rendering protected content.
+- Existing stale-session handling in API clients remains useful as a fallback, but it should not be the primary UX path for protected pages.
+
+Plan:
+1. [x] Add a `ProtectedAuthGate` mounted in the root layout:
+   - [x] Treat `/`, `/login`, `/api`, `/icons`, and static/browser assets as public.
+   - [x] For protected routes, require a local token before rendering.
+   - [x] Call `/api/auth/me` at route entry.
+   - [x] Render children only after `/auth/me` succeeds.
+   - [x] Clear local auth and redirect to `/login` on stale/invalid auth.
+2. [x] Keep API-client stale-session cleanup as a fallback for post-entry failures.
+3. [x] Add tests for:
+   - [x] Public routes render without `/auth/me`.
+   - [x] Protected routes validate `/auth/me` before showing children.
+   - [x] `user_not_found` clears token and redirects before children render.
+4. [x] Run focused frontend tests, backend auth tests, type-check/build/diff-check.
+5. [x] Update devlog/lessons and commit/push.
+
+Acceptance criteria:
+- A protected page with a deleted-user token redirects to `/login` before page content renders.
+- Valid protected sessions render after `/auth/me` succeeds.
+- Public pages are not blocked by the route-entry auth gate.
+
+Review:
+- Added `ProtectedAuthGate` at the root layout. Protected paths now call `/api/auth/me` before rendering children.
+- Public routes and assets continue to render without validation.
+- Deleted-user/reset-stale tokens are cleared and redirected to `/login` before protected page content renders.
+- API-client stale-session cleanup remains as a fallback after route entry.
+- Verification passed:
+  - `cd web && pnpm test __tests__/protectedAuthGate.test.tsx __tests__/auth.test.ts __tests__/apiClient.test.ts` -> 24/24 pass.
+  - `cd web && pnpm test __tests__/protectedAuthGate.test.tsx __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx __tests__/settings.test.tsx __tests__/middleware.test.ts` -> 54/54 pass.
+  - `uv run python -m unittest tests.test_auth -v` -> 37/37 pass.
+  - `uv run python -m unittest discover -s tests -v` -> 114/114 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check` -> pass.
+
+## Bugfix: Reset Leaves Browser Session Pointing At Deleted User
+
+Objective: make reset-induced stale browser sessions recover automatically after the database is cleared.
+
+Context:
+- New auth diagnostics identified the exact failure: `创建运动档案失败: Token user not found (user_not_found)`.
+- User confirmed the database had been cleared while the browser cache/session remained.
+- The reset script intentionally deletes users/account aliases as part of environment reset, but browser cookie/localStorage still contain a JWT for a now-deleted user.
+- Middleware only checks token presence, so the old browser session can still reach `/onboarding`; backend then rejects `POST /athletes` because the token subject no longer exists.
+
+Plan:
+1. [x] Add frontend auth-error helpers:
+   - [x] Parse structured backend auth detail.
+   - [x] Detect `auth_unauthorized` + `user_not_found`.
+   - [x] Clear token and athlete id on stale-session detection.
+   - [x] Redirect to `/login` once in the browser.
+2. [x] Wire stale-session handling into API clients and onboarding hand-written fetch errors.
+3. [x] Document reset behavior:
+   - [x] Reset deletes server users and invalidates existing browser sessions.
+   - [x] After this fix, the browser should be redirected to login when a stale token is used.
+4. [x] Add frontend regression tests for generic API client and onboarding stale-session cleanup.
+5. [x] Run focused frontend/backend verification plus type-check/build/diff-check.
+6. [x] Commit and push the PR branch.
+
+Acceptance criteria:
+- A browser with an old token for a deleted user is automatically logged out when an API returns `user_not_found`.
+- Onboarding no longer leaves the user stuck at "create athlete failed" after an environment reset.
+- Reset script documentation explains that server data reset invalidates browser sessions.
+
+Review:
+- Reset itself still deletes server-side users/account aliases as intended; the bug was stale browser JWT state after the server reset.
+- Added frontend stale-session handling for backend `auth_unauthorized/user_not_found` details. It clears token/cookie/athlete id and redirects to `/login`.
+- Wired the handler into the shared API client and onboarding's hand-written `/api/athletes` error path.
+- README now documents that reset invalidates existing browser sessions and that the app clears stale tokens on `user_not_found`.
+- Verification passed:
+  - `cd web && pnpm test __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx` -> 43/43 pass.
+  - `uv run python -m unittest tests.test_auth tests.test_reset_environment_data -v` -> 40/40 pass.
+  - `uv run python -m unittest discover -s tests -v` -> 114/114 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check` -> pass.
+
+## Bugfix: Auth 401 Diagnostics Before Next Fix
+
+Objective: make `POST /athletes` 401 failures diagnosable before applying another auth fix.
+
+Context:
+- User still sees "创建运动档案失败" after previous token-store fixes.
+- Backend access logs only show `INFO: ::1:0 - "POST /athletes HTTP/1.1" 401 Unauthorized`, which does not identify whether the request has no bearer token, a malformed/expired token, a signature mismatch, or a token for a missing user.
+- Previous fixes guessed likely client token causes. The next step must improve observability first, then use the precise failure reason for the next behavioral fix.
+
+Plan:
+1. [x] Add safe backend auth diagnostics:
+   - [x] Split token decode failures into reason codes.
+   - [x] Log auth failures with route, method, reason, scheme presence, token fingerprint, and user id when available.
+   - [x] Do not log raw tokens or credentials.
+2. [x] Return structured 401 details for local/product debugging:
+   - [x] Missing credentials.
+   - [x] Invalid token format/signature/payload/expiry.
+   - [x] User not found.
+3. [x] Surface backend 401 detail in onboarding:
+   - [x] Parse non-OK JSON error details from `/api/athletes`.
+   - [x] Show the exact backend reason alongside the localized failure message.
+4. [x] Add regression tests for auth failure details and onboarding error display.
+5. [x] Run focused backend and frontend tests plus type-check/build/diff-check.
+6. [x] Commit and push the PR branch.
+
+Acceptance criteria:
+- A future local repro of `POST /athletes` 401 produces a backend warning log with a safe reason code.
+- The browser onboarding error shows the backend auth reason instead of only a generic "create athlete failed".
+- Existing valid-token protected routes still pass.
+
+Review:
+- `get_current_user()` now logs safe `auth_failure` warning lines with method, path, reason, bearer scheme, token fingerprint, and decoded user id when available.
+- 401 responses now include structured detail payloads with `code`, `reason`, and `message`.
+- `/onboarding` now appends backend error details from `/api/athletes` to the visible create-athlete failure.
+- Verification passed:
+  - `uv run python -m unittest tests.test_auth -v` -> 37/37 pass.
+  - `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/auth.test.ts __tests__/login.test.tsx` -> 39/39 pass.
+  - `uv run python -m unittest discover -s tests -v` -> 114/114 pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `cd web && pnpm build` -> pass.
+  - `git diff --check` -> pass.
+
 ## Bugfix: Onboarding Athlete Creation 401
 
 Objective: fix `POST /athletes` returning 401 during onboarding when the protected page is reachable via auth cookie but the client-side auth helper cannot read a token from localStorage.

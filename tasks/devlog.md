@@ -1,5 +1,96 @@
 # Dev Log
 
+## 2026-05-10 - Onboarding default plan generation uses rules by default
+
+Why: User reported that a new user accepting all default onboarding values hit an error on the final generate step. The backend accepted the default finish-goal payload, but with `OPENAI_API_KEY` configured the default marathon skill tried the LLM path first. A focused backend reproduction took 51 seconds before falling back successfully, which is too slow and likely causes browser/proxy timeouts or a generic frontend plan-generation failure in the real onboarding flow.
+
+How:
+- Added `use_llm: bool = False` to `MarathonPlanGenerateRequest`.
+- Updated `generate_plan_via_skill()` so LLM generation runs only when the environment is configured and the request explicitly opts in with `use_llm=true`.
+- Updated onboarding plan generation to send `use_llm: false` for the first-run default plan.
+- Changed onboarding plan-generation errors to parse and display backend detail, matching the athlete-creation error path.
+- Added backend regression coverage for the exact default onboarding payload: new user, new athlete, finish goal, no race date, no target time, 16 weeks, 3 training days, default skill. The test asserts LLM is not called.
+- Added frontend onboarding coverage that clicks through with all defaults and asserts the generated payload includes `use_llm: false`.
+
+Result:
+- Confirmed the pre-fix backend default-payload reproduction succeeded only after 51.292s, indicating the LLM path was being attempted before fallback.
+- After the fix, focused backend verification passed quickly: `uv run python -m unittest tests.test_auth.ProtectedRoutesTestCase.test_onboarding_default_finish_goal_generates_plan -v` -> 1/1 pass in 0.210s.
+- Focused frontend onboarding verification passed: `cd web && pnpm test __tests__/onboarding.test.tsx` -> 7/7 pass. Existing non-fatal jsdom localstorage-file and React `act(...)` warnings remain.
+- Broader focused frontend verification passed: `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/protectedAuthGate.test.tsx __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/login.test.tsx` -> 49/49 pass.
+- Backend auth verification passed: `uv run python -m unittest tests.test_auth -v` -> 38/38 pass.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 115/115 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check origin/main`.
+
+## 2026-05-10 - Protected route entry auth gate
+
+Why: User pointed out that authenticated pages should validate real login state at route entry, not let each page or API call discover invalid state independently. The prior stale-session cleanup was useful, but it still allowed protected page code to start before the app knew the token represented a real current user.
+
+How:
+- Added `web/components/ProtectedAuthGate.tsx` and mounted it in `web/app/layout.tsx` around all routes.
+- The gate treats public paths (`/`, `/login`, `/api`, `/icons`, Next assets, and static files) as public.
+- For protected paths, it requires a local token, then calls `/api/auth/me` with the bearer token before rendering children.
+- If `/auth/me` succeeds, protected page content renders. If it fails, the gate clears local auth state and redirects to `/login`. Structured `user_not_found` responses reuse the stale-session cleanup path.
+- Kept API-client stale-session cleanup as a fallback for post-entry auth failures.
+- Added `web/__tests__/protectedAuthGate.test.tsx` covering public route pass-through, protected route validation before rendering, and deleted-user-token cleanup before rendering protected content.
+- Recorded the route-entry auth-gate lesson in `tasks/lessons.md`.
+
+Result:
+- Focused frontend verification passed: `cd web && pnpm test __tests__/protectedAuthGate.test.tsx __tests__/auth.test.ts __tests__/apiClient.test.ts` -> 24/24 pass.
+- Broader frontend verification passed: `cd web && pnpm test __tests__/protectedAuthGate.test.tsx __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx __tests__/settings.test.tsx __tests__/middleware.test.ts` -> 54/54 pass.
+- Focused backend auth verification passed: `uv run python -m unittest tests.test_auth -v` -> 37/37 pass.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 114/114 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check`.
+
+## 2026-05-10 - Reset stale browser session recovery
+
+Why: The new diagnostics showed the exact failure after environment reset: `Token user not found (user_not_found)`. The reset script correctly deletes users and account aliases, but the browser can still have an old JWT in cookie/localStorage. Middleware only checks token presence, so the stale session reaches `/onboarding`; backend then rejects athlete creation because the token subject no longer exists.
+
+How:
+- Added structured auth error helpers to `web/lib/auth.ts`:
+  - Parse backend `{detail: {code, reason, message}}` payloads.
+  - Detect `auth_unauthorized` + `user_not_found`.
+  - Clear `st_token`, `pp_athlete_id`, and the auth cookie.
+  - Redirect to `/login` when running in the browser.
+- Updated `web/lib/api/client.ts` so `fetcher`, `postJson`, and `apiFetch` all handle stale reset sessions on 401 responses before throwing.
+- Updated `web/app/onboarding/page.tsx` so its hand-written `/api/athletes` fetch uses the same stale-session handling while still showing diagnostic detail.
+- Added `web/__tests__/apiClient.test.ts` plus auth/onboarding test coverage for reset-stale sessions.
+- Updated README reset docs to state that reset invalidates browser sessions and the web app clears stale tokens on `user_not_found`.
+- Recorded the reset/session lesson in `tasks/lessons.md`.
+
+Result:
+- Focused frontend verification passed: `cd web && pnpm test __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/onboarding.test.tsx` -> 25/25 pass. Existing non-fatal jsdom localstorage-file and React `act(...)` warnings remain in onboarding tests.
+- Broader frontend verification passed: `cd web && pnpm test __tests__/auth.test.ts __tests__/apiClient.test.ts __tests__/onboarding.test.tsx __tests__/login.test.tsx` -> 43/43 pass.
+- Focused backend auth/reset verification passed: `uv run python -m unittest tests.test_auth tests.test_reset_environment_data -v` -> 40/40 pass.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 114/114 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check`.
+
+## 2026-05-10 - Auth 401 diagnostics before next onboarding fix
+
+Why: User reported that athlete creation still failed after previous token-store fixes, and correctly pointed out that the backend only logged `INFO: ::1:0 - "POST /athletes HTTP/1.1" 401 Unauthorized`, which is not enough to identify the precise cause. The next change needed to improve observability before making another behavioral guess.
+
+How:
+- Updated `app/core/auth.py` with `decode_token_details()` so auth failures now have reason codes: `missing_credentials`, `invalid_format`, `invalid_signature`, `expired`, `invalid_payload`, `decode_error`, and `user_not_found`.
+- Added safe auth warning logs through logger `app.auth`. Logs include method, path, reason, bearer scheme presence, a 12-character sha256 token fingerprint, and user id when decoded. Raw tokens are never logged.
+- Changed `get_current_user()` 401 details to structured payloads: `{code, reason, message}`.
+- Updated `web/app/onboarding/page.tsx` so failed `/api/athletes` responses parse backend JSON detail and show the reason next to the localized "create athlete failed" message.
+- Added backend tests for missing token, invalid token signature, and token user missing on `POST /athletes`.
+- Added frontend onboarding coverage proving backend auth details are visible in the error state.
+- Recorded the diagnostic-first lesson in `tasks/lessons.md`.
+
+Result:
+- Focused backend verification passed: `uv run python -m unittest tests.test_auth -v` -> 37/37 pass, with diagnostic `auth_failure` logs visible for protected-route failures.
+- Focused frontend verification passed: `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/auth.test.ts __tests__/login.test.tsx` -> 39/39 pass. Existing non-fatal jsdom localstorage-file and React `act(...)` warnings remain.
+- Full backend verification passed: `uv run python -m unittest discover -s tests -v` -> 114/114 pass.
+- Frontend type-check passed: `cd web && pnpm type-check`.
+- Frontend production build passed: `cd web && pnpm build`.
+- Whitespace verification passed: `git diff --check`.
+
 ## 2026-05-10 - Cookie/localStorage token precedence fix
 
 Why: User still saw "创建运动档案失败" and backend `POST /athletes` returning 401 after the initial cookie fallback fix. The remaining root cause is a mismatched auth store: middleware can admit `/onboarding` using the current `st_token` cookie, while `getToken()` still preferred a stale `localStorage.st_token` and sent the stale bearer token to the backend.

@@ -11,9 +11,15 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/auth', () => ({
   getAthleteId: () => 1,
   getToken: () => 'mock-token',
+  handleStaleSession: vi.fn(),
+  readApiErrorDetail: vi.fn(async (res: Response) => {
+    const payload = await res.json()
+    return payload.detail ?? null
+  }),
   saveAthleteId: vi.fn(),
 }))
 
+import { handleStaleSession } from '@/lib/auth'
 import OnboardingPage from '@/app/onboarding/page'
 
 describe('OnboardingPage', () => {
@@ -105,5 +111,131 @@ describe('OnboardingPage', () => {
     expect(generateCall).toBeTruthy()
     expect(JSON.parse(generateCall?.[1]?.body as string).skill_slug).toBe('running_beginner')
     expect(mockFetch).toHaveBeenCalledWith('/api/plans/21/confirm', expect.objectContaining({ method: 'POST' }))
+  })
+
+  it('generates a plan with default onboarding values without LLM', async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          slug: 'marathon_st_default',
+          name: 'PerformanceProtocol Marathon Plan',
+          version: '1.0.0',
+          sport: 'marathon',
+          author: null,
+          tags: ['default'],
+          description: 'Default plan',
+          is_active: true,
+        }]),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 11 }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 21 }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ plan_id: 21, confirmed: true, confirmed_workout_count: 48 }) })
+    vi.stubGlobal('fetch', mockFetch)
+
+    render(<OnboardingPage />)
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText(/Start training/))
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith('/plan')
+    })
+    const generateCall = mockFetch.mock.calls.find(([url]) => url === '/api/marathon/plans/generate')
+    expect(JSON.parse(generateCall?.[1]?.body as string)).toMatchObject({
+      race_goal_id: null,
+      target_time_sec: null,
+      race_date: null,
+      plan_weeks: 16,
+      skill_slug: 'marathon_st_default',
+      use_llm: false,
+      availability: {
+        weekly_training_days: 3,
+        preferred_long_run_weekday: 6,
+        unavailable_weekdays: [0, 2, 4, 5],
+      },
+    })
+  })
+
+  it('shows backend auth details when athlete creation fails', async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          slug: 'marathon_st_default',
+          name: 'PerformanceProtocol Marathon Plan',
+          version: '1.0.0',
+          sport: 'marathon',
+          author: null,
+          tags: ['default'],
+          description: 'Default plan',
+          is_active: true,
+        }]),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          detail: {
+            code: 'auth_unauthorized',
+            reason: 'missing_credentials',
+            message: 'Missing bearer token',
+          },
+        }),
+      })
+    vi.stubGlobal('fetch', mockFetch)
+
+    render(<OnboardingPage />)
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText(/Start training/))
+
+    expect(await screen.findByText(/Missing bearer token \(missing_credentials\)/)).toBeInTheDocument()
+    expect(replaceMock).not.toHaveBeenCalled()
+  })
+
+  it('clears stale sessions when athlete creation reports a deleted token user', async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          slug: 'marathon_st_default',
+          name: 'PerformanceProtocol Marathon Plan',
+          version: '1.0.0',
+          sport: 'marathon',
+          author: null,
+          tags: ['default'],
+          description: 'Default plan',
+          is_active: true,
+        }]),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          detail: {
+            code: 'auth_unauthorized',
+            reason: 'user_not_found',
+            message: 'Token user not found',
+          },
+        }),
+      })
+    vi.stubGlobal('fetch', mockFetch)
+
+    render(<OnboardingPage />)
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText(/Start training/))
+
+    expect(await screen.findByText(/Token user not found \(user_not_found\)/)).toBeInTheDocument()
+    expect(handleStaleSession).toHaveBeenCalledWith({
+      code: 'auth_unauthorized',
+      reason: 'user_not_found',
+      message: 'Token user not found',
+    })
   })
 })
