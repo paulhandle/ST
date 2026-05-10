@@ -23,7 +23,7 @@ class CorosAutomationClient(Protocol):
     def fetch_history(self, username: str) -> dict:
         raise NotImplementedError
 
-    def fetch_full_history(self, username: str, progress: Callable[..., None] | None = None) -> dict:
+    def fetch_full_history(self, username: str, progress: Callable[..., None] | None = None, days_back: int | None = None) -> dict:
         raise NotImplementedError
 
     def download_activity_fit_export(self, label_id: str, sport_type: int) -> dict:
@@ -82,13 +82,14 @@ class RealCorosAutomationClient:
         metrics = self._fetch_metrics()
         return {"activities": activities, "metrics": metrics}
 
-    def fetch_full_history(self, username: str, progress: Callable[..., None] | None = None) -> dict:
+    def fetch_full_history(self, username: str, progress: Callable[..., None] | None = None, days_back: int | None = None) -> dict:
         if not self._token:
             raise RuntimeError("Not logged in. Call login() first.")
 
         activities: list[dict] = []
         raw_records: list[dict] = []
         failed_count = 0
+        cutoff_ts = _cutoff_timestamp(days_back)
 
         page = 1
         total_pages = 1
@@ -113,6 +114,17 @@ class RealCorosAutomationClient:
                 )
 
             for index, item in enumerate(items, start=1):
+                if cutoff_ts is not None and int(item.get("startTime", 0) or 0) < cutoff_ts:
+                    total_pages = page
+                    if progress:
+                        progress(
+                            phase="activity_list",
+                            level="info",
+                            message=f"Reached COROS sync cutoff after {days_back} days",
+                            processed=page,
+                            total=total_pages,
+                        )
+                    break
                 label_id = str(item.get("labelId") or item.get("id") or "")
                 if label_id and progress:
                     progress(
@@ -136,11 +148,19 @@ class RealCorosAutomationClient:
                 processed=len(activities),
                 total=len(activities),
             )
+        synced_until = min(
+            (activity["started_at"] for activity in activities if activity.get("started_at")),
+            default=None,
+        )
         return {
             "activities": activities,
             "metrics": metrics,
             "raw_records": raw_records,
-            "stats": {"failed_count": failed_count},
+            "stats": {
+                "failed_count": failed_count,
+                "days_back": days_back,
+                "synced_until": synced_until.isoformat() if synced_until else None,
+            },
         }
 
     def download_activity_fit_export(self, label_id: str, sport_type: int) -> dict:
@@ -677,7 +697,7 @@ class FakeCorosAutomationClient:
         ]
         return {"activities": activities, "metrics": metrics}
 
-    def fetch_full_history(self, username: str, progress: Callable[..., None] | None = None) -> dict:
+    def fetch_full_history(self, username: str, progress: Callable[..., None] | None = None, days_back: int | None = None) -> dict:
         history = self.fetch_history(username)
         if progress:
             progress(
@@ -697,7 +717,7 @@ class FakeCorosAutomationClient:
                     "payload": history,
                 }
             ],
-            "stats": {"failed_count": 0},
+            "stats": {"failed_count": 0, "days_back": days_back, "synced_until": None},
         }
 
     def download_activity_fit_export(self, label_id: str, sport_type: int) -> dict:
@@ -725,3 +745,9 @@ def coros_automation_client() -> CorosAutomationClient:
     if mode == "real":
         return RealCorosAutomationClient()
     return FakeCorosAutomationClient()
+
+
+def _cutoff_timestamp(days_back: int | None) -> int | None:
+    if not days_back:
+        return None
+    return int((datetime.now(UTC) - timedelta(days=days_back)).timestamp())

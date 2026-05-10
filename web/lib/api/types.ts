@@ -482,6 +482,7 @@ export interface ProviderSyncJobOut {
   metric_count: number
   failed_count: number
   raw_record_count: number
+  sync_days_back: number | null
   started_at: string | null
   completed_at: string | null
   error_message: string | null

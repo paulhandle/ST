@@ -163,6 +163,7 @@ class HistoryImportOut(BaseModel):
 
 class CorosSyncStartRequest(BaseModel):
     athlete_id: int
+    days_back: int | None = Field(default=365, ge=1, le=3650)
 
 
 class ProviderSyncJobOut(BaseModel):
@@ -179,6 +180,7 @@ class ProviderSyncJobOut(BaseModel):
     metric_count: int = 0
     failed_count: int = 0
     raw_record_count: int = 0
+    sync_days_back: int | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error_message: str | None = None

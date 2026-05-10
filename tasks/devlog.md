@@ -1,5 +1,47 @@
 # Dev Log
 
+## 2026-05-10 - Onboarding can enter app without initial plan
+
+Why: User wants first-time login to support entering the product before selecting a training plan. The previous onboarding path always created an athlete, generated a marathon plan, confirmed it, and routed to `/plan`, which made plan selection a hard gate.
+
+How:
+- Added a secondary `Enter without a plan` / `先进入系统` action on `/onboarding`.
+- Refactored athlete creation in `web/app/onboarding/page.tsx` into `createAthleteProfile()` so the full setup path and skip-plan path persist the same athlete profile and local athlete id.
+- The skip-plan path creates only `/api/athletes`, saves `pp_athlete_id`, and routes to `/dashboard`.
+- The full path still creates optional marathon goals, calls `/marathon/plans/generate`, confirms the plan, and routes to `/plan`.
+- Updated onboarding i18n copy, frontend tests, and README first-run onboarding docs.
+
+Result:
+- Focused onboarding test passed: `cd web && pnpm test __tests__/onboarding.test.tsx` -> 8/8 pass.
+- Related auth/login/onboarding regression passed: `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/protectedAuthGate.test.tsx __tests__/login.test.tsx` -> 31/31 pass.
+- Production build passed: `cd web && pnpm build`.
+- Type-check passed after running it sequentially after build: `cd web && pnpm type-check`. A first type-check attempt ran concurrently with `next build` while `.next/types` was being regenerated and failed on missing generated files; the sequential run passed.
+- Whitespace check passed: `git diff --check`.
+
+## 2026-05-10 - COROS connected settings, sync period, and FIT parse robustness
+
+Why: User reported three COROS issues: after connecting COROS the settings page should not keep showing the account/password form; history sync needs a selectable period instead of always all history; and one real FIT export failed with `Invalid field size 1 for type 'uint32'`, producing a warning without preserving the raw file as a parsed/export row.
+
+How:
+- Added `days_back` to `CorosSyncStartRequest` and `sync_days_back` to `ProviderSyncJob` / `ProviderSyncJobOut`, with Alembic migration `d1c9a8f4e2b7_provider_sync_days_back.py`.
+- `/coros/sync/start` stores the requested period and queues a window-specific job message.
+- `run_coros_full_sync_job()` passes `job.sync_days_back` to the COROS client and uses completion copy such as `COROS sync completed through YYYY-MM-DD` when the client reports the oldest synced activity.
+- `RealCorosAutomationClient.fetch_full_history()` accepts `days_back`, stops activity discovery once the cutoff is reached, and reports `days_back` / `synced_until` in stats.
+- `upsert_fit_activity_detail()` now archives raw FIT bytes before parsing. If parsing fails, it stores the export row with `parsed_at=NULL`, zero sample/lap counts, and a parser warning instead of raising.
+- FIT export sync now logs a warning event for parse failures, increments failed count, and continues with the remaining activities.
+- Settings -> COROS now collapses credentials after connection, shows a connected summary, provides an update-login action, adds a sync-period selector, sends `days_back`, and displays job message progress.
+- README documents the selected sync period and raw FIT archive behavior.
+
+Result:
+- Focused backend COROS verification passed: `uv run python -m unittest tests.test_coros_full_sync tests.test_real_coros_client -v` -> 24/24 pass.
+- Focused frontend COROS settings verification passed: `cd web && pnpm test __tests__/corosSettings.test.tsx` -> 3/3 pass.
+- Broader frontend regression passed: `cd web && pnpm test __tests__/corosSettings.test.tsx __tests__/settings.test.tsx __tests__/protectedAuthGate.test.tsx` -> 11/11 pass.
+- Frontend type-check and production build passed: `cd web && pnpm type-check`; `cd web && pnpm build`.
+- Full backend unittest discovery passed: `uv run python -m unittest discover -s tests -v` -> 118/118 pass.
+- Migration verification initially exposed multiple Alembic heads because the new migration pointed at `b9c2e41a6f0d` while `c2a9d8e1b4f3` was already the current head. Updated `d1c9a8f4e2b7_provider_sync_days_back.py` to revise `c2a9d8e1b4f3`; `uv run alembic heads` now reports only `d1c9a8f4e2b7`, and `ST_DATABASE_URL=sqlite:////private/tmp/st_coros_sync_days_back_check.db uv run alembic upgrade head` succeeds on a clean SQLite database.
+- Whitespace check passed: `git diff --check origin/main`.
+- Opened PR #15: https://github.com/paulhandle/ST/pull/15.
+
 ## 2026-05-10 - Onboarding default plan generation uses rules by default
 
 Why: User reported that a new user accepting all default onboarding values hit an error on the final generate step. The backend accepted the default finish-goal payload, but with `OPENAI_API_KEY` configured the default marathon skill tried the LLM path first. A focused backend reproduction took 51 seconds before falling back successfully, which is too slow and likely causes browser/proxy timeouts or a generic frontend plan-generation failure in the real onboarding flow.

@@ -22,6 +22,8 @@ export default function CorosSettingsPage() {
   const [password, setPassword] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [startingSync, setStartingSync] = useState(false)
+  const [showConnectForm, setShowConnectForm] = useState(false)
+  const [syncDaysBack, setSyncDaysBack] = useState(365)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [jobId, setJobId] = useState<number | null>(null)
@@ -45,6 +47,10 @@ export default function CorosSettingsPage() {
     }
   }, [mutate, mutateEvents, syncJob])
 
+  useEffect(() => {
+    if (status?.connected) setShowConnectForm(false)
+  }, [status?.connected])
+
   async function connectCoros() {
     setConnecting(true)
     setError(null)
@@ -61,6 +67,7 @@ export default function CorosSettingsPage() {
         return
       }
       setPassword('')
+      setShowConnectForm(false)
       setMessage(c.connectSuccess)
     } catch (e) {
       setError(formatError(e, c.connectFailed))
@@ -76,6 +83,7 @@ export default function CorosSettingsPage() {
     try {
       const job = await postJson<ProviderSyncJobOut>('/api/coros/sync/start', {
         athlete_id: athleteId,
+        days_back: syncDaysBack,
       })
       setJobId(job.id)
       setMessage(c.importSuccess)
@@ -89,6 +97,7 @@ export default function CorosSettingsPage() {
   }
 
   const connected = status?.connected ?? false
+  const showCredentials = !connected || showConnectForm
   const statusLabel = statusLabelFor(status, c)
   const statusColor = connected ? 'var(--ink)' : status?.auth_status === 'failed' ? 'var(--accent)' : 'var(--ink-faint)'
   const progress = syncJob ? progressFor(syncJob) : 0
@@ -149,38 +158,57 @@ export default function CorosSettingsPage() {
       </section>
 
       <section style={{ borderBottom: '1px solid var(--rule-soft)', paddingBottom: 16 }}>
-        <SectionLabel>{c.connectTitle}</SectionLabel>
-        <div style={{ padding: '0 16px', display: 'grid', gap: 12 }}>
-          <Field label={c.username}>
-            <input
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              placeholder={c.usernamePlaceholder}
-              autoComplete="username"
-              className="hand"
-              style={inputStyle}
-            />
-          </Field>
-          <Field label={c.password}>
-            <input
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder={c.passwordPlaceholder}
-              autoComplete="current-password"
-              type="password"
-              className="hand"
-              style={inputStyle}
-            />
-          </Field>
-          <div className="annot text-faint" style={{ fontSize: 12, lineHeight: 1.5 }}>{c.passwordNote}</div>
-          <button
-            onClick={connectCoros}
-            disabled={!username.trim() || !password || connecting}
-            style={primaryButtonStyle(Boolean(username.trim() && password) && !connecting)}
-          >
-            {connecting ? c.connecting : c.connect}
-          </button>
-        </div>
+        <SectionLabel>{connected ? c.connectedTitle : c.connectTitle}</SectionLabel>
+        {connected && !showCredentials && (
+          <div style={{ padding: '0 16px', display: 'grid', gap: 12 }}>
+            <div className="hand" style={{ fontSize: 14, lineHeight: 1.5 }}>
+              {c.connectedSummary}
+            </div>
+            <button
+              onClick={() => {
+                setUsername(status?.username || '')
+                setPassword('')
+                setShowConnectForm(true)
+              }}
+              style={secondaryButtonStyle(true)}
+            >
+              {c.reconnect}
+            </button>
+          </div>
+        )}
+        {showCredentials && (
+          <div style={{ padding: '0 16px', display: 'grid', gap: 12 }}>
+            <Field label={c.username}>
+              <input
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder={c.usernamePlaceholder}
+                autoComplete="username"
+                className="hand"
+                style={inputStyle}
+              />
+            </Field>
+            <Field label={c.password}>
+              <input
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder={c.passwordPlaceholder}
+                autoComplete="current-password"
+                type="password"
+                className="hand"
+                style={inputStyle}
+              />
+            </Field>
+            <div className="annot text-faint" style={{ fontSize: 12, lineHeight: 1.5 }}>{c.passwordNote}</div>
+            <button
+              onClick={connectCoros}
+              disabled={!username.trim() || !password || connecting}
+              style={primaryButtonStyle(Boolean(username.trim() && password) && !connecting)}
+            >
+              {connecting ? c.connecting : c.connect}
+            </button>
+          </div>
+        )}
       </section>
 
       <section style={{ padding: '16px', borderBottom: '1px solid var(--rule-soft)' }}>
@@ -188,6 +216,20 @@ export default function CorosSettingsPage() {
         <div className="annot text-faint" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 6 }}>
           {syncJob?.message || c.syncIdle}
         </div>
+        <Field label={c.syncPeriod}>
+          <select
+            value={syncDaysBack}
+            onChange={event => setSyncDaysBack(Number(event.target.value))}
+            className="hand"
+            style={{ ...inputStyle, marginTop: 12 }}
+            disabled={startingSync || isActiveJob(syncJob)}
+          >
+            <option value={30}>{c.sync30}</option>
+            <option value={90}>{c.sync90}</option>
+            <option value={365}>{c.sync365}</option>
+            <option value={3650}>{c.syncAll}</option>
+          </select>
+        </Field>
         {syncJob && (
           <>
             <div
