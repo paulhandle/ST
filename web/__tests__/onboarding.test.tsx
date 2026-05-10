@@ -106,4 +106,42 @@ describe('OnboardingPage', () => {
     expect(JSON.parse(generateCall?.[1]?.body as string).skill_slug).toBe('running_beginner')
     expect(mockFetch).toHaveBeenCalledWith('/api/plans/21/confirm', expect.objectContaining({ method: 'POST' }))
   })
+
+  it('shows backend auth details when athlete creation fails', async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          slug: 'marathon_st_default',
+          name: 'PerformanceProtocol Marathon Plan',
+          version: '1.0.0',
+          sport: 'marathon',
+          author: null,
+          tags: ['default'],
+          description: 'Default plan',
+          is_active: true,
+        }]),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          detail: {
+            code: 'auth_unauthorized',
+            reason: 'missing_credentials',
+            message: 'Missing bearer token',
+          },
+        }),
+      })
+    vi.stubGlobal('fetch', mockFetch)
+
+    render(<OnboardingPage />)
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText(/Start training/))
+
+    expect(await screen.findByText(/Missing bearer token \(missing_credentials\)/)).toBeInTheDocument()
+    expect(replaceMock).not.toHaveBeenCalled()
+  })
 })

@@ -469,6 +469,28 @@ class ProtectedRoutesTestCase(AuthSetup):
     def test_create_athlete_requires_auth(self):
         res = self.client.post("/athletes", json={"name": "T", "sport": "marathon"})
         self.assertEqual(res.status_code, 401)
+        self.assertEqual(res.json()["detail"]["reason"], "missing_credentials")
+
+    def test_create_athlete_reports_invalid_token_reason(self):
+        res = self.client.post(
+            "/athletes",
+            json={"name": "T", "sport": "marathon"},
+            headers={"Authorization": "Bearer invalid.token.here"},
+        )
+        self.assertEqual(res.status_code, 401)
+        self.assertEqual(res.json()["detail"]["reason"], "invalid_signature")
+
+    def test_create_athlete_reports_missing_token_user(self):
+        from app.core.auth import create_access_token
+
+        token = create_access_token(999999)
+        res = self.client.post(
+            "/athletes",
+            json={"name": "T", "sport": "marathon"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(res.status_code, 401)
+        self.assertEqual(res.json()["detail"]["reason"], "user_not_found")
 
     def test_create_athlete_accepts_valid_token(self):
         token = self._get_token()
