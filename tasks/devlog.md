@@ -1,5 +1,23 @@
 # Dev Log
 
+## 2026-05-10 - Onboarding can enter app without initial plan
+
+Why: User wants first-time login to support entering the product before selecting a training plan. The previous onboarding path always created an athlete, generated a marathon plan, confirmed it, and routed to `/plan`, which made plan selection a hard gate.
+
+How:
+- Added a secondary `Enter without a plan` / `先进入系统` action on `/onboarding`.
+- Refactored athlete creation in `web/app/onboarding/page.tsx` into `createAthleteProfile()` so the full setup path and skip-plan path persist the same athlete profile and local athlete id.
+- The skip-plan path creates only `/api/athletes`, saves `pp_athlete_id`, and routes to `/dashboard`.
+- The full path still creates optional marathon goals, calls `/marathon/plans/generate`, confirms the plan, and routes to `/plan`.
+- Updated onboarding i18n copy, frontend tests, and README first-run onboarding docs.
+
+Result:
+- Focused onboarding test passed: `cd web && pnpm test __tests__/onboarding.test.tsx` -> 8/8 pass.
+- Related auth/login/onboarding regression passed: `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/protectedAuthGate.test.tsx __tests__/login.test.tsx` -> 31/31 pass.
+- Production build passed: `cd web && pnpm build`.
+- Type-check passed after running it sequentially after build: `cd web && pnpm type-check`. A first type-check attempt ran concurrently with `next build` while `.next/types` was being regenerated and failed on missing generated files; the sequential run passed.
+- Whitespace check passed: `git diff --check`.
+
 ## 2026-05-10 - COROS connected settings, sync period, and FIT parse robustness
 
 Why: User reported three COROS issues: after connecting COROS the settings page should not keep showing the account/password form; history sync needs a selectable period instead of always all history; and one real FIT export failed with `Invalid field size 1 for type 'uint32'`, producing a warning without preserving the raw file as a parsed/export row.

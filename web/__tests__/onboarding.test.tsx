@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
 
-const replaceMock = vi.fn()
+const { replaceMock, saveAthleteIdMock } = vi.hoisted(() => ({
+  replaceMock: vi.fn(),
+  saveAthleteIdMock: vi.fn(),
+}))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: replaceMock }),
@@ -16,7 +19,7 @@ vi.mock('@/lib/auth', () => ({
     const payload = await res.json()
     return payload.detail ?? null
   }),
-  saveAthleteId: vi.fn(),
+  saveAthleteId: saveAthleteIdMock,
 }))
 
 import { handleStaleSession } from '@/lib/auth'
@@ -25,6 +28,7 @@ import OnboardingPage from '@/app/onboarding/page'
 describe('OnboardingPage', () => {
   beforeEach(() => {
     replaceMock.mockReset()
+    saveAthleteIdMock.mockReset()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ([{
@@ -56,6 +60,40 @@ describe('OnboardingPage', () => {
     render(<OnboardingPage />)
     fireEvent.click(screen.getByText('Next'))
     expect(screen.getByText('Set Goal')).toBeInTheDocument()
+  })
+
+  it('can enter the app without generating a plan', async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          slug: 'marathon_st_default',
+          name: 'PerformanceProtocol Marathon Plan',
+          version: '1.0.0',
+          sport: 'marathon',
+          author: null,
+          tags: ['default'],
+          description: 'Default plan',
+          is_active: true,
+        }]),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 11 }) })
+    vi.stubGlobal('fetch', mockFetch)
+
+    render(<OnboardingPage />)
+    fireEvent.click(screen.getByText('Enter without a plan'))
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith('/dashboard')
+    })
+    expect(saveAthleteIdMock).toHaveBeenCalledWith(11)
+    expect(mockFetch).toHaveBeenCalledWith('/api/athletes', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ Authorization: 'Bearer mock-token' }),
+    }))
+    expect(mockFetch.mock.calls.some(([url]) => url === '/api/marathon/goals')).toBe(false)
+    expect(mockFetch.mock.calls.some(([url]) => url === '/api/marathon/plans/generate')).toBe(false)
+    expect(mockFetch.mock.calls.some(([url]) => String(url).includes('/confirm'))).toBe(false)
   })
 
   it('selects a skill, generates a plan, confirms it, and routes to Plan', async () => {

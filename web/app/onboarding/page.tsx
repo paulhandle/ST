@@ -93,6 +93,44 @@ export default function OnboardingPage() {
     if (step > 1) setStep((s) => (s - 1) as Step)
   }
 
+  async function createAthleteProfile(token: string | null) {
+    const athleteRes = await fetch('/api/athletes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        name: 'Me',
+        sport: 'marathon',
+        level: state.experienceLevel === 'none' ? 'beginner' : state.experienceLevel,
+        weekly_training_days: state.weeklyDays,
+      }),
+    })
+    if (!athleteRes.ok) {
+      throw new Error(await responseErrorMessage(athleteRes, t.onboarding.createAthleteFailed))
+    }
+
+    const athlete = await athleteRes.json()
+    saveAthleteId(athlete.id)
+    return athlete
+  }
+
+  async function enterWithoutPlan() {
+    setLoading(true)
+    setError(null)
+    const token = getToken()
+
+    try {
+      await createAthleteProfile(token)
+      router.replace('/dashboard')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t.onboarding.genericError)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function finish() {
     setLoading(true)
     setError(null)
@@ -100,25 +138,7 @@ export default function OnboardingPage() {
 
     try {
       // 1. Create athlete profile
-      const athleteRes = await fetch('/api/athletes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          name: 'Me',
-          sport: 'marathon',
-          level: state.experienceLevel === 'none' ? 'beginner' : state.experienceLevel,
-          weekly_training_days: state.weeklyDays,
-        }),
-      })
-      if (!athleteRes.ok) {
-        throw new Error(await responseErrorMessage(athleteRes, t.onboarding.createAthleteFailed))
-      }
-
-      const athlete = await athleteRes.json()
-      saveAthleteId(athlete.id)
+      const athlete = await createAthleteProfile(token)
 
       // 2. Create a structured marathon goal when provided.
       let raceGoalId: number | null = null
@@ -259,6 +279,24 @@ export default function OnboardingPage() {
             {loading ? t.onboarding.creating : `${t.onboarding.startTraining} →`}
           </button>
         )}
+        <button
+          onClick={enterWithoutPlan}
+          disabled={loading}
+          className="hand"
+          style={{
+            width: '100%',
+            padding: '12px',
+            background: 'transparent',
+            color: 'var(--ink-faint)',
+            border: '1px solid var(--rule)',
+            borderRadius: 'var(--radius)',
+            fontSize: 14,
+            cursor: loading ? 'default' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+          }}
+        >
+          {t.onboarding.enterWithoutPlan}
+        </button>
       </div>
     </div>
   )

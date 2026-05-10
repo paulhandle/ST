@@ -2,6 +2,40 @@
 
 **Branch:** `feat/onboarding-coros-activities-ux`
 
+## Feature: Enter App Without Initial Plan
+
+Objective: let first-time users enter the authenticated app without selecting a training skill or generating a plan.
+
+Context:
+- User wants first login to support "enter first" instead of forcing plan selection/generation.
+- The app still needs an `AthleteProfile` for dashboard/activities/settings APIs, so the skip path should create only the minimal athlete profile and avoid goal/plan creation.
+- Existing empty-plan states in Dashboard and Plan already route users to generate a plan later.
+
+Plan:
+1. [x] Add a secondary onboarding action to enter the app without a plan.
+2. [x] Reuse athlete creation logic so both the full plan flow and skip-plan flow persist the profile consistently.
+3. [x] Ensure the skip path does not call goal creation, plan generation, or plan confirmation.
+4. [x] Route skip-plan users to `/dashboard`, where existing empty-plan CTA can continue the plan flow.
+5. [x] Add frontend regression coverage and run focused verification.
+
+Acceptance criteria:
+- A first-time user can enter the app from onboarding without choosing a skill or generating a plan.
+- The user has a saved athlete id after entering.
+- No plan-generation APIs are called on the skip path.
+- The existing full onboarding plan-generation path still works.
+
+Review:
+- Added an `Enter without a plan` / `先进入系统` secondary action on onboarding.
+- Refactored athlete creation into a shared helper so both the full plan path and skip-plan path create and save the same athlete profile state.
+- The skip path creates only the athlete profile, saves `pp_athlete_id`, and routes to `/dashboard`; it does not call marathon goal, plan generation, or plan confirmation APIs.
+- README now documents first-run onboarding as either full plan setup or enter-without-plan.
+- Verification passed:
+  - `cd web && pnpm test __tests__/onboarding.test.tsx` -> 8/8 pass.
+  - `cd web && pnpm test __tests__/onboarding.test.tsx __tests__/protectedAuthGate.test.tsx __tests__/login.test.tsx` -> 31/31 pass.
+  - `cd web && pnpm build` -> pass.
+  - `cd web && pnpm type-check` -> pass.
+  - `git diff --check` -> pass.
+
 ## Feature/Fix: COROS Connected Settings, Sync Period, FIT Robustness
 
 Objective: improve COROS settings after connection, let users select sync scope, and make malformed FIT exports non-blocking while preserving raw files.

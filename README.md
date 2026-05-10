@@ -265,9 +265,9 @@ Account identity storage:
 
 ## First-Run Onboarding
 
-After first authentication, users without an athlete profile complete `/onboarding`. The flow introduces the setup, then collects target race information, weekly training availability, and the training skill for the first cycle. Finishing onboarding is intentionally blocking on plan generation: the web app creates the athlete, stores the returned athlete id in `pp_athlete_id`, creates a marathon goal when target data is present, calls `/marathon/plans/generate` with the selected `skill_slug`, confirms the returned plan through `/plans/{id}/confirm`, then routes to `/plan`.
+After first authentication, users without an athlete profile complete `/onboarding`. The flow introduces the setup, then collects target race information, weekly training availability, and the training skill for the first cycle. Users can either complete the full plan setup or enter the app first without a plan. The full setup path creates the athlete, stores the returned athlete id in `pp_athlete_id`, creates a marathon goal when target data is present, calls `/marathon/plans/generate` with the selected `skill_slug`, confirms the returned plan through `/plans/{id}/confirm`, then routes to `/plan`. The enter-without-plan path creates only the athlete profile, stores `pp_athlete_id`, and routes to `/dashboard`; Dashboard and Plan then show the empty-plan CTA so the user can generate a plan later.
 
-COROS is not part of the blocking onboarding path. After entering the authenticated app, a dismissible COROS nudge links to **Settings -> COROS Sync** so the athlete can sync history and import/sync plans when ready. Plan generation failure does block onboarding because an empty Plan tab means the core product flow did not complete.
+COROS is not part of the blocking onboarding path. After entering the authenticated app, a dismissible COROS nudge links to **Settings -> COROS Sync** so the athlete can sync history and import/sync plans when ready. Plan generation failure blocks only the full setup path; users can still choose the enter-without-plan path and complete plan generation later.
 
 ## Skills
 
@@ -282,7 +282,7 @@ COROS is not part of the blocking onboarding path. After entering the authentica
 | Route | Purpose |
 |---|---|
 | `/login` | Google/passkey sign-in with quiet SMS fallback |
-| `/onboarding` | First-run setup: intro, goal, training days, skill selection, plan generation, confirmation |
+| `/onboarding` | First-run setup: intro, optional goal/training days/skill selection, plan generation or enter-without-plan |
 | `/dashboard` | Training overview |
 | `/today` | Redirects to today's workout detail |
 | `/week` | Legacy current-week training calendar route; not shown in primary navigation |
