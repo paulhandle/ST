@@ -22,7 +22,7 @@ Plan:
 3. [x] Use the failing test/error detail to identify the root cause.
 4. [x] Fix the root cause with minimal scope.
 5. [x] Run focused frontend/backend verification plus type-check/build/diff-check.
-6. [ ] Commit and push to PR #14 branch.
+6. [x] Commit and push to PR #14 branch.
 
 Acceptance criteria:
 - Default onboarding creates an athlete, generates a plan, confirms it, and routes to `/plan`.
