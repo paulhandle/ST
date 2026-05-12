@@ -11,27 +11,32 @@ Context:
 - Existing backend passkey endpoints exist, but frontend only requested options and then stopped with placeholder messages.
 - Login must call `navigator.credentials.get()` and submit assertion payload to `/auth/passkeys/login/verify`.
 - Settings security must call `navigator.credentials.create()` and submit attestation payload to `/auth/passkeys/register/verify`.
+- Product rule: users without an existing passkey should use Google first, then add a passkey from Account security. Passkey login is a returning-user shortcut, not first-account creation.
 
 Plan:
 1. [x] Add frontend WebAuthn encode/decode helpers for base64url and ArrayBuffer fields.
 2. [x] Wire passkey login to options -> browser assertion -> backend verify -> normal auth redirect.
 3. [x] Wire passkey registration to options -> browser attestation -> backend verify.
 4. [x] Add frontend tests for successful passkey login and registration payload handoff.
-5. [x] Run focused frontend tests, type-check, and build.
+5. [x] Clarify login UI so Google is the first-time path and passkey is for users who already added one.
+6. [x] Run focused frontend tests, type-check, and build.
 
 Acceptance criteria:
 - Clicking "Sign in with passkey" calls the browser WebAuthn API and then `/api/auth/passkeys/login/verify`.
 - Successful passkey login stores the returned token and follows existing onboarding/dashboard routing.
 - Clicking "Add passkey" in security settings calls the browser WebAuthn API and then `/api/auth/passkeys/register/verify`.
 - Placeholder "ceremony wiring comes next" copy is removed.
+- Users without a registered passkey are guided to sign in with Google first and add passkey later.
 
 Review:
 - Added `web/lib/webauthn.ts` for base64url <-> ArrayBuffer conversion and WebAuthn credential payload encoding.
 - Login now runs `/auth/passkeys/login/options`, calls `navigator.credentials.get()`, posts the encoded assertion to `/auth/passkeys/login/verify`, and reuses the normal auth redirect.
 - Security settings now runs `/auth/passkeys/register/options`, calls `navigator.credentials.create()`, posts the encoded attestation to `/auth/passkeys/register/verify`, and shows success/failure copy.
 - Added frontend tests for passkey login and registration handoff.
+- Login copy now explains passkeys are available after adding one in account security, and passkey failure tells users to sign in with Google first.
+- Google Identity Services button uses the official `filled_black` theme to better match the dark product UI while staying within Google's branded button constraints.
 - Verification passed:
-  - `cd web && pnpm test __tests__/login.test.tsx __tests__/settings.test.tsx` -> 23/23 pass.
+  - `cd web && pnpm test __tests__/login.test.tsx __tests__/settings.test.tsx` -> 24/24 pass.
   - `cd web && pnpm type-check` -> pass.
   - `cd web && pnpm build` -> pass.
 

@@ -43,11 +43,12 @@ const COPY = {
     tagline: 'Endurance performance system',
     google: 'Continue with Google',
     passkey: 'Sign in with passkey',
+    passkeyHelp: 'Use this after adding a passkey in account security.',
     smsFallback: 'Use phone code instead',
     primaryError: 'This sign-in method is not configured yet.',
     googleError: 'Google sign-in is unavailable. Use phone code for now.',
     googleLoading: 'Google sign-in is still loading.',
-    passkeyError: 'Passkey sign-in failed. Try again or use another sign-in method.',
+    passkeyError: 'No usable passkey found. Sign in with Google first, then add a passkey in Account security.',
     countryCode: 'Country/region code',
     phone: 'Phone number',
     otp: 'Verification code',
@@ -63,11 +64,12 @@ const COPY = {
     tagline: '耐力表现系统',
     google: '使用 Google 登录',
     passkey: '使用 Passkey 登录',
+    passkeyHelp: '需要先登录后在账号安全中添加 Passkey。',
     smsFallback: '使用短信验证码',
     primaryError: '这个登录方式还没有配置。',
     googleError: 'Google 登录暂时不可用，请先使用短信验证码。',
     googleLoading: 'Google 登录还在加载中。',
-    passkeyError: 'Passkey 登录失败，请重试或使用其他登录方式。',
+    passkeyError: '没有找到可用的 Passkey。请先使用 Google 登录，再到账号安全中添加 Passkey。',
     countryCode: '国家/地区区号',
     phone: '手机号',
     otp: '验证码',
@@ -175,7 +177,7 @@ export default function LoginPage() {
     googleButtonRef.current.innerHTML = ''
     googleId.renderButton(googleButtonRef.current, {
       type: 'standard',
-      theme: 'outline',
+      theme: 'filled_black',
       size: 'large',
       shape: 'rectangular',
       text: 'continue_with',
@@ -332,9 +334,12 @@ export default function LoginPage() {
                 {t.google}
               </button>
             )}
-            <button onClick={passkeyLogin} disabled={loading} style={secondaryButtonStyle}>
+            <button onClick={passkeyLogin} disabled={loading} style={passkeyButtonStyle}>
               {t.passkey}
             </button>
+            <div className="annot text-faint" style={{ fontSize: 12, lineHeight: 1.5, textAlign: 'center' }}>
+              {t.passkeyHelp}
+            </div>
             {smsLoginEnabled && (
               <div style={fallbackLineStyle}>
                 <button
@@ -504,6 +509,18 @@ const secondaryButtonStyle: React.CSSProperties = {
   borderRadius: 'var(--radius)',
   fontFamily: 'var(--font-hand)',
   fontSize: 16,
+  cursor: 'pointer',
+}
+
+const passkeyButtonStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '12px 14px',
+  background: 'var(--surface)',
+  color: 'var(--ink)',
+  border: '1px solid var(--rule)',
+  borderRadius: 'var(--radius)',
+  fontFamily: 'var(--font-hand)',
+  fontSize: 14,
   cursor: 'pointer',
 }
 

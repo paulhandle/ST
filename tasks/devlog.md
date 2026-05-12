@@ -10,9 +10,12 @@ How:
 - Wired login passkeys in `web/app/login/page.tsx`: options -> `navigator.credentials.get()` -> `/api/auth/passkeys/login/verify` -> existing token/athlete redirect handling.
 - Wired passkey setup in `web/app/settings/security/page.tsx`: options -> `navigator.credentials.create()` -> `/api/auth/passkeys/register/verify`.
 - Added frontend tests for successful passkey login and registration payload handoff.
+- Clarified login product behavior: Google is the first-time account entry; passkey is a returning-user shortcut after a passkey has been added in Account security.
+- Changed the Google Identity Services button to the official `filled_black` theme so it fits the dark product UI better without violating branded button constraints.
+- Fixed login test isolation by clearing the `st_token` cookie in addition to mocked localStorage; auth helpers can migrate cookie tokens back into localStorage.
 
 Result:
-- `cd web && pnpm test __tests__/login.test.tsx __tests__/settings.test.tsx` passed 23/23.
+- `cd web && pnpm test __tests__/login.test.tsx __tests__/settings.test.tsx` passed 24/24.
 - `cd web && pnpm type-check` passed.
 - `cd web && pnpm build` passed.
 

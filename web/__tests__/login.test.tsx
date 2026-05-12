@@ -32,6 +32,7 @@ beforeEach(() => {
   routerMocks.push.mockClear()
   routerMocks.replace.mockClear()
   Object.keys(store).forEach(k => delete store[k])
+  document.cookie = 'st_token=; path=/; max-age=0; SameSite=Lax'
   assignedPath = ''
   delete process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   delete process.env.NEXT_PUBLIC_SMS_LOGIN_ENABLED
@@ -71,6 +72,7 @@ describe('LoginPage', () => {
     render(<LoginPage />)
     expect(screen.getByText(/Continue with Google/)).toBeInTheDocument()
     expect(screen.getByText(/Sign in with passkey/)).toBeInTheDocument()
+    expect(screen.getByText(/after adding a passkey in account security/i)).toBeInTheDocument()
     expect(screen.getByText(/Use phone code instead/).closest('button')).toHaveAttribute('data-variant', 'text-link')
     expect(screen.queryByPlaceholderText(/138 0013 8000/)).not.toBeInTheDocument()
   })
@@ -108,7 +110,7 @@ describe('LoginPage', () => {
 
     await waitFor(() => {
       expect(initialize).toHaveBeenCalledWith(expect.objectContaining({ client_id: 'test-google-client-id' }))
-      expect(renderButton).toHaveBeenCalled()
+      expect(renderButton).toHaveBeenCalledWith(expect.any(HTMLElement), expect.objectContaining({ theme: 'filled_black' }))
     })
     fireEvent.click(screen.getByRole('button', { name: /Continue with Google/ }))
 
@@ -271,6 +273,43 @@ describe('LoginPage', () => {
       }))
       expect(store.st_token).toBe('passkey-token')
       expect(window.location.assign).toHaveBeenCalledWith('/dashboard')
+    })
+  })
+
+  it('guides users without a registered passkey back to Google first', async () => {
+    delete store.st_token
+    const credential = {
+      id: 'credential-id',
+      rawId: new Uint8Array([1]).buffer,
+      type: 'public-key',
+      response: {
+        clientDataJSON: new Uint8Array([2]).buffer,
+        authenticatorData: new Uint8Array([3]).buffer,
+        signature: new Uint8Array([4]).buffer,
+        userHandle: null,
+      },
+    } as unknown as PublicKeyCredential
+    stubPasskeySupport(credential)
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          options: {
+            challenge: 'AQID',
+            rpId: 'localhost',
+            allowCredentials: [],
+            userVerification: 'preferred',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({ ok: false })
+
+    render(<LoginPage />)
+    fireEvent.click(screen.getByText(/Sign in with passkey/))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Sign in with Google first/i)).toBeInTheDocument()
+      expect(store.st_token).toBeUndefined()
     })
   })
 
