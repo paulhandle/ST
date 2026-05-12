@@ -6,6 +6,7 @@ import { getToken } from '@/lib/auth'
 import { DIALING_REGIONS, dialingRegionFor } from '@/lib/i18n/countryCodes'
 import { useI18n } from '@/lib/i18n/I18nProvider'
 import { ArrowLeft } from 'lucide-react'
+import { createPasskeyCredential } from '@/lib/webauthn'
 
 export default function SecuritySettingsPage() {
   const { language, t } = useI18n()
@@ -32,7 +33,21 @@ export default function SecuritySettingsPage() {
       setMessage('Could not start passkey setup.')
       return
     }
-    setMessage('Passkey setup is ready. Browser ceremony wiring comes next.')
+    try {
+      const payload = await res.json()
+      const credential = await createPasskeyCredential(payload.options)
+      const verifyRes = await fetch('/api/auth/passkeys/register/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ credential, name: 'Passkey' }),
+      })
+      setMessage(verifyRes.ok ? 'Passkey added.' : 'Could not verify passkey setup.')
+    } catch {
+      setMessage('Passkey setup was cancelled or failed.')
+    }
   }
 
   async function sendPhoneCode() {
