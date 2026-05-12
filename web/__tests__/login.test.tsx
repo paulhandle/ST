@@ -53,6 +53,20 @@ describe('LoginPage', () => {
     fireEvent.click(screen.getByText(/Use phone code instead/))
   }
 
+  function stubPasskeySupport(credential: PublicKeyCredential) {
+    vi.stubGlobal('PublicKeyCredential', class MockPublicKeyCredential {})
+    Object.setPrototypeOf(credential, window.PublicKeyCredential.prototype)
+    vi.stubGlobal('navigator', {
+      ...window.navigator,
+      language: 'en-US',
+      credentials: {
+        get: vi.fn(async () => credential),
+      },
+    })
+    vi.stubGlobal('AuthenticatorAssertionResponse', class MockAuthenticatorAssertionResponse {})
+    Object.setPrototypeOf(credential.response, window.AuthenticatorAssertionResponse.prototype)
+  }
+
   it('prioritizes Google and passkey sign-in', () => {
     render(<LoginPage />)
     expect(screen.getByText(/Continue with Google/)).toBeInTheDocument()
@@ -193,6 +207,69 @@ describe('LoginPage', () => {
 
     await waitFor(() => {
       expect(store.pp_athlete_id).toBe('42')
+      expect(window.location.assign).toHaveBeenCalledWith('/dashboard')
+    })
+  })
+
+  it('completes passkey sign-in and follows the existing auth redirect', async () => {
+    const credential = {
+      id: 'credential-id',
+      rawId: new Uint8Array([1, 2, 3]).buffer,
+      type: 'public-key',
+      response: {
+        clientDataJSON: new Uint8Array([4]).buffer,
+        authenticatorData: new Uint8Array([5]).buffer,
+        signature: new Uint8Array([6]).buffer,
+        userHandle: new Uint8Array([7]).buffer,
+      },
+    } as unknown as PublicKeyCredential
+    stubPasskeySupport(credential)
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          options: {
+            challenge: 'AQID',
+            rpId: 'localhost',
+            allowCredentials: [{ id: 'BAU', type: 'public-key' }],
+            userVerification: 'preferred',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: 'passkey-token',
+          token_type: 'bearer',
+          user_id: 1,
+          is_new_user: false,
+          has_athlete: true,
+          athlete_id: 42,
+        }),
+      })
+
+    render(<LoginPage />)
+    fireEvent.click(screen.getByText(/Sign in with passkey/))
+
+    await waitFor(() => {
+      expect(navigator.credentials.get).toHaveBeenCalled()
+      expect(mockFetch).toHaveBeenCalledWith('/api/auth/passkeys/login/verify', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          credential: {
+            id: 'credential-id',
+            rawId: 'AQID',
+            type: 'public-key',
+            response: {
+              clientDataJSON: 'BA',
+              authenticatorData: 'BQ',
+              signature: 'Bg',
+              userHandle: 'Bw',
+            },
+          },
+        }),
+      }))
+      expect(store.st_token).toBe('passkey-token')
       expect(window.location.assign).toHaveBeenCalledWith('/dashboard')
     })
   })

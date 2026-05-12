@@ -1,5 +1,21 @@
 # Dev Log
 
+## 2026-05-12 - Passkey browser ceremony wiring
+
+Why: User reported passkey was still not working. Backend WebAuthn endpoints existed, but the frontend only requested options and then stopped with placeholder messages. A real passkey flow must call the browser WebAuthn API and send encoded attestation/assertion data back to the backend verify endpoints.
+
+How:
+- Added `web/lib/webauthn.ts` to convert backend JSON options into `PublicKeyCredentialCreationOptions` / `PublicKeyCredentialRequestOptions`, including base64url <-> ArrayBuffer conversion.
+- Added browser credential encoders for `AuthenticatorAttestationResponse` and `AuthenticatorAssertionResponse`.
+- Wired login passkeys in `web/app/login/page.tsx`: options -> `navigator.credentials.get()` -> `/api/auth/passkeys/login/verify` -> existing token/athlete redirect handling.
+- Wired passkey setup in `web/app/settings/security/page.tsx`: options -> `navigator.credentials.create()` -> `/api/auth/passkeys/register/verify`.
+- Added frontend tests for successful passkey login and registration payload handoff.
+
+Result:
+- `cd web && pnpm test __tests__/login.test.tsx __tests__/settings.test.tsx` passed 23/23.
+- `cd web && pnpm type-check` passed.
+- `cd web && pnpm build` passed.
+
 ## 2026-05-10 - API Docker build includes reset script
 
 Why: Production API deploy failed in Fly remote build with `failed to calculate checksum ... "/scripts": not found`. The API Dockerfile now copies `scripts ./scripts` so the environment reset tool can run inside Fly, but `.dockerignore` still excluded the entire `scripts/` directory from the build context.

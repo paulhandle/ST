@@ -8,6 +8,7 @@ import BrandLogo from '@/components/BrandLogo'
 import LanguageToggle from '@/components/LanguageToggle'
 import { DIALING_REGIONS, dialingRegionFor } from '@/lib/i18n/countryCodes'
 import { useI18n } from '@/lib/i18n/I18nProvider'
+import { getPasskeyCredential } from '@/lib/webauthn'
 
 type Step = 'phone' | 'otp'
 type LoginMode = 'primary' | 'sms'
@@ -46,6 +47,7 @@ const COPY = {
     primaryError: 'This sign-in method is not configured yet.',
     googleError: 'Google sign-in is unavailable. Use phone code for now.',
     googleLoading: 'Google sign-in is still loading.',
+    passkeyError: 'Passkey sign-in failed. Try again or use another sign-in method.',
     countryCode: 'Country/region code',
     phone: 'Phone number',
     otp: 'Verification code',
@@ -65,6 +67,7 @@ const COPY = {
     primaryError: '这个登录方式还没有配置。',
     googleError: 'Google 登录暂时不可用，请先使用短信验证码。',
     googleLoading: 'Google 登录还在加载中。',
+    passkeyError: 'Passkey 登录失败，请重试或使用其他登录方式。',
     countryCode: '国家/地区区号',
     phone: '手机号',
     otp: '验证码',
@@ -229,7 +232,21 @@ export default function LoginPage() {
         setError(t.primaryError)
         return
       }
-      setError(t.primaryError)
+      const payload = await res.json()
+      const credential = await getPasskeyCredential(payload.options)
+      const verifyRes = await fetch('/api/auth/passkeys/login/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      })
+      if (!verifyRes.ok) {
+        setError(t.passkeyError)
+        return
+      }
+      const data = await verifyRes.json()
+      completeLogin(data)
+    } catch {
+      setError(t.passkeyError)
     } finally {
       setLoading(false)
     }
