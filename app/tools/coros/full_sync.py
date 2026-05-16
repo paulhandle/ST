@@ -130,6 +130,7 @@ def run_coros_full_sync_job(job_id: int) -> None:
             job.completed_at = now
             job.updated_at = now
             account.last_import_at = now
+            account.last_sync_at = now
             account.last_error = None
             _add_event(
                 db,

@@ -227,6 +227,39 @@ describe('CorosSettingsPage', () => {
     expect(await screen.findByText('COROS sync completed through 2026-05-01')).toBeInTheDocument()
     expect(screen.getByText('raw records')).toBeInTheDocument()
   })
+
+  it('shows smart sync option when device has a previous import date', async () => {
+    // Set last_import_at to 45 days ago
+    const fortyFiveDaysAgo = new Date(Date.now() - 45 * 86400 * 1000).toISOString()
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/coros/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            connected: true,
+            auth_status: 'connected',
+            automation_mode: 'real',
+            username: 'athlete@example.com',
+            last_login_at: fortyFiveDaysAgo,
+            last_import_at: fortyFiveDaysAgo,
+            last_sync_at: null,
+            last_error: null,
+          }),
+        })
+      }
+      return Promise.resolve({ ok: false })
+    })
+
+    renderWithFreshSWR(<CorosSettingsPage />)
+    await waitFor(() => {
+      // Option for smart sync should be present
+      expect(screen.getByRole('option', { name: /Sync since last import/i })).toBeInTheDocument()
+    })
+
+    // The select should auto-select the smart option (-1 sentinel)
+    const select = screen.getByRole('combobox') as HTMLSelectElement
+    expect(select.value).toBe('-1')
+  })
 })
 
 function renderWithFreshSWR(ui: React.ReactElement) {
