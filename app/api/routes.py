@@ -529,6 +529,27 @@ def get_marathon_plan(plan_id: int, db: Session = Depends(get_db), _user: "User"
     return _marathon_plan_or_404(db, plan_id)
 
 
+@router.post("/marathon/plans/{plan_id}/revoke", response_model=MarathonPlanOut)
+def revoke_marathon_plan(
+    plan_id: int,
+    db: Session = Depends(get_db),
+    current_user: "User" = Depends(get_current_user),
+):
+    plan = _marathon_plan_or_404(db, plan_id)
+    athlete = db.get(AthleteProfile, plan.athlete_id)
+    if athlete is None or athlete.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorised")
+    plan.status = PlanStatus.DRAFT
+    plan.is_confirmed = False
+    today = date.today()
+    for w in plan.structured_workouts:
+        if w.scheduled_date >= today:
+            w.status = WorkoutStatus.DRAFT
+    db.commit()
+    db.refresh(plan)
+    return plan
+
+
 @router.post("/plans/{plan_id}/confirm", response_model=PlanConfirmOut)
 def confirm_plan(plan_id: int, db: Session = Depends(get_db), _user: "User" = Depends(get_current_user)):
     plan = db.execute(

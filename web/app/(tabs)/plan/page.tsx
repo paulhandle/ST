@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import useSWR from 'swr'
 import { fetcher } from '@/lib/api/client'
 import { useDashboard } from '@/lib/hooks/useDashboard'
@@ -8,6 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell }
 import PendingAdjustmentSection from '@/components/plan/PendingAdjustmentSection'
 import EmptyPlanState from '@/components/EmptyPlanState'
 import { useI18n } from '@/lib/i18n/I18nProvider'
+import { getToken } from '@/lib/auth'
 
 interface PlanDetail {
   id: number
@@ -23,11 +25,34 @@ export default function PlanPage() {
   const { dashboard } = useDashboard()
   const planId = dashboard?.today.plan_id
   const { t } = useI18n()
+  const [revoking, setRevoking] = useState(false)
+  const [revokeMessage, setRevokeMessage] = useState<string | null>(null)
 
-  const { data: plan } = useSWR<PlanDetail>(
+  const { data: plan, mutate: mutatePlan } = useSWR<PlanDetail>(
     planId ? `/api/marathon/plans/${planId}` : null,
     fetcher,
   )
+
+  async function revokePlan() {
+    if (!plan) return
+    if (!window.confirm(t.planGenerate.revokeConfirm)) return
+    const token = getToken()
+    setRevoking(true)
+    setRevokeMessage(null)
+    try {
+      const res = await fetch(`/api/marathon/plans/${plan.id}/revoke`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!res.ok) throw new Error('revoke failed')
+      setRevokeMessage(t.planGenerate.revokeSuccess)
+      mutatePlan()
+    } catch {
+      setRevokeMessage(t.planGenerate.revokeError)
+    } finally {
+      setRevoking(false)
+    }
+  }
 
   const { data: curvePayload } = useSWR<VolumeCurveOut | VolumeCurveWeek[]>(
     planId ? `/api/plans/${planId}/volume-curve` : null,
@@ -120,6 +145,31 @@ export default function PlanPage() {
       {/* ── Pending adjustment ─────────────────────────────── */}
       {dashboard?.pending_adjustment && (
         <PendingAdjustmentSection adjustment={dashboard.pending_adjustment} />
+      )}
+
+      {/* ── Revoke plan ────────────────────────────────────── */}
+      {plan?.is_confirmed && (
+        <div style={{ padding: '16px', borderTop: '1px solid var(--rule-soft)', marginTop: 8 }}>
+          <button
+            onClick={revokePlan}
+            disabled={revoking}
+            className="hand"
+            style={{
+              background: 'none',
+              border: '1px solid var(--rule)',
+              borderRadius: 'var(--radius)',
+              color: 'var(--ink-faint)',
+              fontSize: 13,
+              padding: '8px 16px',
+              cursor: revoking ? 'default' : 'pointer',
+            }}
+          >
+            {revoking ? '...' : t.planGenerate.revokePlan}
+          </button>
+          {revokeMessage && (
+            <div className="annot text-faint" style={{ fontSize: 12, marginTop: 8 }}>{revokeMessage}</div>
+          )}
+        </div>
       )}
     </div>
   )

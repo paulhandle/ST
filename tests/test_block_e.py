@@ -7,18 +7,55 @@ from app.main import app
 
 client = TestClient(app)
 
-def _get_token() -> str:
-    send = client.post("/auth/send-otp", json={"phone": "13900000099"})
+def _get_token(phone: str = "13900000099") -> str:
+    send = client.post("/auth/send-otp", json={"phone": phone})
     code = str(send.json()["otp_code"])
-    res = client.post("/auth/verify-otp", json={"phone": "13900000099", "code": code})
+    res = client.post("/auth/verify-otp", json={"phone": phone, "code": code})
     return res.json()["access_token"]
+
+
+def _create_athlete_for_token(token: str) -> int:
+    r = client.post(
+        "/athletes",
+        json={"name": "RevokeTest", "sport": "marathon", "level": "intermediate", "weekly_training_days": 5},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200, r.text
+    return r.json()["id"]
+
+
+def _generate_and_confirm_plan(token: str, athlete_id: int) -> int:
+    body = {
+        "athlete_id": athlete_id,
+        "target_time_sec": 14400,
+        "plan_weeks": 16,
+        "availability": {
+            "weekly_training_days": 5,
+            "preferred_long_run_weekday": 6,
+            "unavailable_weekdays": [0],
+            "max_weekday_duration_min": 90,
+            "max_weekend_duration_min": 210,
+            "strength_training_enabled": True,
+        },
+        "skill_slug": "marathon_st_default",
+    }
+    r = client.post("/marathon/plans/generate", json=body, headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200, r.text
+    plan_id = r.json()["id"]
+    confirm = client.post(f"/plans/{plan_id}/confirm", headers={"Authorization": f"Bearer {token}"})
+    assert confirm.status_code == 200, confirm.text
+    return plan_id
 
 
 class WorkoutByDateTestCase(unittest.TestCase):
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         from app.db import engine, Base
+        Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
+
+    def setUp(self):
         self.token = _get_token()
         self.headers = {"Authorization": f"Bearer {self.token}"}
         r = client.post("/athletes", json={
@@ -43,6 +80,41 @@ class WorkoutByDateTestCase(unittest.TestCase):
     def test_requires_auth(self):
         r = client.get(f"/athletes/{self.athlete_id}/workout/2099-06-15")
         self.assertEqual(r.status_code, 401)
+
+    def test_revoke_plan_resets_to_draft(self):
+        """POST /marathon/plans/{id}/revoke sets status=draft and is_confirmed=False."""
+        token = self.token
+        athlete_id = _create_athlete_for_token(token)
+        plan_id = _generate_and_confirm_plan(token, athlete_id)
+
+        # Confirm it is active
+        res = client.get(f"/marathon/plans/{plan_id}", headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.json()["is_confirmed"])
+
+        # Revoke it
+        res = client.post(f"/marathon/plans/{plan_id}/revoke", headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(res.status_code, 200)
+        body = res.json()
+        self.assertEqual(body["status"], "draft")
+        self.assertFalse(body["is_confirmed"])
+
+    def test_revoke_plan_forbidden_for_other_user(self):
+        """POST /marathon/plans/{id}/revoke must 403 when called by a different user."""
+        # Create plan as user A
+        token_a = _get_token("13900000097")
+        athlete_id_a = _create_athlete_for_token(token_a)
+        plan_id = _generate_and_confirm_plan(token_a, athlete_id_a)
+
+        # Create user B with their own account
+        token_b = _get_token("13900000098")
+
+        # User B attempts to revoke user A's plan
+        res = client.post(
+            f"/marathon/plans/{plan_id}/revoke",
+            headers={"Authorization": f"Bearer {token_b}"},
+        )
+        self.assertEqual(res.status_code, 403)
 
 
 if __name__ == "__main__":

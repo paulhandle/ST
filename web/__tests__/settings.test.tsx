@@ -33,6 +33,12 @@ describe('SettingsPage', () => {
     expect(screen.getByText('Passkeys and phone fallback')).toBeInTheDocument()
     expect(screen.getByText('Account security').closest('a')).toHaveAttribute('href', '/settings/security')
   })
+
+  it('shows My Training Plan entry in settings', () => {
+    render(<SettingsPage />)
+    expect(screen.getByText(/My Training Plan/i)).toBeInTheDocument()
+    expect(screen.getByText(/My Training Plan/i).closest('a')).toHaveAttribute('href', '/plan')
+  })
 })
 
 describe('SecuritySettingsPage', () => {
