@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
 import { I18nProvider } from '@/lib/i18n/I18nProvider'
 
@@ -35,6 +35,11 @@ vi.mock('@/components/plan/PendingAdjustmentSection', () => ({
 
 vi.mock('@/components/EmptyPlanState', () => ({
   default: () => <div>Empty plan</div>,
+}))
+
+vi.mock('@/lib/auth', () => ({
+  getToken: () => 'mock-token',
+  getAthleteId: () => 1,
 }))
 
 import PlanPage from '@/app/(tabs)/plan/page'
@@ -86,5 +91,32 @@ describe('PlanPage', () => {
     expect(screen.getByText('Marathon Plan')).toBeInTheDocument()
     expect(screen.getByText('W1')).toBeInTheDocument()
     expect(screen.getByText('W2')).toBeInTheDocument()
+  })
+
+  it('shows revoke plan button and calls revoke endpoint on confirmation', async () => {
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: 7, status: 'draft', is_confirmed: false, title: 'Marathon Plan',
+        weeks: 16, start_date: null, race_date: null, target_time_sec: null,
+        athlete_id: 1, race_goal_id: null, sport: 'marathon', goal: 'finish',
+        mode: 'structured', created_at: '2026-05-01T00:00:00Z', updated_at: '2026-05-16T00:00:00Z',
+        structured_workouts: [],
+      }),
+    })
+    vi.stubGlobal('fetch', mockFetch)
+
+    renderPlanPage()
+    await waitFor(() => expect(screen.getByText(/Revoke plan/i)).toBeInTheDocument())
+
+    vi.stubGlobal('confirm', () => true)
+    fireEvent.click(screen.getByText(/Revoke plan/i))
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringMatching(/\/api\/marathon\/plans\/\d+\/revoke/),
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
   })
 })
