@@ -7,7 +7,18 @@ import type { RunningAssessmentOut, HistoryImportOut, SkillManifestOut } from '@
 import { useI18n } from '@/lib/i18n/I18nProvider'
 import type { AppCopy } from '@/lib/i18n/copy'
 
-type Step = 1 | 2 | 3 | 4 | 5
+type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7
+
+interface WorkoutPreview {
+  id: number
+  scheduled_date: string
+  week_index: number
+  day_index: number
+  workout_type: string
+  title: string
+  duration_min: number
+  distance_m: number | null
+}
 
 interface GeneratedPlan {
   id: number
@@ -16,6 +27,7 @@ interface GeneratedPlan {
   start_date: string | null
   race_date: string | null
   target_time_sec: number | null
+  structured_workouts: WorkoutPreview[]
 }
 
 interface WizardState {
@@ -211,7 +223,16 @@ export default function PlanGeneratePage() {
         const msg = await res.text().catch(() => t.planGenerate.generationFailed)
         throw new Error(msg)
       }
-      const plan: GeneratedPlan = await res.json()
+      const data = await res.json()
+      const plan: GeneratedPlan = {
+        id: data.id,
+        title: data.title,
+        weeks: data.weeks,
+        start_date: data.start_date,
+        race_date: data.race_date,
+        target_time_sec: data.target_time_sec,
+        structured_workouts: data.structured_workouts ?? [],
+      }
       patch({ loading: false, generatedPlan: plan, step: 5 })
     } catch (e) {
       patch({ loading: false, error: e instanceof Error ? e.message : t.planGenerate.generationFailed, step: 3 })
@@ -265,7 +286,7 @@ export default function PlanGeneratePage() {
         </button>
         <div className="hand" style={{ fontSize: 17, fontWeight: 700 }}>{t.planGenerate.title}</div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-          {([1, 2, 3, 4, 5] as Step[]).map(n => (
+          {([1, 2, 3, 4, 5, 6, 7] as Step[]).map(n => (
             <div key={n} style={{
               width: 6,
               height: 6,
@@ -313,12 +334,16 @@ export default function PlanGeneratePage() {
         )}
         {s.step === 4 && <Step4Generating planWeeks={s.planWeeks} />}
         {s.step === 5 && s.generatedPlan && (
-          <Step5Preview
+          <Step5Overview plan={s.generatedPlan} />
+        )}
+        {s.step === 6 && s.generatedPlan && (
+          <Step6WorkoutList plan={s.generatedPlan} />
+        )}
+        {s.step === 7 && s.generatedPlan && (
+          <Step7Confirm
             plan={s.generatedPlan}
             syncResult={s.syncResult}
             loading={s.loading}
-            onConfirmSync={confirmAndSync}
-            onDone={() => router.replace('/plan')}
           />
         )}
       </div>
@@ -331,12 +356,18 @@ export default function PlanGeneratePage() {
           {s.step === 3 && (
             <PrimaryBtn onClick={generatePlan}>{t.planGenerate.generatePlan} →</PrimaryBtn>
           )}
-          {s.step === 5 && !s.syncResult && (
+          {s.step === 5 && (
+            <PrimaryBtn onClick={() => patch({ step: 6 })}>{t.planGenerate.workoutsTitle} →</PrimaryBtn>
+          )}
+          {s.step === 6 && (
+            <PrimaryBtn onClick={() => patch({ step: 7 })}>{t.planGenerate.workoutsConfirmTitle} →</PrimaryBtn>
+          )}
+          {s.step === 7 && !s.syncResult && (
             <PrimaryBtn onClick={confirmAndSync} loading={s.loading}>
               {t.planGenerate.confirmAndSync} →
             </PrimaryBtn>
           )}
-          {s.step === 5 && s.syncResult && (
+          {s.step === 7 && s.syncResult && (
             <PrimaryBtn onClick={() => router.replace('/plan')}>{t.planGenerate.viewPlan} →</PrimaryBtn>
           )}
         </div>
@@ -530,49 +561,114 @@ function Step4Generating({ planWeeks }: { planWeeks: number }) {
   )
 }
 
-function Step5Preview({ plan, syncResult, loading, onConfirmSync, onDone }: {
-  plan: GeneratedPlan
-  syncResult: { synced_count: number; failed_count: number } | null
-  loading: boolean
-  onConfirmSync: () => void
-  onDone: () => void
-}) {
+function Step5Overview({ plan }: { plan: GeneratedPlan }) {
   const { t } = useI18n()
-  void onDone
-  if (syncResult) {
-    return (
-      <div style={{ textAlign: 'center', paddingTop: 40 }}>
-        <div className="hand" style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
-          {t.planGenerate.ready}
-        </div>
-        <div className="hand text-faint" style={{ fontSize: 14, lineHeight: 1.6 }}>
-          {syncResult.synced_count} {t.planGenerate.syncedToCoros}
-          {syncResult.failed_count > 0 && `, ${syncResult.failed_count} ${t.planGenerate.syncFailures}`}
-        </div>
-      </div>
+  const pg = t.planGenerate
+  const totalWorkouts = plan.structured_workouts.length
+  const longRunKm = plan.structured_workouts
+    .filter((w) => w.workout_type === 'long_run' && w.distance_m)
+    .reduce((max, w) => Math.max(max, (w.distance_m ?? 0) / 1000), 0)
+
+  const phases: Array<{ label: string; weeks: string }> = []
+  if (plan.weeks >= 12) {
+    const base = Math.round(plan.weeks * 0.375)
+    const build = Math.round(plan.weeks * 0.375)
+    const taper = plan.weeks - base - build
+    phases.push(
+      { label: 'Base', weeks: `${base} ${pg.overviewWeeks}` },
+      { label: 'Build', weeks: `${build} ${pg.overviewWeeks}` },
+      { label: 'Taper', weeks: `${taper} ${pg.overviewWeeks}` },
     )
   }
 
   return (
     <div>
-      <div className="hand" style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
-        {plan.title ?? t.planGenerate.defaultPlanTitle}
+      <div className="hand" style={{ fontSize: 22, fontWeight: 700, marginBottom: 16 }}>{pg.overviewTitle}</div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+        <StatBox label={pg.overviewTotalWorkouts} value={`${totalWorkouts}`} />
+        {longRunKm > 0 && <StatBox label={pg.overviewLongRun} value={`${longRunKm.toFixed(0)} km`} />}
       </div>
-      {plan.target_time_sec && (
-        <div className="hand" style={{ fontSize: 14, color: 'var(--accent)', marginBottom: 16 }}>
-          {t.planGenerate.target} sub-{fmtTime(plan.target_time_sec)}
+      {phases.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+          {phases.map((p) => (
+            <div key={p.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--rule-soft)' }}>
+              <span className="hand text-faint" style={{ fontSize: 13 }}>{pg.overviewPhase}: {p.label}</span>
+              <span className="hand" style={{ fontSize: 13 }}>{p.weeks}</span>
+            </div>
+          ))}
         </div>
       )}
+      <div className="hand text-faint" style={{ fontSize: 13, lineHeight: 1.6 }}>{pg.workoutsConfirmBody}</div>
+    </div>
+  )
+}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-        <PreviewRow label={t.planGenerate.totalWeeks} value={`${plan.weeks} ${t.common.weeks}`} />
-        {plan.start_date && <PreviewRow label={t.planGenerate.startDate} value={plan.start_date} />}
-        {plan.race_date && <PreviewRow label={t.planGenerate.raceDate} value={plan.race_date} />}
-      </div>
+function Step6WorkoutList({ plan }: { plan: GeneratedPlan }) {
+  const { t } = useI18n()
+  const pg = t.planGenerate
+  const byWeek = plan.structured_workouts.reduce<Record<number, WorkoutPreview[]>>((acc, w) => {
+    ;(acc[w.week_index] ??= []).push(w)
+    return acc
+  }, {})
+  const weekNumbers = Object.keys(byWeek).map(Number).sort((a, b) => a - b)
 
-      <div className="hand text-faint" style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 8 }}>
-        {t.planGenerate.confirmNotice}
+  return (
+    <div>
+      <div className="hand" style={{ fontSize: 22, fontWeight: 700, marginBottom: 16 }}>{pg.workoutsTitle}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {weekNumbers.map((w) => (
+          <div key={w}>
+            <div className="hand text-faint" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+              {pg.workoutsWeek}{w + 1}
+            </div>
+            {byWeek[w].sort((a, b) => a.day_index - b.day_index).map((workout) => (
+              <div key={workout.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--rule-soft)' }}>
+                <span className="hand" style={{ fontSize: 13 }}>{workout.title}</span>
+                <span className="hand text-faint" style={{ fontSize: 12, flexShrink: 0 }}>
+                  {workout.distance_m ? `${(workout.distance_m / 1000).toFixed(1)} km` : `${workout.duration_min} min`}
+                </span>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
+    </div>
+  )
+}
+
+function Step7Confirm({ plan, syncResult, loading }: {
+  plan: GeneratedPlan
+  syncResult: { synced_count: number; failed_count: number } | null
+  loading: boolean
+}) {
+  const { t } = useI18n()
+  const pg = t.planGenerate
+  void loading
+  if (syncResult) {
+    return (
+      <div style={{ textAlign: 'center', paddingTop: 40 }}>
+        <div className="hand" style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{pg.ready}</div>
+        <div className="hand text-faint" style={{ fontSize: 14, lineHeight: 1.6 }}>
+          {syncResult.synced_count} {pg.syncedToCoros}
+          {syncResult.failed_count > 0 && `, ${syncResult.failed_count} ${pg.syncFailures}`}
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div>
+      <div className="hand" style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{pg.workoutsConfirmTitle}</div>
+      {plan.target_time_sec && (
+        <div className="hand" style={{ fontSize: 14, color: 'var(--accent)', marginBottom: 16 }}>
+          {pg.target} sub-{fmtTime(plan.target_time_sec)}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+        <PreviewRow label={pg.totalWeeks} value={`${plan.weeks} ${t.common.weeks}`} />
+        {plan.start_date && <PreviewRow label={pg.startDate} value={plan.start_date} />}
+        {plan.race_date && <PreviewRow label={pg.raceDate} value={plan.race_date} />}
+      </div>
+      <div className="hand text-faint" style={{ fontSize: 13, lineHeight: 1.6 }}>{pg.confirmNotice}</div>
     </div>
   )
 }

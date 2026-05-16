@@ -122,6 +122,74 @@ describe('PlanGeneratePage', () => {
     fireEvent.click(screen.getByText(/Set goal/))
     expect(screen.getByText('Training weeks')).toBeInTheDocument()
   })
+
+  it('shows plan overview step with phase and workout count after generation', async () => {
+    const mockWorkouts = Array.from({ length: 48 }, (_, i) => ({
+      id: i + 1,
+      scheduled_date: `2026-06-${String((i % 28) + 1).padStart(2, '0')}`,
+      week_index: Math.floor(i / 3),
+      day_index: i % 7,
+      discipline: 'run',
+      workout_type: i % 7 === 5 ? 'long_run' : 'easy',
+      title: `Workout ${i + 1}`,
+      purpose: 'aerobic base',
+      duration_min: 60,
+      distance_m: i % 7 === 5 ? 25000 : 10000,
+      target_intensity_type: 'easy',
+      target_pace_min_sec_per_km: null,
+      target_pace_max_sec_per_km: null,
+      status: 'draft',
+      adaptation_notes: null,
+      steps: [],
+    }))
+
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          athlete_id: 1, overall_score: 75, readiness_level: 'moderate',
+          safe_weekly_distance_range_km: [40, 60],
+          safe_training_days_range: [4, 5],
+          long_run_capacity_km: 20,
+          estimated_marathon_time_range_sec: [12600, 14400],
+          goal_status: 'achievable',
+          limiting_factors: [],
+          warnings: [],
+          confidence: 'moderate',
+          summary: 'Good base fitness.',
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => [{ slug: 'marathon_st_default', name: 'PP Marathon Plan', version: '0.1.0', sport: 'marathon', author: null, tags: [], description: 'desc', is_active: true }] })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 42, athlete_id: 1, race_goal_id: null,
+          title: '16-Week Marathon Plan', sport: 'marathon', goal: 'finish',
+          mode: 'structured', weeks: 16,
+          status: 'draft', start_date: '2026-06-01', race_date: '2026-09-20',
+          target_time_sec: 14400, is_confirmed: false,
+          created_at: '2026-05-16T00:00:00Z', updated_at: '2026-05-16T00:00:00Z',
+          structured_workouts: mockWorkouts,
+        }),
+      })
+
+    vi.stubGlobal('fetch', mockFetch)
+
+    const { default: PlanGeneratePage } = await import('@/app/plan/generate/page')
+    render(<PlanGeneratePage />)
+
+    await waitFor(() => expect(screen.getByText(/Set goal/i)).toBeInTheDocument())
+    fireEvent.click(screen.getByText(/Set goal/i))
+
+    await waitFor(() => expect(screen.getByText(/Generate plan/i)).toBeInTheDocument())
+    fireEvent.click(screen.getByText(/Generate plan/i))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Plan Overview/i)).toBeInTheDocument()
+      expect(screen.getByText(/48/)).toBeInTheDocument()
+    })
+  })
 })
 
 vi.mock('@/lib/hooks/useCalendar', () => ({
