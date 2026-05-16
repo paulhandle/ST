@@ -1,3 +1,37 @@
+# Agent Instruction Entry Migration
+
+**Objective:** Replace the project-specific `rules.md` entry point with the standard `AGENTS.md` / `CLAUDE.md` layout so Codex and Claude Code load the same project rules by default.
+
+Context:
+- The user wants to stop using `rules.md`.
+- Codex expects project rules in root `AGENTS.md`.
+- Claude Code expects `CLAUDE.md`, which can import the shared `AGENTS.md`.
+- The repository currently has `rules.md` but no root `AGENTS.md` or `CLAUDE.md`.
+
+Plan:
+1. [x] Move the current rule content from `rules.md` to root `AGENTS.md`.
+2. [x] Add a thin root `CLAUDE.md` that imports `AGENTS.md`.
+3. [x] Remove `rules.md` so there is one maintained source of truth.
+4. [x] Update task/dev logs with the migration rationale and result.
+5. [x] Verify the expected files exist, `rules.md` is gone, and references are understood.
+
+Acceptance criteria:
+- Root `AGENTS.md` contains the project instruction rules.
+- Root `CLAUDE.md` imports `AGENTS.md` instead of duplicating rules.
+- `rules.md` is removed from the project root.
+- Task records explain the migration and verification.
+
+Review/Summary:
+- Created root `AGENTS.md` as the maintained project instruction source for Codex and other agent tools.
+- Created root `CLAUDE.md` with `@AGENTS.md` so Claude Code imports the same instructions without duplicating them.
+- Removed root `rules.md` per user direction.
+- Verification passed:
+  - `ls -la AGENTS.md CLAUDE.md rules.md` confirmed `AGENTS.md` and `CLAUDE.md` exist and `rules.md` is absent.
+  - `sed -n '1,40p' AGENTS.md` confirmed the migrated project rules start with `# Project Development Rules`.
+  - `sed -n '1,40p' CLAUDE.md` confirmed the Claude import is `@AGENTS.md`.
+  - `rg -n "rules\\.md|AGENTS\\.md|CLAUDE\\.md|Project Development Rules" .` found only the new instruction files and historical/task-log references.
+  - `git diff --check` passed.
+
 # COROS Full Sync
 
 **Branch:** `feat/onboarding-coros-activities-ux`
