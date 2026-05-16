@@ -29,6 +29,7 @@ export default function SettingsPage() {
     {
       title: t.settings.training,
       rows: [
+        { label: t.settings.myPlan, sub: t.settings.myPlanSub, href: '/plan' },
         { label: t.settings.methodology, sub: t.settings.methodologySub, href: '/skills' },
         { label: t.settings.history, sub: t.settings.historySub, href: '/activities' },
       ],
