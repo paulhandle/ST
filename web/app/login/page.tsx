@@ -315,14 +315,23 @@ export default function LoginPage() {
                 <div
                   ref={googleButtonRef}
                   aria-label={t.google}
+                  aria-hidden={!googleReady}
                   style={{
                     ...googleButtonContainerStyle,
                     display: googleReady ? 'block' : 'none',
                   }}
                 />
-                {!googleReady && (
+                {!googleReady && !googleScriptFailed && (
+                  <div
+                    role="status"
+                    aria-label={t.google}
+                    aria-busy="true"
+                    style={googleSkeletonStyle}
+                  />
+                )}
+                {!googleReady && googleScriptFailed && (
                   <button
-                    onClick={() => setError(googleScriptFailed ? t.googleError : t.googleLoading)}
+                    onClick={() => setError(t.googleError)}
                     style={secondaryButtonStyle}
                   >
                     {t.google}
@@ -528,6 +537,15 @@ const googleButtonContainerStyle: React.CSSProperties = {
   width: '100%',
   minHeight: 44,
   overflow: 'hidden',
+}
+
+const googleSkeletonStyle: React.CSSProperties = {
+  width: '100%',
+  height: 44,
+  border: '1px solid var(--rule)',
+  borderRadius: 'var(--radius)',
+  background: 'var(--surface-low)',
+  animation: 'sk-pulse 1.5s ease-in-out infinite',
 }
 
 const fallbackLineStyle: React.CSSProperties = {

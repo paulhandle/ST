@@ -9,3 +9,5 @@ st_test.db
 .st_profile.toml
 var/
 /tmp/
+.worktrees/
+.worktrees/
