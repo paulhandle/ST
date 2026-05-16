@@ -255,6 +255,10 @@ describe('CorosSettingsPage', () => {
       // Option for smart sync should be present
       expect(screen.getByRole('option', { name: /Sync since last import/i })).toBeInTheDocument()
     })
+
+    // The select should auto-select the smart option (-1 sentinel)
+    const select = screen.getByRole('combobox') as HTMLSelectElement
+    expect(select.value).toBe('-1')
   })
 })
 

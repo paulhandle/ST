@@ -4,6 +4,8 @@ import unittest
 from datetime import UTC, datetime
 from unittest.mock import patch
 
+from sqlalchemy import select
+
 os.environ.setdefault("ST_DATABASE_URL", "sqlite:///st_test.db")
 os.environ["COROS_AUTOMATION_MODE"] = "fake"
 os.environ["OPENAI_API_KEY"] = ""
@@ -330,7 +332,7 @@ class CorosFullSyncTestCase(unittest.TestCase):
 
         with SessionLocal() as db:
             refreshed = db.execute(
-                __import__("sqlalchemy").select(DeviceAccount).where(DeviceAccount.athlete_id == athlete_id)
+                select(DeviceAccount).where(DeviceAccount.athlete_id == athlete_id)
             ).scalars().first()
             self.assertIsNotNone(refreshed.last_sync_at, "last_sync_at must be set after successful sync")
 
