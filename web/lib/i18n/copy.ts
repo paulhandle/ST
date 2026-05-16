@@ -324,8 +324,6 @@ export const copy = {
       revokeConfirm: 'This will reset the plan to draft and remove all future workouts from your calendar. Continue?',
       revokeSuccess: 'Plan revoked.',
       revokeError: 'Failed to revoke plan. Please try again.',
-      myPlan: 'My Training Plan',
-      myPlanSub: 'workouts in current cycle',
     },
     onboarding: {
       createAthleteFailed: 'Could not create athlete profile',
@@ -700,8 +698,6 @@ export const copy = {
       revokeConfirm: '这将把计划重置为草稿并从日历中移除所有未来课程。确认继续？',
       revokeSuccess: '计划已撤销。',
       revokeError: '撤销计划失败，请重试。',
-      myPlan: '我的训练计划',
-      myPlanSub: '个课程（当前周期）',
     },
     onboarding: {
       createAthleteFailed: '创建运动档案失败',
