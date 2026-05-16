@@ -16,6 +16,8 @@ export default function RouteMap({ samples, emptyText }: RouteMapProps) {
     .filter((s) => s.latitude != null && s.longitude != null)
     .map((s) => [s.latitude as number, s.longitude as number] as [number, number])
 
+  const gpsKey = gpsPoints.map((p) => p.join(',')).join('|')
+
   useEffect(() => {
     if (!containerRef.current || gpsPoints.length < 2) return
 
@@ -65,7 +67,7 @@ export default function RouteMap({ samples, emptyText }: RouteMapProps) {
         fillOpacity: 1,
       }).addTo(map)
 
-      mapRef.current = map
+      if (!cancelled) mapRef.current = map
     })
 
     return () => {
@@ -75,7 +77,7 @@ export default function RouteMap({ samples, emptyText }: RouteMapProps) {
         mapRef.current = null
       }
     }
-  }, [gpsPoints.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gpsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (gpsPoints.length < 2) {
     return (
