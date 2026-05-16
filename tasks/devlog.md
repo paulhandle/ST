@@ -1,5 +1,22 @@
 # Dev Log
 
+## 2026-05-16 - Agent instruction entry migration
+
+Why: The repository kept project agent rules in `rules.md`, which Codex and Claude Code do not reliably load as their default project instruction entry point. The user asked to stop using `rules.md` and switch to the standard single-source layout.
+
+How:
+- Moved the existing project development rules into root `AGENTS.md` so Codex can load the project instructions by default.
+- Added a thin root `CLAUDE.md` containing `@AGENTS.md` plus a short Claude Code note, avoiding duplicated rules.
+- Removed root `rules.md` so future edits have one maintained source of truth.
+- Added an active checklist to `tasks/todo.md` for the migration.
+
+Result:
+- File check confirmed root `AGENTS.md` and `CLAUDE.md` exist, while root `rules.md` is absent.
+- `AGENTS.md` begins with the migrated `# Project Development Rules` content.
+- `CLAUDE.md` contains `@AGENTS.md` and no duplicated rule body.
+- Reference scan found only the new instruction files plus historical/task-log mentions of `rules.md`; no active root `rules.md` remains.
+- `git diff --check` passed.
+
 ## 2026-05-12 - Passkey browser ceremony wiring
 
 Why: User reported passkey was still not working. Backend WebAuthn endpoints existed, but the frontend only requested options and then stopped with placeholder messages. A real passkey flow must call the browser WebAuthn API and send encoded attestation/assertion data back to the backend verify endpoints.
