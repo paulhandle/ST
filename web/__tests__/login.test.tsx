@@ -68,6 +68,19 @@ describe('LoginPage', () => {
     Object.setPrototypeOf(credential.response, window.AuthenticatorAssertionResponse.prototype)
   }
 
+  it('shows a loading skeleton when google client id is set but GIS has not initialised', () => {
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = 'test-google-client-id'
+    // Do NOT stub window.google — GIS script hasn't loaded yet
+    render(<LoginPage />)
+    // Should NOT show a clickable "Continue with Google" button
+    expect(screen.queryByRole('button', { name: /Continue with Google/i })).toBeNull()
+    // Should show the loading skeleton container
+    const skeletons = screen.getAllByLabelText(/Continue with Google/i)
+    const busySkeleton = skeletons.find(el => el.getAttribute('aria-busy') === 'true')
+    expect(busySkeleton).toBeInTheDocument()
+    expect(busySkeleton!.getAttribute('aria-busy')).toBe('true')
+  })
+
   it('prioritizes Google and passkey sign-in', () => {
     render(<LoginPage />)
     expect(screen.getByText(/Continue with Google/)).toBeInTheDocument()
