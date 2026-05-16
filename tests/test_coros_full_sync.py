@@ -299,6 +299,41 @@ class CorosFullSyncTestCase(unittest.TestCase):
             ).all()
             self.assertTrue(any("parsing failed" in event.message for event in warning_events))
 
+    def test_last_sync_at_is_written_on_success(self) -> None:
+        """last_sync_at must be set alongside last_import_at when a sync job succeeds."""
+        athlete_id = _create_athlete()
+        with SessionLocal() as db:
+            account = DeviceAccount(
+                athlete_id=athlete_id,
+                device_type=DeviceType.COROS,
+                external_user_id="runner@example.com",
+                username="runner@example.com",
+                encrypted_password=encrypt_secret("db-password"),
+                auth_status="connected",
+                last_sync_at=None,
+            )
+            db.add(account)
+            job = ProviderSyncJob(
+                athlete_id=athlete_id,
+                provider="coros",
+                status="queued",
+                phase="queued",
+                message="Queued",
+            )
+            db.add(job)
+            db.commit()
+            job_id = job.id
+
+        sync_client = CapturingFullSyncClient()
+        with patch("app.tools.coros.full_sync.coros_automation_client", return_value=sync_client):
+            run_coros_full_sync_job(job_id)
+
+        with SessionLocal() as db:
+            refreshed = db.execute(
+                __import__("sqlalchemy").select(DeviceAccount).where(DeviceAccount.athlete_id == athlete_id)
+            ).scalars().first()
+            self.assertIsNotNone(refreshed.last_sync_at, "last_sync_at must be set after successful sync")
+
     def test_activity_detail_api_returns_source_gps_laps_and_interpretation(self) -> None:
         athlete_id = _create_athlete()
         with SessionLocal() as db:
