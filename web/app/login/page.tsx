@@ -315,6 +315,7 @@ export default function LoginPage() {
                 <div
                   ref={googleButtonRef}
                   aria-label={t.google}
+                  aria-hidden={!googleReady}
                   style={{
                     ...googleButtonContainerStyle,
                     display: googleReady ? 'block' : 'none',
@@ -322,6 +323,7 @@ export default function LoginPage() {
                 />
                 {!googleReady && !googleScriptFailed && (
                   <div
+                    role="status"
                     aria-label={t.google}
                     aria-busy="true"
                     style={googleSkeletonStyle}
