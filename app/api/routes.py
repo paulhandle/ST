@@ -547,7 +547,7 @@ def revoke_marathon_plan(
             w.status = WorkoutStatus.DRAFT
     db.commit()
     db.refresh(plan)
-    return _marathon_plan_or_404(db, plan_id)
+    return plan
 
 
 @router.post("/plans/{plan_id}/confirm", response_model=PlanConfirmOut)

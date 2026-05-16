@@ -44,11 +44,11 @@ export default function PlanPage() {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
-      if (!res.ok) throw new Error('Failed to revoke plan')
+      if (!res.ok) throw new Error('revoke failed')
       setRevokeMessage(t.planGenerate.revokeSuccess)
       mutatePlan()
     } catch {
-      setRevokeMessage('Error revoking plan.')
+      setRevokeMessage(t.planGenerate.revokeError)
     } finally {
       setRevoking(false)
     }
