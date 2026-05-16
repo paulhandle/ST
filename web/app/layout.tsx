@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk } from 'next/font/google'
 import { I18nProvider } from '@/lib/i18n/I18nProvider'
 import ProtectedAuthGate from '@/components/ProtectedAuthGate'
 import './globals.css'
+import 'leaflet/dist/leaflet.css'
 
 const inter = Inter({
   weight: ['400', '500', '600', '700', '800', '900'],

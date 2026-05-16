@@ -1,10 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useActivityDetail } from '@/lib/hooks/useActivityDetail'
 import { formatKm, formatPace, formatTime } from '@/lib/api/types'
 import type { ActivityDetailSampleOut } from '@/lib/api/types'
 import { useI18n } from '@/lib/i18n/I18nProvider'
+
+const RouteMap = dynamic(() => import('@/components/activities/RouteMap'), { ssr: false })
 
 export default function ActivityDetailPage({ params }: { params: { id: string } }) {
   const { activity: detail, isLoading, error } = useActivityDetail(params.id)
@@ -47,7 +50,7 @@ export default function ActivityDetailPage({ params }: { params: { id: string } 
 
       <section style={{ padding: 16, borderBottom: '1px solid var(--rule-soft)' }}>
         <SectionTitle title={t.activityDetail.route} meta={`${gpsCount} ${t.activityDetail.gpsPoints}`} />
-        <RouteChart samples={detail.samples} emptyText={t.activityDetail.noRoute} />
+        <RouteMap samples={detail.samples} emptyText={t.activityDetail.noRoute} />
       </section>
 
       <section style={{ padding: 16, borderBottom: '1px solid var(--rule-soft)' }}>
@@ -121,29 +124,6 @@ function SectionTitle({ title, meta }: { title: string; meta?: string }) {
   )
 }
 
-function RouteChart({ samples, emptyText }: { samples: ActivityDetailSampleOut[]; emptyText: string }) {
-  const points = samples.filter((sample) => sample.latitude != null && sample.longitude != null)
-  if (points.length < 2) return <ChartEmpty text={emptyText} />
-  const lat = points.map((p) => p.latitude as number)
-  const lon = points.map((p) => p.longitude as number)
-  const minLat = Math.min(...lat)
-  const maxLat = Math.max(...lat)
-  const minLon = Math.min(...lon)
-  const maxLon = Math.max(...lon)
-  const path = points.map((p) => {
-    const x = scale(p.longitude as number, minLon, maxLon, 12, 388)
-    const y = scale(p.latitude as number, maxLat, minLat, 12, 188)
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(' ')
-  return (
-    <svg viewBox="0 0 400 200" role="img" aria-label="GPS route" style={{ width: '100%', height: 'auto', background: 'var(--paper-soft)', border: '1px solid var(--rule-soft)' }}>
-      <polyline points={path} fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={path.split(' ')[0].split(',')[0]} cy={path.split(' ')[0].split(',')[1]} r="4" fill="var(--ink)" />
-      <circle cx={path.split(' ').at(-1)?.split(',')[0]} cy={path.split(' ').at(-1)?.split(',')[1]} r="4" fill="var(--accent)" />
-    </svg>
-  )
-}
-
 function SeriesChart({
   label,
   samples,
@@ -183,10 +163,6 @@ function SeriesChart({
       </svg>
     </div>
   )
-}
-
-function ChartEmpty({ text }: { text: string }) {
-  return <div className="annot text-faint" style={{ padding: 24, border: '1px solid var(--rule-soft)', background: 'var(--paper-soft)', textAlign: 'center' }}>{text}</div>
 }
 
 function scale(value: number, fromMin: number, fromMax: number, toMin: number, toMax: number) {

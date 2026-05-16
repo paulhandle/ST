@@ -1,6 +1,21 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import React from 'react'
+
+vi.mock('leaflet', () => ({
+  default: {
+    map: vi.fn(() => ({
+      remove: vi.fn(),
+      fitBounds: vi.fn(),
+    })),
+    polyline: vi.fn(() => ({
+      addTo: vi.fn(),
+      getBounds: vi.fn(() => ({})),
+    })),
+    circleMarker: vi.fn(() => ({ addTo: vi.fn() })),
+    tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
+  },
+}))
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...p }: { href: string; children: React.ReactNode; [k: string]: unknown }) =>
@@ -59,14 +74,21 @@ vi.mock('@/lib/hooks/useActivityDetail', () => ({
 import ActivityDetailPage from '@/app/activities/[id]/page'
 
 describe('ActivityDetailPage', () => {
-  it('renders GPS route, metrics, laps, interpretation, and FIT source', () => {
+  it('renders GPS route, metrics, laps, interpretation, and FIT source', async () => {
     render(<ActivityDetailPage params={{ id: '145' }} />)
     expect(screen.getByText('Beijing run')).toBeInTheDocument()
     expect(screen.getByText('Route')).toBeInTheDocument()
-    expect(screen.getByLabelText('GPS route')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('route-map')).toBeInTheDocument())
     expect(screen.getByText('Heart rate')).toBeInTheDocument()
     expect(screen.getByText('Laps')).toBeInTheDocument()
     expect(screen.getByText(/Parsed 4092 samples/)).toBeInTheDocument()
     expect(screen.getByText(/File: FIT/)).toBeInTheDocument()
+  })
+
+  it('renders a map container when GPS samples are present', async () => {
+    render(<ActivityDetailPage params={{ id: '145' }} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('route-map')).toBeInTheDocument()
+    })
   })
 })
