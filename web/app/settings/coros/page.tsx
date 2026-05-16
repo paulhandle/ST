@@ -9,6 +9,21 @@ import { useI18n } from '@/lib/i18n/I18nProvider'
 import { getAthleteId } from '@/lib/auth'
 import { ArrowLeft, X } from 'lucide-react'
 
+function suggestedDaysBack(lastImportAt: string | null | undefined): number {
+  if (!lastImportAt) return 365
+  const daysSince = Math.ceil((Date.now() - new Date(lastImportAt).getTime()) / (1000 * 86400))
+  if (daysSince <= 30) return 30
+  if (daysSince <= 90) return 90
+  if (daysSince <= 365) return 365
+  return 3650
+}
+
+function completedThroughLabel(message: string | null | undefined): string | null {
+  if (!message) return null
+  const match = message.match(/through\s+(\d{4}-\d{2}-\d{2})/i)
+  return match ? match[1] : null
+}
+
 export default function CorosSettingsPage() {
   const { t, language } = useI18n()
   const c = t.settings.corosSettings
@@ -51,6 +66,12 @@ export default function CorosSettingsPage() {
     if (status?.connected) setShowConnectForm(false)
   }, [status?.connected])
 
+  useEffect(() => {
+    if (status?.last_import_at) {
+      setSyncDaysBack(-1)
+    }
+  }, [status?.last_import_at])
+
   async function connectCoros() {
     setConnecting(true)
     setError(null)
@@ -80,10 +101,13 @@ export default function CorosSettingsPage() {
     setStartingSync(true)
     setError(null)
     setMessage(null)
+    const resolvedDaysBack = syncDaysBack === -1
+      ? suggestedDaysBack(status?.last_import_at)
+      : syncDaysBack
     try {
       const job = await postJson<ProviderSyncJobOut>('/api/coros/sync/start', {
         athlete_id: athleteId,
-        days_back: syncDaysBack,
+        days_back: resolvedDaysBack,
       })
       setJobId(job.id)
       setMessage(c.importSuccess)
@@ -154,6 +178,12 @@ export default function CorosSettingsPage() {
         <InfoRow label={c.lastLogin} value={formatDateTime(status?.last_login_at, language, c.never)} />
         <InfoRow label={c.lastImport} value={formatDateTime(status?.last_import_at, language, c.never)} />
         <InfoRow label={c.lastSync} value={formatDateTime(status?.last_sync_at, language, c.never)} />
+        {(() => {
+          const through = completedThroughLabel(syncJob?.message)
+          return through
+            ? <InfoRow label={c.syncedThrough} value={through} />
+            : null
+        })()}
         {status?.last_error && <InfoRow label={c.failed} value={status.last_error} valueColor="var(--accent)" />}
       </section>
 
@@ -224,6 +254,11 @@ export default function CorosSettingsPage() {
             style={{ ...inputStyle, marginTop: 12 }}
             disabled={startingSync || isActiveJob(syncJob)}
           >
+            {status?.last_import_at && (
+              <option value={-1}>
+                {c.syncSinceLast} ({suggestedDaysBack(status.last_import_at)} {language === 'zh' ? '天' : 'days'})
+              </option>
+            )}
             <option value={30}>{c.sync30}</option>
             <option value={90}>{c.sync90}</option>
             <option value={365}>{c.sync365}</option>
